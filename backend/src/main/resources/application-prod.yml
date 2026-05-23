@@ -1,0 +1,51 @@
+# ────────────────────────────────────────────────
+# Production profile overrides.
+#
+# Activated by SPRING_PROFILES_ACTIVE=prod on the platform (Render's
+# dashboard, Fly.io secrets, etc.). All settings here either tighten
+# the security posture or shape output for production log capture.
+#
+# Critical env vars (JWT_SECRET, FIREBASE_*, META_*, CORS_ALLOWED_ORIGINS)
+# are validated at startup by EnvironmentValidator — boot fails fast
+# with a clear list of problems if any are unset or placeholder.
+# ────────────────────────────────────────────────
+
+server:
+  error:
+    # Don't leak internal messages, validation details, or stack traces
+    # to clients. The structured response from GlobalExceptionHandler
+    # still gives them a useful generic message.
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+  # Render terminates TLS at its edge; we serve HTTP behind it.
+  forward-headers-strategy: native
+
+spring:
+  jackson:
+    serialization:
+      indent-output: false   # smaller payloads, faster
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # /health is public for uptime monitors; /info exposes nothing
+        # sensitive. Don't expose env, beans, or threaddump in prod.
+        include: health,info
+  endpoint:
+    health:
+      show-details: never    # don't leak component statuses publicly
+      probes:
+        enabled: true        # liveness + readiness for orchestrators
+
+logging:
+  level:
+    root: WARN
+    com.creatorengine: INFO
+    org.springframework.security: WARN
+    org.springframework.web: WARN
+  # Render captures stdout — keep the pattern compact and grep-friendly.
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} - %msg%n"

@@ -1,0 +1,83 @@
+# ────────────────────────────────────────────────
+# CreatorEngine — base configuration
+# Override per env via application-{profile}.yml or env vars.
+# ────────────────────────────────────────────────
+spring:
+  application:
+    name: creatorengine-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+server:
+  # Render injects PORT; SERVER_PORT remains as a manual override; 8080 is the dev default.
+  port: ${PORT:${SERVER_PORT:8080}}
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: never
+
+app:
+  name: ${APP_NAME:CreatorEngine}
+  frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+    allowed-headers: "*"
+    allow-credentials: true
+    max-age: 3600
+
+  security:
+    jwt:
+      # ⚠️  Generate with: openssl rand -base64 64
+      secret: ${JWT_SECRET:CHANGE_ME_GENERATE_A_LONG_RANDOM_BASE64_SECRET}
+      issuer: ${JWT_ISSUER:creatorengine}
+      access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}     # 15 min
+      refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days
+
+  firebase:
+    project-id: ${FIREBASE_PROJECT_ID:}
+    web-api-key: ${FIREBASE_WEB_API_KEY:}
+    # Either credentials-path OR credentials-json (not both)
+    credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+    credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
+    password-reset-redirect-url: ${FIREBASE_PASSWORD_RESET_REDIRECT_URL:http://localhost:5173/login}
+
+  meta:
+    # Get these from developers.facebook.com → your app → Settings → Basic.
+    app-id:        ${META_APP_ID:}
+    app-secret:    ${META_APP_SECRET:}
+    # Echoed back during the webhook verification handshake.
+    verify-token:  ${META_VERIFY_TOKEN:change-me-meta-verify-token}
+    # Must EXACTLY match the URI registered in Meta → Use cases → Instagram → Settings.
+    redirect-uri:  ${META_REDIRECT_URI:http://localhost:8080/api/instagram/callback}
+    # Where to bounce the browser after we finish the OAuth dance.
+    success-redirect-uri: ${META_SUCCESS_REDIRECT_URI:http://localhost:5173/instagram/callback}
+    graph-api-version: ${META_GRAPH_API_VERSION:v19.0}
+
+  ai:
+    openai:
+      # Optional — leave blank to use the template-based fallback generator.
+      # When set, OpenAiMessageProvider registers and is tried first; on
+      # network/API failure the service falls back to templates so users
+      # never see an error.
+      api-key:    ${OPENAI_API_KEY:}
+      model:      ${OPENAI_MODEL:gpt-4o-mini}
+      base-url:   ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      timeout-ms: ${OPENAI_TIMEOUT_MS:20000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    root: INFO
+    com.creatorengine: DEBUG
+    org.springframework.security: INFO

@@ -1,0 +1,17 @@
+target/
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.DS_Store
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+firebase-service-account.json
+serviceAccountKey.json
+*.log
+logs/
