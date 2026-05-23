@@ -16,7 +16,7 @@ COPY src ./src
 RUN mvn -B clean package -DskipTests
 
 # ─── Stage 2: minimal runtime ─────────────────────────────
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 # Run as a non-root user — container best practice.
