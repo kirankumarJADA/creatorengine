@@ -20,7 +20,7 @@ FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 # Run as a non-root user — container best practice.
-RUN addgroup -S app && adduser -S app -G app
+RUN groupadd -r app && useradd -r -g app app
 USER app
 
 # The Spring Boot fat jar; the wildcard avoids hard-coding the version.
