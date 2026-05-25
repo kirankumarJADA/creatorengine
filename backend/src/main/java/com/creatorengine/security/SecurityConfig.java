@@ -53,6 +53,7 @@ public class SecurityConfig {
             // endpoints under /api/webhook/test still require authentication.
             "/api/instagram/callback",
             "/api/webhook",
+            "/api/webhooks/**",
             "/api/health",
             "/actuator/health",
             "/actuator/info",
