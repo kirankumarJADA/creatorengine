@@ -51,7 +51,10 @@ public class MetaSignatureVerifier {
         String providedHex = signatureHeader.substring(SIG_PREFIX.length()).toLowerCase();
         String computedHex = hmacSha256Hex(appSecret, rawBody == null ? "" : rawBody);
         // Constant-time compare to defeat timing oracles.
-        return constantTimeEquals(providedHex, computedHex);
+       log.info("META SIGNATURE DEBUG provided={} computed={}",
+        providedHex, computedHex);
+
+return constantTimeEquals(providedHex, computedHex);
     }
 
     private static String hmacSha256Hex(String secret, String body) {
