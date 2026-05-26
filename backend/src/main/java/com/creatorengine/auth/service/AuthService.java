@@ -13,7 +13,6 @@ import com.creatorengine.exception.ConflictException;
 import com.creatorengine.exception.ResourceNotFoundException;
 import com.creatorengine.exception.UnauthorizedException;
 import com.creatorengine.security.JwtTokenProvider;
-import com.google.firebase.auth.ActionCodeSettings;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
@@ -147,27 +146,17 @@ public class AuthService {
     public void sendPasswordResetEmail(ForgotPasswordRequest req) {
         String email = normalize(req.email());
 
-        // Important: respond identically whether or not the email exists,
-        // to prevent enumeration attacks. We still attempt the operation
-        // when the user exists; otherwise we silently no-op.
         if (!userRepository.existsByEmail(email)) {
             log.debug("Password reset requested for non-existent email (silenced): {}", email);
             return;
         }
 
         try {
-            ActionCodeSettings settings = ActionCodeSettings.builder()
-                    .setUrl(props.getFirebase().getPasswordResetRedirectUrl())
-                    .setHandleCodeInApp(false)
-                    .build();
-            // Firebase will email the link from its own infrastructure
-            // (provided the template is enabled in the Firebase console).
-            String link = firebaseAuth.generatePasswordResetLink(email, settings);
-            log.info("Password reset link generated for {} (Firebase emails it).", email);
-            log.debug("Reset link (dev only): {}", link);
-        } catch (FirebaseAuthException ex) {
-            log.warn("Firebase password reset failed for {}: {}", email, ex.getMessage());
-            // Silenced — see comment above.
+            firebaseAuthClient.sendPasswordResetEmail(
+                    email, props.getFirebase().getPasswordResetRedirectUrl());
+            log.info("Password reset email triggered for {}", email);
+        } catch (Exception ex) {
+            log.warn("Password reset send failed for {}: {}", email, ex.getMessage());
         }
     }
 

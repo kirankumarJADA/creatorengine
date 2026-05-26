@@ -38,22 +38,33 @@ export const useAutomationStore = create((set, get) => ({
   isLoading: false,
   lastError: null,
 
-  // ─── Selectors ─────────────────────────────────
+ // ─── Selectors ─────────────────────────────────
   getById: (id) => get().automations.find((a) => a.id === id) || null,
+
+  fetchById: async (id) => {
+    if (!id) return null;
+    const cached = get().getById(id);
+    if (cached) return cached;
+
+    try {
+      const fresh = await automationService.get(id);
+      if (!fresh) return null;
+      set((s) => {
+        const exists = s.automations.some((a) => a.id === id);
+        return {
+          automations: exists
+            ? s.automations.map((a) => (a.id === id ? fresh : a))
+            : [...s.automations, fresh],
+        };
+      });
+      return fresh;
+    } catch (err) {
+      return null;
+    }
+  },
 
   // ─── Reads ─────────────────────────────────────
   fetchAutomations: async () => {
-    set({ isLoading: true, lastError: null });
-    try {
-      const list = await automationService.list();
-      set({ automations: list, isLoading: false });
-    } catch (err) {
-      // Stay on mock data — surface the error without disrupting the UI.
-      set({ isLoading: false, lastError: err });
-      // Intentionally silent: the axios interceptor already toasted if
-      // the failure was something other than a network error.
-    }
-  },
 
   // ─── Writes (optimistic) ───────────────────────
   createAutomation: async (input) => {

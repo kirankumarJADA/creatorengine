@@ -28,10 +28,13 @@ import {
  *   /automations/new        → blank draft
  *   /automations/:id/edit   → seed draft from the saved automation
  *
- * Each step renders into the same shell so the nav, progress strip,
- * and footer are positioned identically across steps. Per-step
- * validation runs on "Continue"; the final "Save" runs the full
- * validator before hitting the store.
+ * Edit mode hydration:
+ *   - Tries the in-memory cache first (instant if user came from list).
+ *   - Falls back to GET /api/automations/{id} when the store is cold
+ *     (e.g. direct URL hit, hard refresh, opened in new tab).
+ *   - Shows a loading skeleton during the fetch instead of a blank page.
+ *   - Bounces to /automations only after the fetch confirms the
+ *     automation truly doesn't exist.
  */
 const AutomationBuilder = () => {
   const navigate    = useNavigate();
@@ -47,28 +50,41 @@ const AutomationBuilder = () => {
   const goToStep    = useBuilderStore((s) => s.goToStep);
   const reset       = useBuilderStore((s) => s.reset);
 
-  const getAutomationById  = useAutomationStore((s) => s.getById);
-  const createAutomation   = useAutomationStore((s) => s.createAutomation);
-  const updateAutomation   = useAutomationStore((s) => s.updateAutomation);
+  const getAutomationById   = useAutomationStore((s) => s.getById);
+  const fetchAutomationById = useAutomationStore((s) => s.fetchById);
+  const createAutomation    = useAutomationStore((s) => s.createAutomation);
+  const updateAutomation    = useAutomationStore((s) => s.updateAutomation);
 
   const [errors, setErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(false);
 
   // ─── Seed the draft on mount ─────────────────────
   useEffect(() => {
-    if (isEditing) {
-      const existing = getAutomationById(id);
-      if (!existing) {
-        // The store hasn't seen this id — bounce back to the list.
-        toast.error('Automation not found.');
-        navigate(ROUTES.AUTOMATIONS, { replace: true });
-        return;
+    let cancelled = false;
+
+    const hydrate = async () => {
+      if (isEditing) {
+        let existing = getAutomationById(id);
+        if (!existing) {
+          setIsHydrating(true);
+          existing = await fetchAutomationById(id);
+          if (cancelled) return;
+          setIsHydrating(false);
+        }
+        if (!existing) {
+          toast.error('Automation not found.');
+          navigate(ROUTES.AUTOMATIONS, { replace: true });
+          return;
+        }
+        startEdit(existing);
+      } else {
+        startCreate();
       }
-      startEdit(existing);
-    } else {
-      startCreate();
-    }
-    // We intentionally only re-seed when the route changes.
+    };
+
+    hydrate();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -82,8 +98,8 @@ const AutomationBuilder = () => {
     switch (builderStep) {
       case 1: return { trigger:   full.trigger };
       case 2: return { condition: full.condition, keyword: full.keyword, matchType: full.matchType };
-      case 3: return { action:    full.action, link: full.link };
-      case 4: return { message:   full.message };
+      case 3: return { actionsChain: full.actionsChain, actions: full.actions };
+      case 4: return {};
       default: return {};
     }
   }, [builderStep, draft]);
@@ -147,6 +163,23 @@ const AutomationBuilder = () => {
   const handleCancel = () => navigate(ROUTES.AUTOMATIONS);
 
   // ─── Render ──────────────────────────────────────
+  // While we're fetching an existing automation from the backend (the
+  // cold-edit path), show a minimal skeleton — empty wizard scaffolding
+  // would render with placeholder data and confuse the user.
+  if (isEditing && isHydrating) {
+    return (
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-6 h-8 w-64 animate-pulse rounded-lg bg-ink-100 dark:bg-ink-800" />
+        <div className="card mb-5 p-5">
+          <div className="h-6 w-full animate-pulse rounded-lg bg-ink-100 dark:bg-ink-800" />
+        </div>
+        <div className="card p-8">
+          <div className="h-64 w-full animate-pulse rounded-lg bg-ink-100 dark:bg-ink-800" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-5xl">
       {/* Header */}
