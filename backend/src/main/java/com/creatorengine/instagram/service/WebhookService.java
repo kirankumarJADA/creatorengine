@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +57,13 @@ public class WebhookService {
     }
 
     // ─── Event delivery ──────────────────────────────────────
-    public ProcessingResult processIncoming(String signatureHeader, String rawBody) {
+    /**
+     * Entry point from the controller. Takes raw bytes because Meta signs
+     * the exact bytes on the wire — any String round-trip (charset decode +
+     * re-encode) breaks HMAC verification for payloads with non-ASCII content
+     * such as emoji in IG comments or accented usernames.
+     */
+    public ProcessingResult processIncoming(String signatureHeader, byte[] rawBody) {
         // 1. Verify signature. In production this is non-negotiable; in
         //    dev we accept unsigned payloads when the secret is blank so
         //    you can curl the endpoint without setting Meta up.
@@ -68,14 +75,20 @@ public class WebhookService {
         }
         // Mark for the health endpoint — only signed/accepted POSTs count.
         healthService.markWebhookHit();
-        return parseAndDispatch(rawBody);
+
+        // Signature already verified on raw bytes — safe to decode for JSON parsing.
+        // Meta always sends UTF-8 JSON; this decode is lossless and never feeds
+        // back into HMAC.
+        String bodyJson = rawBody == null ? "" : new String(rawBody, StandardCharsets.UTF_8);
+        return parseAndDispatch(bodyJson);
     }
 
     /**
      * Dev/test path: skip signature verification entirely and run the
      * payload through the parser + dispatcher. Used by the dev-profile
      * webhook simulator and unit tests; <b>never</b> wired to a
-     * Meta-facing endpoint.
+     * Meta-facing endpoint. Stays on {@code String} because callers
+     * already have decoded text and there's no HMAC to protect.
      */
     public ProcessingResult processUnsigned(String rawBody) {
         return parseAndDispatch(rawBody);

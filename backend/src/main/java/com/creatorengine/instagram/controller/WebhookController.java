@@ -62,9 +62,12 @@ public class WebhookController {
     @Operation(summary = "Receive a batch of webhook events from Meta")
     public ResponseEntity<ApiResponse<Map<String, Object>>> receive(
             @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature,
-            // String, NOT a parsed object — we MUST hash the raw bytes for signature
-            // verification. Re-serialising Spring's parsed JSON would change whitespace.
-            @RequestBody(required = false) String rawBody) {
+            // byte[], NOT String — Meta signs the exact raw bytes of the request body.
+            // Binding as String forces a charset decode (and our later getBytes()
+            // re-encode), which mutates any non-ASCII byte (emoji, accented chars
+            // in IG usernames/comments) and breaks HMAC verification. byte[] is
+            // handled by ByteArrayHttpMessageConverter and is byte-for-byte faithful.
+            @RequestBody(required = false) byte[] rawBody) {
 
         ProcessingResult result = webhookService.processIncoming(signature, rawBody);
 
