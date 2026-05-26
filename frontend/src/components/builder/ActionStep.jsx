@@ -4,7 +4,7 @@ import {
   Plus, Trash2, Copy, ChevronUp, ChevronDown, Sparkles,
 } from 'lucide-react';
 
-import FormField from '../form/FormField.jsx';
+import Field from '../form/Field.jsx';
 import TextArea from '../ui/TextArea.jsx';
 import IconButton from '../ui/IconButton.jsx';
 import Button from '../form/Button.jsx';
@@ -191,7 +191,7 @@ const ActionCard = ({
       {action.type === ACTION_TYPE.SEND_LINK && (
         <>
           <MessageField action={action} onPatch={onPatch} />
-          <FormField label="Link URL" required>
+          <Field label="Link URL" required></Field>
             <input
               type="url"
               className="input"
@@ -231,7 +231,7 @@ const MessageField = ({ action, onPatch }) => {
 
   return (
     <>
-      <FormField label="Message" required>
+      <Field label="Message" required></Field>
         <TextArea
           value={action.message || ''}
           onChange={(e) => onPatch({ message: e.target.value })}
@@ -293,7 +293,7 @@ const DelayField = ({ action, onPatch }) => {
   };
 
   return (
-    <FormField label="Wait" required>
+    <Field label="Wait" required>
       <div className="flex items-center gap-2">
         <input
           type="number"
@@ -319,7 +319,7 @@ const DelayField = ({ action, onPatch }) => {
       <p className="mt-1 text-xs text-ink-500 dark:text-ink-400">
         Maximum 24 hours. The chain pauses without holding a worker thread.
       </p>
-    </FormField>
+    </Field>
   );
 };
 
