@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 
 import Modal from '../ui/Modal.jsx';
 import Button from '../form/Button.jsx';
-import FormField from '../form/Field.jsx';
+import Field from '../form/Field.jsx';
 import Badge from '../ui/Badge.jsx';
 import {
   MESSAGE_TONE,
