@@ -11,6 +11,20 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 
+/**
+ * Verifies the {@code X-Hub-Signature-256} header that Meta attaches to
+ * every webhook POST.
+ *
+ * <p>The signature is {@code "sha256=" + HMAC-SHA256(appSecret, rawBody)}.
+ * We hash the exact raw request bytes — converting through {@code String}
+ * would mutate non-ASCII content (emoji in IG comments, accented usernames)
+ * and break the HMAC, which is why the controller binds {@code byte[]} not
+ * {@code String}.</p>
+ *
+ * <p>For Instagram webhooks set up under "API setup with Instagram login",
+ * {@code appSecret} must be the <b>Instagram App Secret</b> (from the IG
+ * product config), not the Facebook App's basic App Secret.</p>
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -48,20 +62,7 @@ public class MetaSignatureVerifier {
             rawBody == null ? new byte[0] : rawBody
         );
 
-        boolean match = MessageDigest.isEqual(provided, computed);
-
-        // TEMPORARY DEBUG — remove once signature verification is confirmed working.
-        if (!match) {
-            log.warn("META SIG MISMATCH providedHex={} computedHex={} bodyLen={} secretLen={} secretFirst4={} secretLast4={}",
-                HEX.formatHex(provided),
-                HEX.formatHex(computed),
-                rawBody == null ? 0 : rawBody.length,
-                appSecret.length(),
-                appSecret.length() >= 4 ? appSecret.substring(0, 4) : "?",
-                appSecret.length() >= 4 ? appSecret.substring(appSecret.length() - 4) : "?");
-        }
-
-        return match;
+        return MessageDigest.isEqual(provided, computed);
     }
 
     private static byte[] hmacSha256(String secret, byte[] body) {
