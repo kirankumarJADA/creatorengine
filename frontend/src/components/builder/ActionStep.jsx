@@ -191,7 +191,7 @@ const ActionCard = ({
       {action.type === ACTION_TYPE.SEND_LINK && (
         <>
           <MessageField action={action} onPatch={onPatch} />
-          <Field label="Link URL" required></Field>
+          <Field label="Link URL" required>
             <input
               type="url"
               className="input"
@@ -199,7 +199,7 @@ const ActionCard = ({
               value={action.link || ''}
               onChange={(e) => onPatch({ link: e.target.value })}
             />
-          </FormField>
+          </Field>
         </>
       )}
 
@@ -231,7 +231,7 @@ const MessageField = ({ action, onPatch }) => {
 
   return (
     <>
-      <Field label="Message" required></Field>
+      <Field label="Message" required>
         <TextArea
           value={action.message || ''}
           onChange={(e) => onPatch({ message: e.target.value })}
@@ -258,7 +258,7 @@ const MessageField = ({ action, onPatch }) => {
             Generate with AI
           </button>
         </div>
-      </FormField>
+      </Field>
 
       <AiAssistantModal
         open={aiOpen}
