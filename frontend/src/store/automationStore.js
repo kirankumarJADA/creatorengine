@@ -38,9 +38,15 @@ export const useAutomationStore = create((set, get) => ({
   isLoading: false,
   lastError: null,
 
- // ─── Selectors ─────────────────────────────────
+  // ─── Selectors ─────────────────────────────────
   getById: (id) => get().automations.find((a) => a.id === id) || null,
 
+  /**
+   * Fetch one automation, either from local cache or the backend.
+   * Used by the Edit page so a direct URL hit (bookmark, hard refresh,
+   * new tab) doesn't blank-page when the store hasn't been hydrated.
+   * Returns the automation object on success, null on failure.
+   */
   fetchById: async (id) => {
     if (!id) return null;
     const cached = get().getById(id);
@@ -65,14 +71,24 @@ export const useAutomationStore = create((set, get) => ({
 
   // ─── Reads ─────────────────────────────────────
   fetchAutomations: async () => {
+    set({ isLoading: true, lastError: null });
+    try {
+      const list = await automationService.list();
+      set({ automations: list, isLoading: false });
+    } catch (err) {
+      set({
+        isLoading: false,
+        lastError: err?.message || 'Could not load automations.',
+      });
+    }
+  },
 
-  // ─── Writes (optimistic) ───────────────────────
+  // ─── Writes ────────────────────────────────────
   createAutomation: async (input) => {
-    const optimistic = ensureRuntimeFields({ ...input, id: generateId() });
+    const optimistic = ensureRuntimeFields({ id: generateId(), ...input });
     set((s) => ({ automations: [optimistic, ...s.automations] }));
     try {
       const saved = await automationService.create(input);
-      // Replace optimistic record with server-truth (real id, timestamps).
       set((s) => ({
         automations: s.automations.map((a) =>
           a.id === optimistic.id ? saved : a
@@ -80,7 +96,6 @@ export const useAutomationStore = create((set, get) => ({
       }));
       return saved;
     } catch (err) {
-      // Keep the optimistic record so the UI doesn't lose work.
       return optimistic;
     }
   },
@@ -103,8 +118,13 @@ export const useAutomationStore = create((set, get) => ({
   },
 
   deleteAutomation: async (id) => {
+    const snapshot = get().automations;
     set((s) => ({ automations: s.automations.filter((a) => a.id !== id) }));
-    try { await automationService.remove(id); } catch {}
+    try {
+      await automationService.remove(id);
+    } catch (err) {
+      set({ automations: snapshot });
+    }
   },
 
   toggleAutomation: async (id) => {
@@ -119,6 +139,12 @@ export const useAutomationStore = create((set, get) => ({
       set((s) => ({
         automations: s.automations.map((a) => (a.id === id ? saved : a)),
       }));
-    } catch {}
+    } catch (err) {
+      set((s) => ({
+        automations: s.automations.map((a) =>
+          a.id === id ? { ...a, enabled: cur.enabled } : a
+        ),
+      }));
+    }
   },
 }));
