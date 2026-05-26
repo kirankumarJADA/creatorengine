@@ -123,7 +123,7 @@ const AiAssistantModal = ({ open, onClose, onInsert }) => {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.2fr]">
         {/* ─── Brief inputs ─────────────────────────── */}
         <div className="space-y-4">
-          <FormField label="Goal" required hint="What is the DM trying to do?">
+          <Field label="Goal" required hint="What is the DM trying to do?">
             <input
               type="text"
               className="input"
@@ -132,9 +132,9 @@ const AiAssistantModal = ({ open, onClose, onInsert }) => {
               onChange={(e) => setGoal(e.target.value)}
               maxLength={500}
             />
-          </FormField>
+          </Field>
 
-          <FormField label="Tone" required>
+          <Field label="Tone" required>
             <select
               className="input"
               value={tone}
@@ -144,9 +144,9 @@ const AiAssistantModal = ({ open, onClose, onInsert }) => {
                 <option key={t} value={t}>{MESSAGE_TONE_LABEL[t]}</option>
               ))}
             </select>
-          </FormField>
+          </Field>
 
-          <FormField label="Audience" required hint="Who's commenting on your posts?">
+          <Field label="Audience" required hint="Who's commenting on your posts?">
             <input
               type="text"
               className="input"
@@ -155,9 +155,9 @@ const AiAssistantModal = ({ open, onClose, onInsert }) => {
               onChange={(e) => setAudience(e.target.value)}
               maxLength={200}
             />
-          </FormField>
+          </Field>
 
-          <FormField label="Call to action" hint="Optional — leave blank if there isn't one.">
+          <Field label="Call to action" hint="Optional — leave blank if there isn't one.">
             <input
               type="text"
               className="input"
@@ -166,7 +166,7 @@ const AiAssistantModal = ({ open, onClose, onInsert }) => {
               onChange={(e) => setCta(e.target.value)}
               maxLength={200}
             />
-          </FormField>
+          </Field>
         </div>
 
         {/* ─── Suggestions pane ──────────────────────── */}
