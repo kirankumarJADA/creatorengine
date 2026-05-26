@@ -48,7 +48,20 @@ public class MetaSignatureVerifier {
             rawBody == null ? new byte[0] : rawBody
         );
 
-        return MessageDigest.isEqual(provided, computed);
+        boolean match = MessageDigest.isEqual(provided, computed);
+
+        // TEMPORARY DEBUG — remove once signature verification is confirmed working.
+        if (!match) {
+            log.warn("META SIG MISMATCH providedHex={} computedHex={} bodyLen={} secretLen={} secretFirst4={} secretLast4={}",
+                HEX.formatHex(provided),
+                HEX.formatHex(computed),
+                rawBody == null ? 0 : rawBody.length,
+                appSecret.length(),
+                appSecret.length() >= 4 ? appSecret.substring(0, 4) : "?",
+                appSecret.length() >= 4 ? appSecret.substring(appSecret.length() - 4) : "?");
+        }
+
+        return match;
     }
 
     private static byte[] hmacSha256(String secret, byte[] body) {
