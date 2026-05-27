@@ -1,66 +1,179 @@
 package com.creatorengine.automation.deadletter;
 
 import com.google.cloud.firestore.annotation.DocumentId;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.Instant;
 
-/**
- * Persisted "we gave up" record at {@code users/{uid}/failed_jobs/{id}}.
- *
- * <p>One entry per terminally-failed automation execution. The fields
- * match the spec exactly; we add {@code jobId} so a single execution
- * can be cross-referenced against execution_logs and incident reports.</p>
- */
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class FailedJob {
 
     @DocumentId
     private String id;
 
-    /** Original webhook event id (the dedup key) — null when dedup couldn't derive one. */
     private String eventId;
-
     private String automationId;
-
-    /**
-     * Snapshot of the automation's name at dead-letter time. Captured here
-     * because the automation itself may be deleted by the time the user
-     * opens the Failed Jobs page.
-     */
     private String automationName;
-
-    /**
-     * Sender's IG handle (recipient of the would-be DM), surfaced in the UI.
-     * Sourced from the event snapshot — kept as a separate top-level field
-     * so list rendering doesn't need to dig into {@link #event}.
-     */
     private String username;
-
-    /** Either "Max retries exceeded: ..." or "Non-retryable: ...". */
     private String reason;
-
     private int attempts;
-
-    /** Trace id from the queue — pairs with {@code AutomationJob.jobId}. */
     private String jobId;
-
     private Instant createdAt;
-
-    /**
-     * Frozen webhook event needed to reconstruct an {@code AutomationJob}
-     * when the user clicks Retry. Without this, a retry would have to
-     * track down the original {@code WebhookEventRecord} (which may
-     * have been purged) — storing the snapshot makes retries reliable
-     * for the lifetime of the failed-jobs row.
-     */
     private WebhookEventSnapshot event;
+
+    public FailedJob() {
+    }
+
+    public static FailedJobBuilder builder() {
+        return new FailedJobBuilder();
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getEventId() {
+        return eventId;
+    }
+
+    public void setEventId(String eventId) {
+        this.eventId = eventId;
+    }
+
+    public String getAutomationId() {
+        return automationId;
+    }
+
+    public void setAutomationId(String automationId) {
+        this.automationId = automationId;
+    }
+
+    public String getAutomationName() {
+        return automationName;
+    }
+
+    public void setAutomationName(String automationName) {
+        this.automationName = automationName;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
+    }
+
+    public int getAttempts() {
+        return attempts;
+    }
+
+    public void setAttempts(int attempts) {
+        this.attempts = attempts;
+    }
+
+    public String getJobId() {
+        return jobId;
+    }
+
+    public void setJobId(String jobId) {
+        this.jobId = jobId;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public WebhookEventSnapshot getEvent() {
+        return event;
+    }
+
+    public void setEvent(WebhookEventSnapshot event) {
+        this.event = event;
+    }
+
+    public static class FailedJobBuilder {
+        private String eventId;
+        private String automationId;
+        private String automationName;
+        private String username;
+        private String reason;
+        private int attempts;
+        private String jobId;
+        private Instant createdAt;
+        private WebhookEventSnapshot event;
+
+        public FailedJobBuilder eventId(String eventId) {
+            this.eventId = eventId;
+            return this;
+        }
+
+        public FailedJobBuilder automationId(String automationId) {
+            this.automationId = automationId;
+            return this;
+        }
+
+        public FailedJobBuilder automationName(String automationName) {
+            this.automationName = automationName;
+            return this;
+        }
+
+        public FailedJobBuilder username(String username) {
+            this.username = username;
+            return this;
+        }
+
+        public FailedJobBuilder reason(String reason) {
+            this.reason = reason;
+            return this;
+        }
+
+        public FailedJobBuilder attempts(int attempts) {
+            this.attempts = attempts;
+            return this;
+        }
+
+        public FailedJobBuilder jobId(String jobId) {
+            this.jobId = jobId;
+            return this;
+        }
+
+        public FailedJobBuilder createdAt(Instant createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
+        public FailedJobBuilder event(WebhookEventSnapshot event) {
+            this.event = event;
+            return this;
+        }
+
+        public FailedJob build() {
+            FailedJob job = new FailedJob();
+            job.eventId = eventId;
+            job.automationId = automationId;
+            job.automationName = automationName;
+            job.username = username;
+            job.reason = reason;
+            job.attempts = attempts;
+            job.jobId = jobId;
+            job.createdAt = createdAt;
+            job.event = event;
+            return job;
+        }
+    }
 }

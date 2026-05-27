@@ -1,39 +1,29 @@
 package com.creatorengine.automation.deadletter;
 
+import com.creatorengine.automation.entity.Automation;
 import com.creatorengine.automation.queue.AutomationJob;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 
-/**
- * Thin wrapper that takes a {@link AutomationJob} and the reason it
- * gave up, and persists a {@link FailedJob}. Lives in front of the
- * repository so the worker doesn't depend on Firestore directly.
- */
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class DeadLetterService {
 
+    private static final Logger log = LoggerFactory.getLogger(DeadLetterService.class);
+
     private final FailedJobRepository repository;
+
+    public DeadLetterService(FailedJobRepository repository) {
+        this.repository = repository;
+    }
 
     public void record(AutomationJob job, String reason) {
         record(job, null, reason);
     }
 
-    /**
-     * Same as {@link #record(AutomationJob, String)} but also stamps the
-     * automation's snapshot name into the persisted record. The engine
-     * uses this overload because it already has the automation in hand
-     * by the time a job dead-letters.
-     */
-    public void record(
-            AutomationJob job,
-            com.creatorengine.automation.entity.Automation automation,
-            String reason
-    ) {
+    public void record(AutomationJob job, Automation automation, String reason) {
         FailedJob row = FailedJob.builder()
                 .eventId(job.event() != null ? job.event().dedupKey() : null)
                 .automationId(job.automationId())
@@ -45,7 +35,9 @@ public class DeadLetterService {
                 .createdAt(Instant.now())
                 .event(WebhookEventSnapshot.fromDto(job.event()))
                 .build();
+
         repository.save(job.uid(), row);
+
         log.warn("Dead-lettered job={} automation={} attempts={} reason={}",
                 job.jobId(),
                 automation != null ? automation.getId() : job.automationId(),
