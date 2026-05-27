@@ -1,5 +1,4 @@
 package com.creatorengine.automation.engine;
-
 import com.creatorengine.automation.cooldown.CooldownService;
 import com.creatorengine.automation.deadletter.DeadLetterService;
 import com.creatorengine.automation.dedup.EventDeduplicationService;
