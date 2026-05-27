@@ -2,17 +2,9 @@ package com.creatorengine.instagram.dto;
 
 import com.creatorengine.instagram.entity.ConnectionStatus;
 import com.creatorengine.instagram.entity.InstagramAccount;
-import lombok.Builder;
 
 import java.time.Instant;
 
-/**
- * Returned by {@code GET /api/instagram/status}.
- *
- * <p>The {@code accessToken} is deliberately absent — clients never
- * need to see it. Only safe profile fields are exposed.</p>
- */
-@Builder
 public record StatusResponse(
         ConnectionStatus status,
         String instagramUserId,
@@ -24,6 +16,10 @@ public record StatusResponse(
         Instant lastSyncAt,
         Instant tokenExpiresAt
 ) {
+    public static StatusResponseBuilder builder() {
+        return new StatusResponseBuilder();
+    }
+
     public static StatusResponse notConnected() {
         return StatusResponse.builder()
                 .status(ConnectionStatus.NOT_CONNECTED)
@@ -45,13 +41,87 @@ public record StatusResponse(
     }
 
     private static ConnectionStatus deriveStatus(InstagramAccount a) {
-        if (!a.isConnected()) return ConnectionStatus.NOT_CONNECTED;
+        if (!a.isConnected()) {
+            return ConnectionStatus.NOT_CONNECTED;
+        }
+
         Instant exp = a.getTokenExpiresAt();
-        // Treat tokens expiring within an hour as already expired —
-        // gives the user a chance to reconnect before things break.
+
         if (exp != null && exp.isBefore(Instant.now().plusSeconds(3600))) {
             return ConnectionStatus.EXPIRED;
         }
+
         return ConnectionStatus.CONNECTED;
+    }
+
+    public static class StatusResponseBuilder {
+        private ConnectionStatus status;
+        private String instagramUserId;
+        private String username;
+        private String name;
+        private String pageId;
+        private String profilePictureUrl;
+        private Instant connectedAt;
+        private Instant lastSyncAt;
+        private Instant tokenExpiresAt;
+
+        public StatusResponseBuilder status(ConnectionStatus status) {
+            this.status = status;
+            return this;
+        }
+
+        public StatusResponseBuilder instagramUserId(String instagramUserId) {
+            this.instagramUserId = instagramUserId;
+            return this;
+        }
+
+        public StatusResponseBuilder username(String username) {
+            this.username = username;
+            return this;
+        }
+
+        public StatusResponseBuilder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public StatusResponseBuilder pageId(String pageId) {
+            this.pageId = pageId;
+            return this;
+        }
+
+        public StatusResponseBuilder profilePictureUrl(String profilePictureUrl) {
+            this.profilePictureUrl = profilePictureUrl;
+            return this;
+        }
+
+        public StatusResponseBuilder connectedAt(Instant connectedAt) {
+            this.connectedAt = connectedAt;
+            return this;
+        }
+
+        public StatusResponseBuilder lastSyncAt(Instant lastSyncAt) {
+            this.lastSyncAt = lastSyncAt;
+            return this;
+        }
+
+        public StatusResponseBuilder tokenExpiresAt(Instant tokenExpiresAt) {
+            this.tokenExpiresAt = tokenExpiresAt;
+            return this;
+        }
+
+        public StatusResponse build() {
+            return new StatusResponse(
+                    status,
+                    instagramUserId,
+                    username,
+                    name,
+                    pageId,
+                    profilePictureUrl,
+                    connectedAt,
+                    lastSyncAt,
+                    tokenExpiresAt
+            );
+        }
     }
 }
