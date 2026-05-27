@@ -9,31 +9,22 @@ import com.creatorengine.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * REST endpoints for managing automations.
- *
- * <p>Paths intentionally live at {@code /api/automations} (not
- * {@code /api/v1/...}) to match the spec — this matches the auth
- * module's path style as well.</p>
- *
- * <p>Every endpoint requires authentication; the resolved Firebase
- * UID becomes the owner of all operations via
- * {@link SecurityUtils#getCurrentUserId()}.</p>
- */
 @RestController
 @RequestMapping("/api/automations")
-@RequiredArgsConstructor
 @Tag(name = "Automations", description = "Automation CRUD endpoints")
 public class AutomationController {
 
     private final AutomationService service;
+
+    public AutomationController(AutomationService service) {
+        this.service = service;
+    }
 
     @GetMapping
     @Operation(summary = "List all automations for the current user")
@@ -51,8 +42,7 @@ public class AutomationController {
 
     @PostMapping
     @Operation(summary = "Create a new automation")
-    public ResponseEntity<ApiResponse<AutomationResponse>> create(
-            @Valid @RequestBody AutomationRequest req) {
+    public ResponseEntity<ApiResponse<AutomationResponse>> create(@Valid @RequestBody AutomationRequest req) {
         String uid = SecurityUtils.getCurrentUserId();
         AutomationResponse created = service.create(uid, req);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -63,7 +53,8 @@ public class AutomationController {
     @Operation(summary = "Update an existing automation")
     public ResponseEntity<ApiResponse<AutomationResponse>> update(
             @PathVariable String id,
-            @Valid @RequestBody AutomationRequest req) {
+            @Valid @RequestBody AutomationRequest req
+    ) {
         String uid = SecurityUtils.getCurrentUserId();
         return ResponseEntity.ok(ApiResponse.ok(
                 "Automation updated.", service.update(uid, id, req)));
@@ -81,7 +72,8 @@ public class AutomationController {
     @Operation(summary = "Enable or pause an automation")
     public ResponseEntity<ApiResponse<AutomationResponse>> toggle(
             @PathVariable String id,
-            @Valid @RequestBody ToggleRequest req) {
+            @Valid @RequestBody ToggleRequest req
+    ) {
         String uid = SecurityUtils.getCurrentUserId();
         return ResponseEntity.ok(ApiResponse.ok(
                 "Automation toggled.", service.toggle(uid, id, req.enabled())));

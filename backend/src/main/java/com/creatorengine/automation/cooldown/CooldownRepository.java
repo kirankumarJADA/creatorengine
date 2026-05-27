@@ -3,29 +3,26 @@ package com.creatorengine.automation.cooldown;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
-/**
- * Reads/writes cooldown markers at {@code users/{uid}/cooldowns/{key}}.
- *
- * <p>Doc ids use {@code automationId:senderInstagramUserId} — colons
- * are valid Firestore id characters and make the keys human-readable
- * in the console.</p>
- */
-@Slf4j
 @Repository
-@RequiredArgsConstructor
 public class CooldownRepository {
+
+    private static final Logger log = LoggerFactory.getLogger(CooldownRepository.class);
 
     private static final String USERS_COLLECTION = "users";
     private static final String SUBCOLLECTION = "cooldowns";
 
     private final Firestore firestore;
+
+    public CooldownRepository(Firestore firestore) {
+        this.firestore = firestore;
+    }
 
     private DocumentReference docFor(String uid, String automationId, String senderIgId) {
         String key = automationId + ":" + senderIgId;
@@ -42,10 +39,10 @@ public class CooldownRepository {
                     ? Optional.ofNullable(snap.toObject(CooldownEntry.class))
                     : Optional.empty();
         } catch (InterruptedException | ExecutionException e) {
-            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             log.error("CooldownRepository.find failed", e);
-            // On lookup failure: fail-open. Better to risk a double-fire than
-            // to lock out an automation due to a transient Firestore hiccup.
             return Optional.empty();
         }
     }
@@ -55,9 +52,10 @@ public class CooldownRepository {
             docFor(uid, entry.getAutomationId(), entry.getSenderInstagramUserId())
                     .set(entry).get();
         } catch (InterruptedException | ExecutionException e) {
-            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             log.warn("CooldownRepository.save failed: {}", e.getMessage());
-            // Non-fatal: the next event will just be allowed through.
         }
     }
 }
