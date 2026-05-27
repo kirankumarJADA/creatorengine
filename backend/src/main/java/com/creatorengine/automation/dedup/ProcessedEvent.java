@@ -1,38 +1,108 @@
 package com.creatorengine.automation.dedup;
 
 import com.google.cloud.firestore.annotation.DocumentId;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.Instant;
 
-/**
- * Record at {@code processed_events/{dedupKey}}.
- *
- * <p>Existence of the document is the dedup signal — the body is just
- * for diagnostics + TTL. {@code expiresAt} is set 7 days ahead; enable
- * Firestore's TTL policy on this field in the console to let the
- * collection self-prune.</p>
- *
- * <p>7 days is comfortably longer than Meta's webhook redelivery window
- * but short enough that the collection doesn't grow unboundedly.</p>
- */
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class ProcessedEvent {
 
     @DocumentId
-    private String id;            // the dedup key itself (e.g. "c:17841...")
+    private String id;
 
-    private String eventType;     // COMMENT / DM / STORY_REPLY
-    private String uid;           // owner who received the event
+    private String eventType;
+    private String uid;
     private Instant processedAt;
-    /** TTL anchor — Firestore prunes documents past this point if TTL is enabled. */
     private Instant expiresAt;
+
+    public ProcessedEvent() {
+    }
+
+    public ProcessedEvent(String id, String eventType, String uid, Instant processedAt, Instant expiresAt) {
+        this.id = id;
+        this.eventType = eventType;
+        this.uid = uid;
+        this.processedAt = processedAt;
+        this.expiresAt = expiresAt;
+    }
+
+    public static ProcessedEventBuilder builder() {
+        return new ProcessedEventBuilder();
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getEventType() {
+        return eventType;
+    }
+
+    public void setEventType(String eventType) {
+        this.eventType = eventType;
+    }
+
+    public String getUid() {
+        return uid;
+    }
+
+    public void setUid(String uid) {
+        this.uid = uid;
+    }
+
+    public Instant getProcessedAt() {
+        return processedAt;
+    }
+
+    public void setProcessedAt(Instant processedAt) {
+        this.processedAt = processedAt;
+    }
+
+    public Instant getExpiresAt() {
+        return expiresAt;
+    }
+
+    public void setExpiresAt(Instant expiresAt) {
+        this.expiresAt = expiresAt;
+    }
+
+    public static class ProcessedEventBuilder {
+        private String id;
+        private String eventType;
+        private String uid;
+        private Instant processedAt;
+        private Instant expiresAt;
+
+        public ProcessedEventBuilder id(String id) {
+            this.id = id;
+            return this;
+        }
+
+        public ProcessedEventBuilder eventType(String eventType) {
+            this.eventType = eventType;
+            return this;
+        }
+
+        public ProcessedEventBuilder uid(String uid) {
+            this.uid = uid;
+            return this;
+        }
+
+        public ProcessedEventBuilder processedAt(Instant processedAt) {
+            this.processedAt = processedAt;
+            return this;
+        }
+
+        public ProcessedEventBuilder expiresAt(Instant expiresAt) {
+            this.expiresAt = expiresAt;
+            return this;
+        }
+
+        public ProcessedEvent build() {
+            return new ProcessedEvent(id, eventType, uid, processedAt, expiresAt);
+        }
+    }
 }

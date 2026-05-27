@@ -2,34 +2,12 @@ package com.creatorengine.automation.deadletter;
 
 import com.creatorengine.instagram.dto.WebhookEventDto;
 import com.creatorengine.instagram.entity.EventType;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.Instant;
 
-/**
- * Firestore-serializable mirror of {@link WebhookEventDto}.
- *
- * <p>Embedded on {@link FailedJob} so that a "Retry" action can
- * reconstruct the original event and re-enqueue it through the normal
- * dispatch path. {@code WebhookEventDto} itself is a {@code record},
- * which Firestore's POJO mapper can't deserialize (no no-arg
- * constructor + setters) — hence this parallel class.</p>
- *
- * <p>{@code type} is stored as a String rather than {@code EventType}
- * so legacy or malformed rows degrade gracefully on read.</p>
- */
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class WebhookEventSnapshot {
 
-    private String type;             // EventType.name(), or null
+    private String type;
     private String message;
     private String username;
     private String instagramUserId;
@@ -39,8 +17,40 @@ public class WebhookEventSnapshot {
     private Instant eventTime;
     private String receivingAccountId;
 
+    public WebhookEventSnapshot() {
+    }
+
+    public WebhookEventSnapshot(
+            String type,
+            String message,
+            String username,
+            String instagramUserId,
+            String postId,
+            String commentId,
+            String messageId,
+            Instant eventTime,
+            String receivingAccountId
+    ) {
+        this.type = type;
+        this.message = message;
+        this.username = username;
+        this.instagramUserId = instagramUserId;
+        this.postId = postId;
+        this.commentId = commentId;
+        this.messageId = messageId;
+        this.eventTime = eventTime;
+        this.receivingAccountId = receivingAccountId;
+    }
+
+    public static WebhookEventSnapshotBuilder builder() {
+        return new WebhookEventSnapshotBuilder();
+    }
+
     public static WebhookEventSnapshot fromDto(WebhookEventDto e) {
-        if (e == null) return null;
+        if (e == null) {
+            return null;
+        }
+
         return WebhookEventSnapshot.builder()
                 .type(e.type() != null ? e.type().name() : null)
                 .message(e.message())
@@ -54,18 +64,15 @@ public class WebhookEventSnapshot {
                 .build();
     }
 
-    /**
-     * Best-effort rehydration. If {@code type} doesn't map to a known
-     * {@link EventType} (newer event-type added since the row was
-     * written), we return null and the caller handles "can't retry".
-     */
     public WebhookEventDto toDto() {
         EventType t;
+
         try {
             t = type != null ? EventType.valueOf(type) : null;
         } catch (IllegalArgumentException ex) {
             return null;
         }
+
         return WebhookEventDto.builder()
                 .type(t)
                 .message(message)
@@ -77,5 +84,148 @@ public class WebhookEventSnapshot {
                 .eventTime(eventTime)
                 .receivingAccountId(receivingAccountId)
                 .build();
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getInstagramUserId() {
+        return instagramUserId;
+    }
+
+    public void setInstagramUserId(String instagramUserId) {
+        this.instagramUserId = instagramUserId;
+    }
+
+    public String getPostId() {
+        return postId;
+    }
+
+    public void setPostId(String postId) {
+        this.postId = postId;
+    }
+
+    public String getCommentId() {
+        return commentId;
+    }
+
+    public void setCommentId(String commentId) {
+        this.commentId = commentId;
+    }
+
+    public String getMessageId() {
+        return messageId;
+    }
+
+    public void setMessageId(String messageId) {
+        this.messageId = messageId;
+    }
+
+    public Instant getEventTime() {
+        return eventTime;
+    }
+
+    public void setEventTime(Instant eventTime) {
+        this.eventTime = eventTime;
+    }
+
+    public String getReceivingAccountId() {
+        return receivingAccountId;
+    }
+
+    public void setReceivingAccountId(String receivingAccountId) {
+        this.receivingAccountId = receivingAccountId;
+    }
+
+    public static class WebhookEventSnapshotBuilder {
+        private String type;
+        private String message;
+        private String username;
+        private String instagramUserId;
+        private String postId;
+        private String commentId;
+        private String messageId;
+        private Instant eventTime;
+        private String receivingAccountId;
+
+        public WebhookEventSnapshotBuilder type(String type) {
+            this.type = type;
+            return this;
+        }
+
+        public WebhookEventSnapshotBuilder message(String message) {
+            this.message = message;
+            return this;
+        }
+
+        public WebhookEventSnapshotBuilder username(String username) {
+            this.username = username;
+            return this;
+        }
+
+        public WebhookEventSnapshotBuilder instagramUserId(String instagramUserId) {
+            this.instagramUserId = instagramUserId;
+            return this;
+        }
+
+        public WebhookEventSnapshotBuilder postId(String postId) {
+            this.postId = postId;
+            return this;
+        }
+
+        public WebhookEventSnapshotBuilder commentId(String commentId) {
+            this.commentId = commentId;
+            return this;
+        }
+
+        public WebhookEventSnapshotBuilder messageId(String messageId) {
+            this.messageId = messageId;
+            return this;
+        }
+
+        public WebhookEventSnapshotBuilder eventTime(Instant eventTime) {
+            this.eventTime = eventTime;
+            return this;
+        }
+
+        public WebhookEventSnapshotBuilder receivingAccountId(String receivingAccountId) {
+            this.receivingAccountId = receivingAccountId;
+            return this;
+        }
+
+        public WebhookEventSnapshot build() {
+            return new WebhookEventSnapshot(
+                    type,
+                    message,
+                    username,
+                    instagramUserId,
+                    postId,
+                    commentId,
+                    messageId,
+                    eventTime,
+                    receivingAccountId
+            );
+        }
     }
 }
