@@ -9,29 +9,29 @@ import com.creatorengine.instagram.service.InstagramOAuthService;
 import com.creatorengine.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
-/**
- * The four OAuth + state endpoints.
- *
- * <p>Three of them ({@code /connect}, {@code /disconnect},
- * {@code /status}) require an authenticated CreatorEngine user.
- * Only {@code /callback} is public, since Meta calls it directly —
- * it authenticates via the signed {@code state} JWT instead.</p>
- */
-@Slf4j
 @RestController
 @RequestMapping("/api/instagram")
-@RequiredArgsConstructor
 @Tag(name = "Instagram", description = "Instagram Business account connection")
 public class InstagramController {
 
+    private static final Logger log = LoggerFactory.getLogger(InstagramController.class);
+
     private final InstagramOAuthService oauthService;
     private final InstagramAccountService accountService;
+
+    public InstagramController(
+            InstagramOAuthService oauthService,
+            InstagramAccountService accountService
+    ) {
+        this.oauthService = oauthService;
+        this.accountService = accountService;
+    }
 
     @GetMapping("/connect")
     @Operation(summary = "Get the Meta authorization URL for the current user")
@@ -42,14 +42,13 @@ public class InstagramController {
     }
 
     @GetMapping("/callback")
-    @Operation(summary = "OAuth callback — exchanges code for tokens and stores the account")
+    @Operation(summary = "OAuth callback - exchanges code for tokens and stores the account")
     public RedirectView callback(
-            @RequestParam(value = "code",  required = false) String code,
+            @RequestParam(value = "code", required = false) String code,
             @RequestParam(value = "state", required = false) String state,
             @RequestParam(value = "error", required = false) String error,
-            @RequestParam(value = "error_description", required = false) String errorDescription) {
-
-        // User cancelled / Meta surfaced an error
+            @RequestParam(value = "error_description", required = false) String errorDescription
+    ) {
         if (error != null) {
             log.info("OAuth callback returned error: {} ({})", error, errorDescription);
             return new RedirectView(oauthService.buildFailureRedirect(

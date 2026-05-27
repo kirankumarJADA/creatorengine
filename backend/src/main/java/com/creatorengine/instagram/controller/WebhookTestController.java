@@ -9,8 +9,8 @@ import com.creatorengine.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,43 +18,32 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.util.Map;
 
-/**
- * Dev-only testing endpoint for the webhook pipeline.
- *
- * <p>Gated to the {@code dev} Spring profile — registering this bean
- * in production would let any authenticated user fabricate webhook
- * events for themselves, which is a polite way of saying "auditor
- * nightmare". Don't enable in prod.</p>
- *
- * <p>Two endpoints:</p>
- * <ul>
- *   <li>{@code POST /api/webhook/test/simulate} — bypass signature
- *       verification and run an event through the same dispatch
- *       pipeline a real webhook would hit. The {@code receivingAccountId}
- *       defaults to the caller's connected IG account so attribution works.</li>
- *   <li>{@code POST /api/webhook/test/raw} — feed a raw Meta-shaped
- *       payload directly to the parser + dispatcher. Useful for
- *       replaying real payloads captured from the Meta dashboard.</li>
- * </ul>
- */
-@Slf4j
 @Profile("dev")
 @RestController
 @RequestMapping("/api/webhook/test")
-@RequiredArgsConstructor
 @Tag(name = "Webhook (dev)", description = "Dev-only webhook simulator")
 public class WebhookTestController {
+
+    private static final Logger log = LoggerFactory.getLogger(WebhookTestController.class);
 
     private final WebhookService webhookService;
     private final InstagramAccountService accountService;
 
+    public WebhookTestController(
+            WebhookService webhookService,
+            InstagramAccountService accountService
+    ) {
+        this.webhookService = webhookService;
+        this.accountService = accountService;
+    }
+
     @PostMapping("/simulate")
     @Operation(summary = "Synthesize a single webhook event and run it through the pipeline")
     public ResponseEntity<ApiResponse<Map<String, Object>>> simulate(
-            @Valid @RequestBody SimulateWebhookRequest req) {
-
-        // If the caller didn't specify a receiving account, use theirs.
+            @Valid @RequestBody SimulateWebhookRequest req
+    ) {
         String receivingAccount = req.receivingAccountId();
+
         if (receivingAccount == null || receivingAccount.isBlank()) {
             String uid = SecurityUtils.getCurrentUserId();
             receivingAccount = accountService.find(uid)
@@ -75,6 +64,7 @@ public class WebhookTestController {
                 .build();
 
         boolean attributed = webhookService.dispatch(event, null);
+
         log.info("[dev-simulator] Dispatched fake event type={} attributed={}",
                 event.type(), attributed);
 
@@ -87,15 +77,16 @@ public class WebhookTestController {
     }
 
     @PostMapping("/raw")
-    @Operation(summary = "Replay a raw Meta payload through the parser + dispatcher (no signature check)")
+    @Operation(summary = "Replay a raw Meta payload through the parser + dispatcher")
     public ResponseEntity<ApiResponse<Map<String, Object>>> raw(@RequestBody String rawBody) {
         var result = webhookService.processUnsigned(rawBody);
+
         return ResponseEntity.ok(ApiResponse.ok(
                 "Payload replayed.",
                 Map.of(
-                        "accepted",   result.accepted(),
+                        "accepted", result.accepted(),
                         "attributed", result.attributed(),
-                        "orphaned",   result.orphaned()
+                        "orphaned", result.orphaned()
                 )));
     }
 }

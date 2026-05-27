@@ -6,39 +6,29 @@ import com.creatorengine.instagram.dto.MetaIgProfileResponse;
 import com.creatorengine.instagram.dto.MetaPagesResponse;
 import com.creatorengine.instagram.dto.MetaTokenResponse;
 import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
 
-/**
- * Thin wrapper around the slice of Meta's Graph API we use today:
- * code↔token exchange, page lookup, and IG profile fetch.
- *
- * <p>One {@link RestClient} is lazily built per process — it's
- * thread-safe and keeps its own connection pool. We don't bake the
- * graph URL into the constructor because we want any
- * application.yml override (e.g. for testing) to take effect.</p>
- *
- * <p>Errors from Meta are translated into {@link BadRequestException}
- * with the Meta-supplied message so the user sees something useful
- * (e.g. "User has no Instagram Business account").</p>
- */
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class InstagramApiClient {
+
+    private static final Logger log = LoggerFactory.getLogger(InstagramApiClient.class);
 
     private final AppProperties props;
     private volatile RestClient client;
+
+    public InstagramApiClient(AppProperties props) {
+        this.props = props;
+    }
 
     @PostConstruct
     void init() {
         if (props.getMeta() == null || props.getMeta().getAppId() == null
                 || props.getMeta().getAppId().isBlank()) {
-            log.warn("⚠️  META_APP_ID is not configured. The Instagram OAuth flow "
-                    + "will fail at the first Meta call until you set it.");
+            log.warn("META_APP_ID is not configured. Instagram OAuth will fail until it is set.");
         }
     }
 
@@ -53,6 +43,7 @@ public class InstagramApiClient {
                 }
             }
         }
+
         return client;
     }
 
@@ -60,18 +51,15 @@ public class InstagramApiClient {
         return "https://graph.facebook.com/" + props.getMeta().getGraphApiVersion();
     }
 
-    // ─── Token exchanges ─────────────────────────────────────
-
-    /** Exchange the OAuth code for a short-lived user access token. */
     public MetaTokenResponse exchangeCodeForToken(String code) {
         try {
             return client().get()
                     .uri(uri -> uri
                             .path("/oauth/access_token")
-                            .queryParam("client_id",     props.getMeta().getAppId())
+                            .queryParam("client_id", props.getMeta().getAppId())
                             .queryParam("client_secret", props.getMeta().getAppSecret())
-                            .queryParam("redirect_uri",  props.getMeta().getRedirectUri())
-                            .queryParam("code",          code)
+                            .queryParam("redirect_uri", props.getMeta().getRedirectUri())
+                            .queryParam("code", code)
                             .build())
                     .retrieve()
                     .body(MetaTokenResponse.class);
@@ -80,18 +68,14 @@ public class InstagramApiClient {
         }
     }
 
-    /**
-     * Upgrade a short-lived user token to a ~60-day long-lived one.
-     * Cheap, idempotent, safe to retry.
-     */
     public MetaTokenResponse exchangeForLongLivedToken(String shortLivedToken) {
         try {
             return client().get()
                     .uri(uri -> uri
                             .path("/oauth/access_token")
-                            .queryParam("grant_type",        "fb_exchange_token")
-                            .queryParam("client_id",         props.getMeta().getAppId())
-                            .queryParam("client_secret",     props.getMeta().getAppSecret())
+                            .queryParam("grant_type", "fb_exchange_token")
+                            .queryParam("client_id", props.getMeta().getAppId())
+                            .queryParam("client_secret", props.getMeta().getAppSecret())
                             .queryParam("fb_exchange_token", shortLivedToken)
                             .build())
                     .retrieve()
@@ -101,9 +85,6 @@ public class InstagramApiClient {
         }
     }
 
-    // ─── Page + IG profile lookups ──────────────────────────
-
-    /** List the Pages the user manages, with their linked IG business accounts. */
     public MetaPagesResponse listPages(String userAccessToken) {
         try {
             return client().get()
@@ -120,7 +101,6 @@ public class InstagramApiClient {
         }
     }
 
-    /** Fetch IG profile fields for a given IG business account id. */
     public MetaIgProfileResponse fetchIgProfile(String igUserId, String pageAccessToken) {
         try {
             return client().get()
@@ -136,31 +116,13 @@ public class InstagramApiClient {
         }
     }
 
-    // ─── Future: token refresh ──────────────────────────────
-    /**
-     * Placeholder for the scheduled refresh job.
-     * Long-lived user tokens can be re-extended by calling the
-     * {@code fb_exchange_token} endpoint with the existing long-lived
-     * token — extending it by another 60 days. Wire this into a
-     * {@code @Scheduled} task that runs daily and refreshes any
-     * accounts whose tokens expire in less than 7 days.
-     *
-     * Intentionally unimplemented for the MVP per spec.
-     */
     public void refreshLongLivedTokenPlaceholder(String currentLongLivedToken) {
-        // TODO: scheduled refresh — call exchangeForLongLivedToken(currentLongLivedToken)
-        //       and persist the new accessToken + tokenExpiresAt.
-        log.debug("Token refresh placeholder — not yet implemented.");
+        log.debug("Token refresh placeholder - not yet implemented.");
     }
 
-    // ─── Error translation ──────────────────────────────────
     private BadRequestException translate(String prefix, HttpStatusCodeException ex) {
         String body = ex.getResponseBodyAsString();
         log.warn("{}: status={}, body={}", prefix, ex.getStatusCode(), body);
-        // Body is usually:  { "error": { "message": "...", "type": "...", "code": ... } }
-        // We don't deserialise it here to keep this method dependency-light — the
-        // raw body is informative enough for ops, and the user-facing message is
-        // generic on purpose to avoid leaking IDs.
         return new BadRequestException(
                 prefix + ". Meta returned " + ex.getStatusCode() + ".");
     }

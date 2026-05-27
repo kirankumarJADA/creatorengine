@@ -5,36 +5,28 @@ import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.Query;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
-/**
- * Stores received webhook events.
- *
- * <p>Two collections in play:</p>
- * <ul>
- *   <li>{@code users/{uid}/instagram_events/{eventId}} — events we
- *       could attribute to a known CreatorEngine user.</li>
- *   <li>{@code orphan_webhook_events/{eventId}} — top-level bucket
- *       for events whose IG account isn't linked to any user. Useful
- *       for debugging mis-configured webhooks; safe to TTL out.</li>
- * </ul>
- */
-@Slf4j
 @Repository
-@RequiredArgsConstructor
 public class WebhookEventRepository {
 
+    private static final Logger log = LoggerFactory.getLogger(WebhookEventRepository.class);
+
     private static final String USERS_COLLECTION = "users";
-    private static final String SUBCOLLECTION    = "instagram_events";
+    private static final String SUBCOLLECTION = "instagram_events";
     private static final String ORPHAN_COLLECTION = "orphan_webhook_events";
 
     private final Firestore firestore;
+
+    public WebhookEventRepository(Firestore firestore) {
+        this.firestore = firestore;
+    }
 
     private CollectionReference userEvents(String uid) {
         return firestore.collection(USERS_COLLECTION)
@@ -70,12 +62,17 @@ public class WebhookEventRepository {
 
     private WebhookEventRecord write(CollectionReference col, WebhookEventRecord event) {
         try {
-            if (event.getReceivedAt() == null) event.setReceivedAt(Instant.now());
+            if (event.getReceivedAt() == null) {
+                event.setReceivedAt(Instant.now());
+            }
+
             DocumentReference ref = event.getId() == null || event.getId().isBlank()
                     ? col.document()
                     : col.document(event.getId());
+
             event.setId(ref.getId());
             ref.set(event).get();
+
             return event;
         } catch (InterruptedException | ExecutionException e) {
             throw wrap("write", e);
@@ -83,7 +80,10 @@ public class WebhookEventRepository {
     }
 
     private RuntimeException wrap(String op, Exception e) {
-        if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+        if (e instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+
         log.error("WebhookEventRepository.{} failed", op, e);
         return new RuntimeException("Firestore operation failed: " + op, e);
     }
