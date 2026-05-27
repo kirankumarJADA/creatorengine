@@ -1,6 +1,5 @@
 package com.creatorengine.security;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -13,28 +12,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-/**
- * Stateless security setup.
- *
- * <ul>
- *   <li>Sessions disabled — every request carries a JWT.</li>
- *   <li>CSRF disabled — irrelevant for token-based APIs called by SPAs.</li>
- *   <li>{@link JwtAuthenticationFilter} runs before
- *       {@link UsernamePasswordAuthenticationFilter} so authenticated
- *       requests bypass the form-login pipeline entirely.</li>
- *   <li>{@code /api/auth/**}, health probes, and Swagger are public;
- *       everything else requires authentication.</li>
- *   <li>{@code @EnableMethodSecurity} enables {@code @PreAuthorize} for
- *       fine-grained role checks at the controller level.</li>
- * </ul>
- *
- * <p>The {@link PasswordEncoder} bean is exposed for completeness even
- * though Firebase Auth performs the actual password hashing — it's used
- * for any internal secrets we might need to hash (e.g. API keys) later.</p>
- */
 @Configuration
 @EnableMethodSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -46,11 +25,6 @@ public class SecurityConfig {
             "/api/auth/login",
             "/api/auth/forgot-password",
             "/api/auth/refresh",
-            // Meta hits these directly — no JWT possible from their side.
-            // The OAuth callback authenticates via the signed `state` token,
-            // and the webhook authenticates via X-Hub-Signature-256.
-            // NOTE: only the exact /api/webhook path is public — dev test
-            // endpoints under /api/webhook/test still require authentication.
             "/api/instagram/callback",
             "/api/webhook",
             "/api/webhooks/**",
@@ -59,6 +33,16 @@ public class SecurityConfig {
             "/actuator/info",
             "/error"
     };
+
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            RestAuthenticationEntryPoint authEntryPoint,
+            UrlBasedCorsConfigurationSource corsConfigurationSource
+    ) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.authEntryPoint = authEntryPoint;
+        this.corsConfigurationSource = corsConfigurationSource;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
