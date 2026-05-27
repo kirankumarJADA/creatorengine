@@ -1,52 +1,174 @@
 package com.creatorengine.contacts.entity;
 
 import com.google.cloud.firestore.annotation.DocumentId;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.Instant;
 
-/**
- * A person who has interacted with the user's Instagram account
- * through an automation. Stored at
- * {@code users/{uid}/contacts/{contactId}}.
- *
- * <p>The {@code instagramUserId} is the natural primary key — we
- * upsert by that field rather than letting Firestore mint random
- * doc ids, so repeat interactions don't create duplicate rows.</p>
- */
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class Contact {
 
     @DocumentId
     private String id;
 
-    /** Instagram-scoped sender id. Stable per (user, account) tuple. */
     private String instagramUserId;
-
-    /** @handle. May be null when Meta doesn't include it (rare for messaging events). */
     private String username;
-
-    /** Which event type first introduced this contact (COMMENT/DM/STORY_REPLY). */
     private String source;
-
-    /** Last message we *sent* to this contact (or for SAVE_CONTACT, the trigger text). */
     private String lastMessage;
-
-    /**
-     * Number of times this contact has triggered any automation for this user.
-     * Incremented by {@code ContactRepository.upsertByInstagramUserId} on every
-     * successful execution — see comment there for the invariant.
-     */
     private long totalTriggers;
-
     private Instant createdAt;
     private Instant updatedAt;
+
+    public Contact() {
+    }
+
+    public Contact(
+            String id,
+            String instagramUserId,
+            String username,
+            String source,
+            String lastMessage,
+            long totalTriggers,
+            Instant createdAt,
+            Instant updatedAt
+    ) {
+        this.id = id;
+        this.instagramUserId = instagramUserId;
+        this.username = username;
+        this.source = source;
+        this.lastMessage = lastMessage;
+        this.totalTriggers = totalTriggers;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
+
+    public static ContactBuilder builder() {
+        return new ContactBuilder();
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getInstagramUserId() {
+        return instagramUserId;
+    }
+
+    public void setInstagramUserId(String instagramUserId) {
+        this.instagramUserId = instagramUserId;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public String getLastMessage() {
+        return lastMessage;
+    }
+
+    public void setLastMessage(String lastMessage) {
+        this.lastMessage = lastMessage;
+    }
+
+    public long getTotalTriggers() {
+        return totalTriggers;
+    }
+
+    public void setTotalTriggers(long totalTriggers) {
+        this.totalTriggers = totalTriggers;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public static class ContactBuilder {
+        private String id;
+        private String instagramUserId;
+        private String username;
+        private String source;
+        private String lastMessage;
+        private long totalTriggers;
+        private Instant createdAt;
+        private Instant updatedAt;
+
+        public ContactBuilder id(String id) {
+            this.id = id;
+            return this;
+        }
+
+        public ContactBuilder instagramUserId(String instagramUserId) {
+            this.instagramUserId = instagramUserId;
+            return this;
+        }
+
+        public ContactBuilder username(String username) {
+            this.username = username;
+            return this;
+        }
+
+        public ContactBuilder source(String source) {
+            this.source = source;
+            return this;
+        }
+
+        public ContactBuilder lastMessage(String lastMessage) {
+            this.lastMessage = lastMessage;
+            return this;
+        }
+
+        public ContactBuilder totalTriggers(long totalTriggers) {
+            this.totalTriggers = totalTriggers;
+            return this;
+        }
+
+        public ContactBuilder createdAt(Instant createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
+        public ContactBuilder updatedAt(Instant updatedAt) {
+            this.updatedAt = updatedAt;
+            return this;
+        }
+
+        public Contact build() {
+            return new Contact(
+                    id,
+                    instagramUserId,
+                    username,
+                    source,
+                    lastMessage,
+                    totalTriggers,
+                    createdAt,
+                    updatedAt
+            );
+        }
+    }
 }
