@@ -9,41 +9,30 @@ import com.creatorengine.auth.service.AuthService;
 import com.creatorengine.common.ApiResponse;
 import com.creatorengine.security.SecurityUtils;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-/**
- * Authentication endpoints.
- *
- * <p>All routes here are exposed under {@code /api/auth/**} and explicitly
- * allow-listed in {@link com.creatorengine.security.SecurityConfig}.</p>
- */
 @RestController
 @RequestMapping("/api/auth")
-@RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
 
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
+
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(
-            @Valid @RequestBody RegisterRequest req) {
+    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest req) {
         AuthResponse resp = authService.register(req);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Account created.", resp));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(
-            @Valid @RequestBody LoginRequest req) {
-        return ResponseEntity.ok(
-                ApiResponse.ok("Logged in.", authService.login(req)));
+    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Logged in.", authService.login(req)));
     }
 
     @PostMapping("/logout")
@@ -59,10 +48,8 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse<Void>> forgotPassword(
-            @Valid @RequestBody ForgotPasswordRequest req) {
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest req) {
         authService.sendPasswordResetEmail(req);
-        // Always return success to avoid leaking whether the email exists.
         return ResponseEntity.ok(ApiResponse.ok(
                 "If an account exists for that email, a reset link has been sent."));
     }
