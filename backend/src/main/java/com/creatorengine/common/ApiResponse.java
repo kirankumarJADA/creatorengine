@@ -1,28 +1,10 @@
 package com.creatorengine.common;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.Getter;
 
 import java.time.Instant;
 import java.util.List;
 
-/**
- * Uniform response envelope returned by every controller.
- *
- * <pre>
- * {
- *   "success":  true,
- *   "message":  "OK",
- *   "data":     { ... payload ... },
- *   "errors":   [ "field: reason", ... ],   // only on validation failure
- *   "timestamp": "2025-..."
- * }
- * </pre>
- *
- * The frontend axios interceptor unwraps {@code data} so component code
- * never has to handle the envelope directly.
- */
-@Getter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiResponse<T> {
 
@@ -57,5 +39,29 @@ public class ApiResponse<T> {
 
     public static <T> ApiResponse<T> error(String message, List<String> errors) {
         return new ApiResponse<>(false, message, null, errors);
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public boolean getSuccess() {
+        return success;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public T getData() {
+        return data;
+    }
+
+    public List<String> getErrors() {
+        return errors;
+    }
+
+    public Instant getTimestamp() {
+        return timestamp;
     }
 }

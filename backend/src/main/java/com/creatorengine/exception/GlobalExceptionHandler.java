@@ -2,7 +2,8 @@ package com.creatorengine.exception;
 
 import com.creatorengine.common.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -16,17 +17,10 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import java.util.List;
 
-/**
- * Maps every uncaught exception to a consistent {@link ApiResponse} envelope.
- *
- * Without this, services would have to repeatedly map their own
- * exceptions to HTTP statuses and the frontend would see ad-hoc error
- * shapes. Centralising it means a service can just throw a domain
- * exception and trust the right status code will come out.
- */
-@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNotFound(ResourceNotFoundException ex) {
@@ -48,7 +42,6 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.CONFLICT, ex.getMessage(), null);
     }
 
-    // ─── Spring Security ────────────────────────────────────────
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<Void>> handleBadCredentials(BadCredentialsException ex) {
         return build(HttpStatus.UNAUTHORIZED, "Invalid email or password.", null);
@@ -64,12 +57,12 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.FORBIDDEN, "Access denied.", null);
     }
 
-    // ─── Validation ─────────────────────────────────────────────
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {
         List<String> errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(this::formatFieldError)
                 .toList();
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error("Validation failed.", errors));
     }
@@ -79,6 +72,7 @@ public class GlobalExceptionHandler {
         List<String> errors = ex.getConstraintViolations().stream()
                 .map(v -> "%s: %s".formatted(v.getPropertyPath(), v.getMessage()))
                 .toList();
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error("Validation failed.", errors));
     }
@@ -90,7 +84,6 @@ public class GlobalExceptionHandler {
                 null);
     }
 
-    // ─── Catch-all ──────────────────────────────────────────────
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleAny(Exception ex) {
         log.error("Unhandled exception", ex);
@@ -104,7 +97,6 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ApiResponse<Void>> build(HttpStatus status, String message, List<String> errors) {
         return ResponseEntity.status(status).body(
-                errors == null ? ApiResponse.error(message)
-                               : ApiResponse.error(message, errors));
+                errors == null ? ApiResponse.error(message) : ApiResponse.error(message, errors));
     }
 }

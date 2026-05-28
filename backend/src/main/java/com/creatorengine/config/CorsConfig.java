@@ -1,6 +1,5 @@
 package com.creatorengine.config;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
@@ -9,18 +8,14 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * CORS source consumed by the SecurityFilterChain.
- *
- * <p>Defined here (rather than per-controller) so the rules apply to
- * pre-flight {@code OPTIONS} requests too, which never reach the
- * controller layer.</p>
- */
 @Configuration
-@RequiredArgsConstructor
 public class CorsConfig {
 
     private final AppProperties props;
+
+    public CorsConfig(AppProperties props) {
+        this.props = props;
+    }
 
     @Bean
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
@@ -36,11 +31,15 @@ public class CorsConfig {
 
         UrlBasedCorsConfigurationSource src = new UrlBasedCorsConfigurationSource();
         src.registerCorsConfiguration("/**", cfg);
+
         return src;
     }
 
     private List<String> splitCsv(String csv) {
-        if (csv == null || csv.isBlank()) return List.of();
+        if (csv == null || csv.isBlank()) {
+            return List.of();
+        }
+
         return Arrays.stream(csv.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
