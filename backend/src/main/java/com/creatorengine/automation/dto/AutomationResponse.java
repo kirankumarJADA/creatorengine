@@ -34,7 +34,7 @@ public record AutomationResponse(
                 ActionDto.from(a.getAction()),
                 a.getMessage(),
                 effective,
-                a.isEnabled(),
+               a.getEnabled(),
                 a.getCooldownMinutes(),
                 a.getRunCount(),
                 a.getSuccessCount(),

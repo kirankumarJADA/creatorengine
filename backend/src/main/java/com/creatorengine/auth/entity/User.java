@@ -91,20 +91,12 @@ public class User {
         this.roles = roles;
     }
 
-    public boolean isEmailVerified() {
-        return emailVerified;
-    }
-
     public boolean getEmailVerified() {
         return emailVerified;
     }
 
     public void setEmailVerified(boolean emailVerified) {
         this.emailVerified = emailVerified;
-    }
-
-    public boolean isEnabled() {
-        return enabled;
     }
 
     public boolean getEnabled() {

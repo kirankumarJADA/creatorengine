@@ -125,7 +125,7 @@ public class AutomationEngine {
         }
 
         Automation automation = automationOpt.get();
-        if (!automation.isEnabled()) {
+        if (!automation.getEnabled()) {
             log.info("Skipping job {} - automation {} was disabled",
                     job.jobId(), job.automationId());
             return;

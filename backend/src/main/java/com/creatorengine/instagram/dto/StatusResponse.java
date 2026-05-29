@@ -41,7 +41,7 @@ public record StatusResponse(
     }
 
     private static ConnectionStatus deriveStatus(InstagramAccount a) {
-        if (!a.isConnected()) {
+        if (!a.getConnected()) {
             return ConnectionStatus.NOT_CONNECTED;
         }
 

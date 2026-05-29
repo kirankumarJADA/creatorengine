@@ -103,7 +103,7 @@ public class AuthService {
                     .build());
         });
 
-        if (!user.isEnabled()) {
+        if (!user.getEnabled()) {
             throw new UnauthorizedException("This account has been disabled.");
         }
 

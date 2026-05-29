@@ -23,7 +23,7 @@ public record UserResponse(
                 u.getName(),
                 u.getAvatarUrl(),
                 u.getRoles(),
-                u.isEmailVerified(),
+                u.getEmailVerified(),
                 u.getCreatedAt(),
                 u.getLastLoginAt()
         );

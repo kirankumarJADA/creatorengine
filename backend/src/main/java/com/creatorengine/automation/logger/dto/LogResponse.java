@@ -23,8 +23,8 @@ public record LogResponse(
                 row.getAutomationName(),
                 row.getEventType(),
                 row.getTriggerText(),
-                row.isMatched(),
-                row.isMessageSent(),
+                row.getMatched(),
+                row.getMessageSent(),
                 resolveStatus(row),
                 row.getTimestamp()
         );
@@ -35,11 +35,11 @@ public record LogResponse(
             return row.getStatus();
         }
 
-        if (!row.isMatched()) {
+        if (!row.getMatched()) {
             return null;
         }
 
-        if (row.isMessageSent()) {
+        if (row.getMessageSent()) {
             return ExecutionLogger.STATUS_SUCCESS;
         }
 

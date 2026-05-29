@@ -30,7 +30,7 @@ public class AutomationMatcher {
 
         List<Automation> all = automationRepository.findAllByOwner(uid);
         List<Automation> filtered = all.stream()
-                .filter(Automation::isEnabled)
+                .filter(Automation::getEnabled)
                 .filter(a -> matchesTriggerType(a, expectedTrigger))
                 .toList();
 
