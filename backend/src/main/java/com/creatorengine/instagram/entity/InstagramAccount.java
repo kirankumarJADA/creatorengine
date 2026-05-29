@@ -101,10 +101,6 @@ public class InstagramAccount {
         this.accessToken = accessToken;
     }
 
-    public boolean isConnected() {
-        return connected;
-    }
-
     public boolean getConnected() {
         return connected;
     }

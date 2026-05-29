@@ -81,10 +81,6 @@ public class ExecutionLog {
         this.automationId = automationId;
     }
 
-    public boolean isMatched() {
-        return matched;
-    }
-
     public boolean getMatched() {
         return matched;
     }
@@ -107,10 +103,6 @@ public class ExecutionLog {
 
     public void setTriggerText(String triggerText) {
         this.triggerText = triggerText;
-    }
-
-    public boolean isMessageSent() {
-        return messageSent;
     }
 
     public boolean getMessageSent() {

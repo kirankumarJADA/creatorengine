@@ -116,10 +116,6 @@ public class Automation {
         this.actions = actions;
     }
 
-    public boolean isEnabled() {
-        return enabled;
-    }
-
     public boolean getEnabled() {
         return enabled;
     }
