@@ -26,7 +26,7 @@ public class CorsConfig {
         cfg.setAllowedMethods(splitCsv(c.getAllowedMethods()));
         cfg.setAllowedHeaders(splitCsv(c.getAllowedHeaders()));
         cfg.setExposedHeaders(List.of("Authorization", "Content-Type"));
-        cfg.setAllowCredentials(c.isAllowCredentials());
+        cfg.setAllowCredentials(c.getAllowCredentials());
         cfg.setMaxAge(c.getMaxAge());
 
         UrlBasedCorsConfigurationSource src = new UrlBasedCorsConfigurationSource();

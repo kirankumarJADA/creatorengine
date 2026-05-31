@@ -102,10 +102,6 @@ public class AppProperties {
             this.allowedHeaders = allowedHeaders;
         }
 
-        public boolean isAllowCredentials() {
-            return allowCredentials;
-        }
-
         public boolean getAllowCredentials() {
             return allowCredentials;
         }
@@ -230,8 +226,10 @@ public class AppProperties {
         private String successRedirectUri;
         private String graphApiVersion = "v19.0";
         private String scopes =
-                "instagram_business_basic,instagram_manage_comments,"
-                        + "instagram_business_manage_messages";
+                "instagram_basic,pages_show_list,pages_read_engagement,"
+                        + "instagram_manage_comments,instagram_manage_messages,"
+                        + "pages_manage_metadata,business_management";
+
         public String getAppId() {
             return appId;
         }
