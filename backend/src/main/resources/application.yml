@@ -58,6 +58,9 @@ app:
     # Where to bounce the browser after we finish the OAuth dance.
     success-redirect-uri: ${META_SUCCESS_REDIRECT_URI:http://localhost:5173/instagram/callback}
     graph-api-version: ${META_GRAPH_API_VERSION:v19.0}
+    # OAuth scopes — must match what the Meta app's "Manage messaging & content on Instagram"
+    # use case provides. Updated to current Meta naming (post-rename).
+    scopes:        ${META_SCOPES:instagram_business_basic,instagram_manage_comments,instagram_business_manage_messages}
 
   ai:
     openai:
