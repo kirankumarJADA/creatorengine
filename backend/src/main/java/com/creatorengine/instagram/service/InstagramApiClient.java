@@ -85,17 +85,17 @@ public class InstagramApiClient {
         }
     }
 
-    public MetaPagesResponse listPages(String userAccessToken) {
-        try {
-            return client().get()
-                    .uri(uri -> uri
-                            .path("/me/accounts")
-                            .queryParam("fields",
-                                    "id,name,access_token,instagram_business_account{id}")
-                            .queryParam("access_token", userAccessToken)
-                            .build())
-                    .retrieve()
-                    .body(MetaPagesResponse.class);
+   public MetaPagesResponse listPages(String userAccessToken) {
+    try {
+        return client().get()
+                .uri(uri -> uri
+                        .path("/me/accounts")
+                        .queryParam("fields",
+                                "id,name,access_token,instagram_business_account%7Bid%7D")
+                        .queryParam("access_token", userAccessToken)
+                        .build())
+                .retrieve()
+                .body(MetaPagesResponse.class);
         } catch (HttpStatusCodeException ex) {
             throw translate("Failed to fetch user's pages", ex);
         }
