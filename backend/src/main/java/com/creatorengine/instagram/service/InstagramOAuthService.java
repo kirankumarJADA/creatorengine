@@ -4,7 +4,6 @@ import com.creatorengine.config.AppProperties;
 import com.creatorengine.exception.BadRequestException;
 import com.creatorengine.exception.UnauthorizedException;
 import com.creatorengine.instagram.dto.MetaIgProfileResponse;
-import com.creatorengine.instagram.dto.MetaPagesResponse;
 import com.creatorengine.instagram.dto.MetaTokenResponse;
 import com.creatorengine.instagram.entity.InstagramAccount;
 import com.creatorengine.security.JwtTokenProvider;
@@ -23,7 +22,7 @@ public class InstagramOAuthService {
     private static final Logger log = LoggerFactory.getLogger(InstagramOAuthService.class);
 
     private static final String OAUTH_DIALOG_BASE =
-            "https://www.facebook.com/%s/dialog/oauth";
+            "https://www.instagram.com/oauth/authorize";
 
     private final AppProperties props;
     private final JwtTokenProvider tokenProvider;
@@ -55,9 +54,8 @@ public class InstagramOAuthService {
         }
 
         String state = tokenProvider.generateOAuthStateToken(uid);
-        String base = OAUTH_DIALOG_BASE.formatted(meta.getGraphApiVersion());
 
-        return UriComponentsBuilder.fromHttpUrl(base)
+        return UriComponentsBuilder.fromHttpUrl(OAUTH_DIALOG_BASE)
                 .queryParam("client_id", meta.getAppId())
                 .queryParam("redirect_uri", meta.getRedirectUri())
                 .queryParam("state", state)
@@ -74,24 +72,30 @@ public class InstagramOAuthService {
             throw new UnauthorizedException("OAuth state is invalid or expired.");
         }
 
+        // 1. Code -> short-lived IG user token (response includes user_id)
         MetaTokenResponse shortToken = apiClient.exchangeCodeForToken(code);
         if (shortToken == null || shortToken.accessToken() == null) {
             throw new BadRequestException("Meta did not return an access token.");
         }
 
+        // 2. Short-lived -> long-lived (60 days)
         MetaTokenResponse longToken = apiClient.exchangeForLongLivedToken(shortToken.accessToken());
         if (longToken == null || longToken.accessToken() == null) {
             throw new BadRequestException("Failed to upgrade to a long-lived token.");
         }
 
-        MetaPagesResponse pages = apiClient.listPages(longToken.accessToken());
-        MetaPagesResponse.Page page = pickPageWithInstagram(pages);
+        String igToken = longToken.accessToken();
 
-        String pageId = page.id();
-        String pageToken = page.accessToken();
-        String igUserId = page.instagramBusinessAccount().id();
+        // 3. Fetch the IG professional account profile
+        MetaIgProfileResponse profile = apiClient.fetchIgProfile(igToken);
 
-        MetaIgProfileResponse profile = apiClient.fetchIgProfile(igUserId, pageToken);
+        String igUserId = profile.userId() != null
+                ? profile.userId()
+                : (shortToken.userId() != null ? String.valueOf(shortToken.userId()) : null);
+
+        if (igUserId == null) {
+            throw new BadRequestException("Could not determine Instagram user id.");
+        }
 
         Instant tokenExpiresAt = longToken.expiresIn() != null
                 ? Instant.now().plusSeconds(longToken.expiresIn())
@@ -101,8 +105,7 @@ public class InstagramOAuthService {
                 .instagramUserId(igUserId)
                 .username(profile.username())
                 .name(profile.name())
-                .pageId(pageId)
-                .accessToken(pageToken)
+                .accessToken(igToken)
                 .profilePictureUrl(profile.profilePictureUrl())
                 .tokenExpiresAt(tokenExpiresAt)
                 .connected(true)
@@ -131,19 +134,5 @@ public class InstagramOAuthService {
         }
 
         return b.build().toUriString();
-    }
-
-    private MetaPagesResponse.Page pickPageWithInstagram(MetaPagesResponse pages) {
-        if (pages == null || pages.data() == null || pages.data().isEmpty()) {
-            throw new BadRequestException(
-                    "No Facebook Pages found for this user. Create a Page and link an Instagram Business account.");
-        }
-
-        return pages.data().stream()
-                .filter(p -> p.instagramBusinessAccount() != null
-                        && p.instagramBusinessAccount().id() != null)
-                .findFirst()
-                .orElseThrow(() -> new BadRequestException(
-                        "None of your Pages have a linked Instagram Business account."));
     }
 }
