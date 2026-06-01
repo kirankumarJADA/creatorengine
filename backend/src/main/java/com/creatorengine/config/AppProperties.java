@@ -227,7 +227,7 @@ public class AppProperties {
         private String graphApiVersion = "v19.0";
         private String scopes =
         "instagram_basic,instagram_manage_comments,instagram_manage_messages,"
-                + "pages_show_list,pages_read_engagement,pages_manage_metadata,pages_messaging";
+                + "pages_show_list,pages_read_engagement";
 
         public String getAppId() {
             return appId;
