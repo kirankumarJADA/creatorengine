@@ -12,6 +12,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
 
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 @Component
 public class InstagramApiClient {
 
@@ -85,17 +89,16 @@ public class InstagramApiClient {
         }
     }
 
-   public MetaPagesResponse listPages(String userAccessToken) {
-    try {
-        return client().get()
-                .uri(uri -> uri
-                        .path("/me/accounts")
-                        .queryParam("fields",
-                                "id,name,access_token,instagram_business_account%7Bid%7D")
-                        .queryParam("access_token", userAccessToken)
-                        .build())
-                .retrieve()
-                .body(MetaPagesResponse.class);
+    public MetaPagesResponse listPages(String userAccessToken) {
+        try {
+            String url = graphBase()
+                    + "/me/accounts"
+                    + "?fields=id,name,access_token,instagram_business_account%7Bid%7D"
+                    + "&access_token=" + URLEncoder.encode(userAccessToken, StandardCharsets.UTF_8);
+            return client().get()
+                    .uri(URI.create(url))
+                    .retrieve()
+                    .body(MetaPagesResponse.class);
         } catch (HttpStatusCodeException ex) {
             throw translate("Failed to fetch user's pages", ex);
         }
@@ -103,12 +106,12 @@ public class InstagramApiClient {
 
     public MetaIgProfileResponse fetchIgProfile(String igUserId, String pageAccessToken) {
         try {
+            String url = graphBase()
+                    + "/" + igUserId
+                    + "?fields=id,username,name,profile_picture_url"
+                    + "&access_token=" + URLEncoder.encode(pageAccessToken, StandardCharsets.UTF_8);
             return client().get()
-                    .uri(uri -> uri
-                            .path("/" + igUserId)
-                            .queryParam("fields", "id,username,name,profile_picture_url")
-                            .queryParam("access_token", pageAccessToken)
-                            .build())
+                    .uri(URI.create(url))
                     .retrieve()
                     .body(MetaIgProfileResponse.class);
         } catch (HttpStatusCodeException ex) {
