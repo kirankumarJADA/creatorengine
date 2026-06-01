@@ -60,7 +60,7 @@ app:
     graph-api-version: ${META_GRAPH_API_VERSION:v19.0}
     # OAuth scopes for Facebook Login + Instagram Graph API.
     # Must match permissions enabled on the Meta app dashboard.
-    scopes:        ${META_SCOPES:instagram_business_basic,instagram_manage_comments,instagram_business_manage_messages}
+    scopes:        ${META_SCOPES:instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments}
   ai:
     openai:
       # Optional — leave blank to use the template-based fallback generator.

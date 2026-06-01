@@ -56,13 +56,12 @@ public class InstagramOAuthService {
         String state = tokenProvider.generateOAuthStateToken(uid);
 
       return UriComponentsBuilder.fromHttpUrl(OAUTH_DIALOG_BASE)
-                .queryParam("enable_fb_login", "0")
-                .queryParam("force_authentication", "1")
+                .queryParam("force_reauth", "true")
                 .queryParam("client_id", meta.getAppId())
                 .queryParam("redirect_uri", meta.getRedirectUri())
-                .queryParam("state", state)
-                .queryParam("scope", meta.getScopes())
                 .queryParam("response_type", "code")
+                .queryParam("scope", meta.getScopes())
+                .queryParam("state", state)
                 .build()
                 .toUriString();
     }
