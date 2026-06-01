@@ -226,9 +226,9 @@ public class AppProperties {
         private String successRedirectUri;
         private String graphApiVersion = "v19.0";
         private String scopes =
-                "instagram_basic,pages_show_list,pages_read_engagement,"
-                        + "instagram_manage_comments,instagram_manage_messages,"
-                        + "pages_manage_metadata,business_management";
+        "instagram_basic,instagram_manage_comments,instagram_manage_messages,"
+                + "pages_show_list,pages_read_engagement,pages_manage_metadata,"
+                + "pages_messaging,business_management";
 
         public String getAppId() {
             return appId;
