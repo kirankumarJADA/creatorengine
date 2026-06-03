@@ -33,6 +33,12 @@ public record AutomationRequest(
         @NotNull(message = "Trigger is required")
         com.creatorengine.automation.entity.TriggerType trigger,
 
+        /**
+         * IG media id this automation applies to. Null = all posts.
+         * Only meaningful for comment triggers; ignored for DM triggers.
+         */
+        String targetPostId,
+
         @NotNull(message = "Condition is required")
         @Valid ConditionDto condition,
 
@@ -155,6 +161,7 @@ public record AutomationRequest(
         Automation.AutomationBuilder builder = Automation.builder()
                 .name(name == null ? null : name.trim())
                 .trigger(trigger)
+                .targetPostId(targetPostId)
                 .condition(condition.toEntity())
                 .enabled(enabled == null || enabled)
                 .cooldownMinutes(cooldownMinutes == null ? 0 : Math.max(0, Math.min(cooldownMinutes, 24 * 60)));

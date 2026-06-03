@@ -1,10 +1,14 @@
 package com.creatorengine.instagram.controller;
 
 import com.creatorengine.common.ApiResponse;
+import com.creatorengine.exception.BadRequestException;
 import com.creatorengine.exception.UnauthorizedException;
 import com.creatorengine.instagram.dto.ConnectResponse;
+import com.creatorengine.instagram.dto.MetaMediaResponse;
 import com.creatorengine.instagram.dto.StatusResponse;
+import com.creatorengine.instagram.entity.InstagramAccount;
 import com.creatorengine.instagram.service.InstagramAccountService;
+import com.creatorengine.instagram.service.InstagramApiClient;
 import com.creatorengine.instagram.service.InstagramOAuthService;
 import com.creatorengine.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +19,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/instagram")
 @Tag(name = "Instagram", description = "Instagram Business account connection")
@@ -24,13 +30,16 @@ public class InstagramController {
 
     private final InstagramOAuthService oauthService;
     private final InstagramAccountService accountService;
+    private final InstagramApiClient apiClient;
 
     public InstagramController(
             InstagramOAuthService oauthService,
-            InstagramAccountService accountService
+            InstagramAccountService accountService,
+            InstagramApiClient apiClient
     ) {
         this.oauthService = oauthService;
         this.accountService = accountService;
+        this.apiClient = apiClient;
     }
 
     @GetMapping("/connect")
@@ -87,5 +96,20 @@ public class InstagramController {
                 .map(StatusResponse::from)
                 .orElseGet(StatusResponse::notConnected);
         return ResponseEntity.ok(ApiResponse.ok(body));
+    }
+
+    @GetMapping("/media")
+    @Operation(summary = "List the connected account's recent posts for the automation post-picker")
+    public ResponseEntity<ApiResponse<List<MetaMediaResponse.MediaItem>>> media() {
+        String uid = SecurityUtils.getCurrentUserId();
+
+        InstagramAccount account = accountService.find(uid)
+                .orElseThrow(() -> new BadRequestException("No Instagram account connected."));
+
+        MetaMediaResponse media = apiClient.fetchMedia(account.getAccessToken());
+        List<MetaMediaResponse.MediaItem> items =
+                (media != null && media.data() != null) ? media.data() : List.of();
+
+        return ResponseEntity.ok(ApiResponse.ok(items));
     }
 }

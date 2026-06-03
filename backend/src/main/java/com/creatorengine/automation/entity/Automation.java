@@ -12,6 +12,7 @@ public class Automation {
 
     private String name;
     private TriggerType trigger;
+    private String targetPostId;          // NEW: IG media id this automation targets; null = all posts
     private Condition condition = new Condition();
     private Action action = new Action();
     private String message;
@@ -30,6 +31,7 @@ public class Automation {
             String id,
             String name,
             TriggerType trigger,
+            String targetPostId,
             Condition condition,
             Action action,
             String message,
@@ -44,6 +46,7 @@ public class Automation {
         this.id = id;
         this.name = name;
         this.trigger = trigger;
+        this.targetPostId = targetPostId;
         this.condition = condition;
         this.action = action;
         this.message = message;
@@ -82,6 +85,14 @@ public class Automation {
 
     public void setTrigger(TriggerType trigger) {
         this.trigger = trigger;
+    }
+
+    public String getTargetPostId() {
+        return targetPostId;
+    }
+
+    public void setTargetPostId(String targetPostId) {
+        this.targetPostId = targetPostId;
     }
 
     public Condition getCondition() {
@@ -186,6 +197,7 @@ public class Automation {
         private String id;
         private String name;
         private TriggerType trigger;
+        private String targetPostId;
         private Condition condition = new Condition();
         private Action action = new Action();
         private String message;
@@ -209,6 +221,11 @@ public class Automation {
 
         public AutomationBuilder trigger(TriggerType trigger) {
             this.trigger = trigger;
+            return this;
+        }
+
+        public AutomationBuilder targetPostId(String targetPostId) {
+            this.targetPostId = targetPostId;
             return this;
         }
 
@@ -267,6 +284,7 @@ public class Automation {
                     id,
                     name,
                     trigger,
+                    targetPostId,
                     condition,
                     action,
                     message,

@@ -3,6 +3,7 @@ package com.creatorengine.instagram.service;
 import com.creatorengine.config.AppProperties;
 import com.creatorengine.exception.BadRequestException;
 import com.creatorengine.instagram.dto.MetaIgProfileResponse;
+import com.creatorengine.instagram.dto.MetaMediaResponse;
 import com.creatorengine.instagram.dto.MetaTokenResponse;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -118,6 +119,22 @@ public class InstagramApiClient {
             }
         } catch (HttpStatusCodeException ex) {
             throw translate("Failed to subscribe to Instagram webhooks", ex);
+        }
+    }
+
+    /** Fetch the connected account's recent posts/reels for the automation post-picker. */
+    public MetaMediaResponse fetchMedia(String igUserToken) {
+        try {
+            String url = GRAPH_BASE
+                    + "/me/media"
+                    + "?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp"
+                    + "&access_token=" + URLEncoder.encode(igUserToken, StandardCharsets.UTF_8);
+            return http.get()
+                    .uri(URI.create(url))
+                    .retrieve()
+                    .body(MetaMediaResponse.class);
+        } catch (HttpStatusCodeException ex) {
+            throw translate("Failed to fetch Instagram media", ex);
         }
     }
 

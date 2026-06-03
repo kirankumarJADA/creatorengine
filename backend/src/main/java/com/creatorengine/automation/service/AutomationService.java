@@ -56,6 +56,7 @@ public class AutomationService {
                 ? existing.getName()
                 : req.name().trim());
         existing.setTrigger(req.trigger());
+        existing.setTargetPostId(req.targetPostId());
         existing.setCondition(req.condition().toEntity());
         existing.setAction(incoming.getAction());
         existing.setMessage(incoming.getMessage());
