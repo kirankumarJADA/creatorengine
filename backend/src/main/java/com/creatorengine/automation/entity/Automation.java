@@ -1,6 +1,7 @@
 package com.creatorengine.automation.entity;
 
 import com.google.cloud.firestore.annotation.DocumentId;
+import com.google.cloud.firestore.annotation.Exclude;
 
 import java.time.Instant;
 import java.util.List;
@@ -174,7 +175,7 @@ public class Automation {
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
-
+   @Exclude
     public List<Action> getEffectiveActions() {
         if (actions != null && !actions.isEmpty()) {
             return actions;
