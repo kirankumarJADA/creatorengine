@@ -112,7 +112,19 @@ public class InstagramOAuthService {
                 .connected(true)
                 .build();
 
-        accountService.save(uid, account);
+       accountService.save(uid, account);
+
+        // Tell Meta to deliver this account's events to our webhook.
+        // (On Business Login for Instagram, mentions arrive inside the comments
+        //  payload — there is no separate "mentions" field to subscribe to.)
+        try {
+            apiClient.subscribeToWebhooks(igUserId, igToken);
+            log.info("Subscribed ig={} to webhook fields comments,messages", igUserId);
+        } catch (Exception ex) {
+            // Don't fail the connect if subscription fails — the account is saved
+            // and the subscription can be retried out of band.
+            log.error("Webhook subscription failed for ig={}: {}", igUserId, ex.getMessage());
+        }
 
         log.info("Connected Instagram account ig={} for uid={}", igUserId, uid);
         return uid;

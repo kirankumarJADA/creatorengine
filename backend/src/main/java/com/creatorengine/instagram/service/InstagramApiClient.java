@@ -97,6 +97,30 @@ public class InstagramApiClient {
         }
     }
 
+    /** Step 4: subscribe this IG account to webhook fields so events reach /api/webhook. */
+    public void subscribeToWebhooks(String igUserId, String igUserToken) {
+        try {
+            MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+            form.add("subscribed_fields", "comments,messages");
+            form.add("access_token", igUserToken);
+
+            String body = http.post()
+                    .uri(GRAPH_BASE + "/" + igUserId + "/subscribed_apps")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(form)
+                    .retrieve()
+                    .body(String.class);
+
+            String normalized = body == null ? "" : body.replaceAll("\\s", "");
+            if (!normalized.contains("\"success\":true")) {
+                throw new BadRequestException(
+                        "Instagram did not confirm webhook subscription. Response: " + body);
+            }
+        } catch (HttpStatusCodeException ex) {
+            throw translate("Failed to subscribe to Instagram webhooks", ex);
+        }
+    }
+
     public void refreshLongLivedTokenPlaceholder(String currentLongLivedToken) {
         log.debug("Token refresh placeholder - not yet implemented.");
     }
