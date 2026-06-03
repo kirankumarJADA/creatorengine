@@ -78,6 +78,7 @@ public class WebhookService {
     }
 
     private ProcessingResult parseAndDispatch(String rawBody) {
+        log.info("RAW webhook body >>> {}", rawBody);   // TEMP debug — remove after we fix the parser
         List<WebhookEventDto> events = parser.parse(rawBody);
         log.info("Webhook payload parsed: {} event(s).", events.size());
 
