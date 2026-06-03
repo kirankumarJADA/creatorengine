@@ -35,7 +35,7 @@ public class MetaMessagingService {
             synchronized (this) {
                 if (client == null) {
                     client = RestClient.builder()
-                            .baseUrl("https://graph.facebook.com/" + props.getMeta().getGraphApiVersion())
+                            .baseUrl("https://graph.instagram.com/" + props.getMeta().getGraphApiVersion())
                             .defaultHeader("Content-Type", "application/json")
                             .defaultHeader("Accept", "application/json")
                             .build();
