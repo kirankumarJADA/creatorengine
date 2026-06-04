@@ -29,6 +29,18 @@ const instagramService = {
     return data;
   },
 
+  /**
+   * Lists the connected account's recent posts for the automation
+   * post-picker. Returns an array of media items:
+   *   { id, caption, mediaType, mediaUrl, thumbnailUrl, permalink, timestamp }
+   * (some fields may arrive snake_case from the backend; the picker
+   * handles both.)
+   */
+  getMedia: async () => {
+    const { data } = await api.get('/instagram/media');
+    return Array.isArray(data) ? data : [];
+  },
+
   disconnect: async () => {
     await api.post(API_ENDPOINTS.IG_DISCONNECT);
   },

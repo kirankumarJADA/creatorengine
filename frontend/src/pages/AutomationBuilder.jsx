@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 
 import StepIndicator from '../components/builder/StepIndicator.jsx';
 import TriggerStep   from '../components/builder/TriggerStep.jsx';
+import PostPicker    from '../components/builder/PostPicker.jsx';
 import ConditionStep from '../components/builder/ConditionStep.jsx';
 import ActionStep    from '../components/builder/ActionStep.jsx';
 import MessageStep   from '../components/builder/MessageStep.jsx';
@@ -140,6 +141,7 @@ const AutomationBuilder = () => {
     const payload = {
       name: draft.name?.trim() || autoName(draft),
       trigger: draft.trigger,
+      targetPostId: draft.targetPostId ?? null,   // NEW: which post this automation watches (null = all)
       condition: draft.condition,
       // Canonical chain — backend prefers this over legacy action+message.
       actions: draft.actions,
@@ -212,7 +214,12 @@ const AutomationBuilder = () => {
             exit={{ opacity: 0, x: -12 }}
             transition={{ duration: 0.2 }}
           >
-            {builderStep === 1 && <TriggerStep />}
+            {builderStep === 1 && (
+              <>
+                <TriggerStep />
+                <PostPicker />
+              </>
+            )}
             {builderStep === 2 && <ConditionStep errors={errors} />}
             {builderStep === 3 && <ActionStep errors={errors} />}
             {builderStep === 4 && <MessageStep errors={errors} />}

@@ -39,6 +39,7 @@ export const blankAction = (type = ACTION_TYPE.SEND_MESSAGE) => ({
 const emptyDraft = () => ({
   name: '',
   trigger: null,
+  targetPostId: null,          // NEW: IG media id to scope a comment automation to one post; null = all posts
   condition: {
     type: CONDITION_TYPE.ANY,
     keyword: '',
@@ -98,6 +99,7 @@ export const useBuilderStore = create((set, get) => ({
     draft: {
       name:      automation.name || '',
       trigger:   automation.trigger ?? null,
+      targetPostId: automation.targetPostId ?? null,   // NEW
       condition: {
         type:      automation.condition?.type      ?? CONDITION_TYPE.ANY,
         keyword:   automation.condition?.keyword   ?? '',
@@ -127,6 +129,9 @@ export const useBuilderStore = create((set, get) => ({
   // ─── Top-level mutations ───────────────────────
   setTrigger: (trigger) =>
     set((s) => ({ draft: { ...s.draft, trigger } })),
+
+  setTargetPostId: (targetPostId) =>          // NEW
+    set((s) => ({ draft: { ...s.draft, targetPostId } })),
 
   setConditionType: (type) =>
     set((s) => ({ draft: { ...s.draft, condition: { ...s.draft.condition, type } } })),
