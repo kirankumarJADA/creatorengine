@@ -64,4 +64,18 @@ public class WebhookController {
                         "orphaned", result.orphaned()
                 )));
     }
+
+    // ===== TEMPORARY TEST ENDPOINT — REMOVE BEFORE PRODUCTION =====
+    @PostMapping(value = "/replay", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "TEMP: replay an unsigned payload to test the engine end-to-end")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> replay(@RequestBody String rawBody) {
+        log.warn("TEMP /api/webhook/replay invoked — unsigned test endpoint, REMOVE before production.");
+        ProcessingResult result = webhookService.processUnsigned(rawBody);
+        return ResponseEntity.ok(ApiResponse.ok(
+                "Replayed.",
+                Map.of(
+                        "attributed", result.attributed(),
+                        "orphaned", result.orphaned()
+                )));
+    }
 }
