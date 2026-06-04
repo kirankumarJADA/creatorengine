@@ -32,10 +32,11 @@ public class AutomationMatcher {
         List<Automation> filtered = all.stream()
                 .filter(Automation::getEnabled)
                 .filter(a -> matchesTriggerType(a, expectedTrigger))
+                .filter(a -> matchesTargetPost(a, event))
                 .toList();
 
-        log.debug("Matcher uid={} event={} candidates={} total={}",
-                uid, expectedTrigger, filtered.size(), all.size());
+        log.debug("Matcher uid={} event={} postId={} candidates={} total={}",
+                uid, expectedTrigger, event.postId(), filtered.size(), all.size());
 
         return filtered;
     }
@@ -45,5 +46,23 @@ public class AutomationMatcher {
             return false;
         }
         return a.getTrigger().name().equals(eventType.name());
+    }
+
+    /**
+     * Post targeting. When an automation sets a targetPostId it only fires on
+     * comments on that one post. A null/blank targetPostId means "any post".
+     * Events with no post context (e.g. DMs) skip this filter, so the field is
+     * effectively ignored for DM triggers.
+     */
+    private boolean matchesTargetPost(Automation a, WebhookEventDto event) {
+        String target = a.getTargetPostId();
+        if (target == null || target.isBlank()) {
+            return true;
+        }
+        String eventPostId = event.postId();
+        if (eventPostId == null) {
+            return true;
+        }
+        return eventPostId.equals(target);
     }
 }
