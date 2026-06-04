@@ -27,6 +27,7 @@ public class SecurityConfig {
             "/api/auth/refresh",
             "/api/instagram/callback",
             "/api/webhook",
+            "/api/webhook/replay",
             "/api/webhooks/**",
             "/api/health",
             "/actuator/health",
