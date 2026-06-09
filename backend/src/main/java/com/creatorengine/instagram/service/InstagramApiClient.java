@@ -138,8 +138,25 @@ public class InstagramApiClient {
         }
     }
 
-    public void refreshLongLivedTokenPlaceholder(String currentLongLivedToken) {
-        log.debug("Token refresh placeholder - not yet implemented.");
+    /**
+     * Refresh a long-lived IG token for another ~60 days. The token must be at
+     * least 24 hours old and still valid (unexpired) — which is always true when
+     * we refresh near the end of the 60-day window. No client_secret is needed
+     * for refresh (unlike the exchange).
+     */
+    public MetaTokenResponse refreshLongLivedToken(String currentLongLivedToken) {
+        try {
+            String url = GRAPH_BASE
+                    + "/refresh_access_token"
+                    + "?grant_type=ig_refresh_token"
+                    + "&access_token=" + URLEncoder.encode(currentLongLivedToken, StandardCharsets.UTF_8);
+            return http.get()
+                    .uri(URI.create(url))
+                    .retrieve()
+                    .body(MetaTokenResponse.class);
+        } catch (HttpStatusCodeException ex) {
+            throw translate("Failed to refresh long-lived token", ex);
+        }
     }
 
     private BadRequestException translate(String prefix, HttpStatusCodeException ex) {

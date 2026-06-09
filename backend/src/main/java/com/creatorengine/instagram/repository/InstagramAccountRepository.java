@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
@@ -71,6 +73,25 @@ public class InstagramAccountRepository {
             return Optional.of(new OwnedAccount(uid, account));
         } catch (InterruptedException | ExecutionException e) {
             throw wrap("findByInstagramUserId", e);
+        }
+    }
+
+    /** Every connected/disconnected account across all users (for the token-refresh sweep). */
+    public List<OwnedAccount> findAll() {
+        try {
+            var docs = firestore.collectionGroup(SUBCOLLECTION)
+                    .get().get()
+                    .getDocuments();
+
+            List<OwnedAccount> result = new ArrayList<>(docs.size());
+            for (QueryDocumentSnapshot doc : docs) {
+                String uid = doc.getReference().getParent().getParent().getId();
+                InstagramAccount account = doc.toObject(InstagramAccount.class);
+                result.add(new OwnedAccount(uid, account));
+            }
+            return result;
+        } catch (InterruptedException | ExecutionException e) {
+            throw wrap("findAll", e);
         }
     }
 
