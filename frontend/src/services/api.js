@@ -3,18 +3,6 @@ import toast from 'react-hot-toast';
 import { storage } from '../utils/storage.js';
 import { STORAGE_KEYS, ROUTES } from '../utils/constants.js';
 
-/**
- * Centralised axios instance.
- *
- * Responsibilities:
- *   - Attach the JWT access token to every outgoing request.
- *   - Unwrap the backend's { success, data, message } envelope so
- *     callers see `response.data` as the actual payload.
- *   - Surface readable error messages via toast when the response is 4xx/5xx.
- *   - On 401, clear local auth state and redirect to /login (a manual
- *     refresh-token retry isn't part of this auth-only foundation, but
- *     the hook is there if needed).
- */
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
@@ -36,20 +24,124 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ─── Response: unwrap envelope + central error handling ────────────
+// ─── Token refresh plumbing ────────────────────────────────────────
+// When the access token expires, the next request 401s. Instead of
+// logging the user out, we use the stored refresh token to mint a new
+// access token (once) and retry. Concurrent 401s are queued so we only
+// refresh a single time.
+let isRefreshing = false;
+let pendingQueue = [];
+
+const flushQueue = (error, token = null) => {
+  pendingQueue.forEach(({ resolve, reject }) => {
+    if (error) reject(error);
+    else resolve(token);
+  });
+  pendingQueue = [];
+};
+
+const clearSession = () => {
+  storage.remove(STORAGE_KEYS.ACCESS_TOKEN);
+  storage.remove(STORAGE_KEYS.REFRESH_TOKEN);
+  storage.remove(STORAGE_KEYS.USER);
+};
+
+const redirectToLogin = () => {
+  const onAuthPage = [
+    ROUTES.LOGIN,
+    ROUTES.REGISTER,
+    ROUTES.FORGOT_PASSWORD,
+  ].includes(window.location.pathname);
+  if (!onAuthPage) {
+    window.location.href = ROUTES.LOGIN;
+  }
+};
+
+// ─── Response: unwrap envelope + refresh-on-401 + error handling ────
 api.interceptors.response.use(
   (response) => {
     const body = response.data;
-    // Backend wraps payloads as { success, data, message }. Unwrap `data`
-    // so callers don't have to know about the envelope. Keep the full
-    // envelope under `response.raw` for endpoints that want it.
+    // Backend wraps payloads as { success, data, message }. Unwrap `data`.
     if (body && typeof body === 'object' && 'data' in body) {
       return { ...response, data: body.data, raw: body };
     }
     return response;
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config || {};
     const status = error.response?.status;
+
+    // Network error / timeout
+    if (!error.response) {
+      if (!originalRequest.silent) {
+        toast.error('Network error — please check your connection.');
+      }
+      return Promise.reject(error);
+    }
+
+    if (status === 401) {
+      const isRefreshCall = (originalRequest.url || '').includes('/auth/refresh');
+      const refreshToken = storage.get(STORAGE_KEYS.REFRESH_TOKEN);
+
+      // We can still try to refresh: not already retried, not the refresh
+      // call itself, and we actually have a refresh token.
+      if (!originalRequest._retry && !isRefreshCall && refreshToken) {
+        originalRequest._retry = true;
+
+        // A refresh is already in flight — wait for it, then retry.
+        if (isRefreshing) {
+          return new Promise((resolve, reject) => {
+            pendingQueue.push({ resolve, reject });
+          }).then((newToken) => {
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return api(originalRequest);
+          });
+        }
+
+        isRefreshing = true;
+        try {
+          // Raw axios (no interceptors) so this call can't recurse.
+          const resp = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+            refreshToken,
+          });
+          const data = resp.data?.data ?? resp.data;
+          const newAccess = data.accessToken;
+          const newRefresh = data.refreshToken;
+
+          storage.set(STORAGE_KEYS.ACCESS_TOKEN, newAccess);
+          if (newRefresh) storage.set(STORAGE_KEYS.REFRESH_TOKEN, newRefresh);
+          if (data.user) storage.set(STORAGE_KEYS.USER, data.user);
+
+          flushQueue(null, newAccess);
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers.Authorization = `Bearer ${newAccess}`;
+          return api(originalRequest);
+        } catch (refreshError) {
+          // Refresh token is also expired/invalid → real logout.
+          flushQueue(refreshError, null);
+          clearSession();
+          if (!originalRequest.silent) {
+            toast.error('Your session has expired. Please log in again.');
+            redirectToLogin();
+          }
+          return Promise.reject(refreshError);
+        } finally {
+          isRefreshing = false;
+        }
+      }
+
+      // No refresh possible (no token, the refresh call itself, or already
+      // retried) → the session is genuinely over.
+      clearSession();
+      if (!originalRequest.silent) {
+        toast.error('Your session has expired. Please log in again.');
+        redirectToLogin();
+      }
+      return Promise.reject(error);
+    }
+
+    // ─── Other 4xx/5xx ───
     const apiData = error.response?.data;
     const message =
       apiData?.message ||
@@ -57,33 +149,7 @@ api.interceptors.response.use(
       error.message ||
       'Something went wrong.';
 
-    // Network error / timeout
-    if (!error.response) {
-      toast.error('Network error — please check your connection.');
-      return Promise.reject(error);
-    }
-
-    // 401 — kill the session unless we explicitly silenced it
-    if (status === 401 && !error.config?.silent) {
-      storage.remove(STORAGE_KEYS.ACCESS_TOKEN);
-      storage.remove(STORAGE_KEYS.REFRESH_TOKEN);
-      storage.remove(STORAGE_KEYS.USER);
-      // Avoid bouncing if we're already on an auth page
-      const onAuthPage = [
-        ROUTES.LOGIN,
-        ROUTES.REGISTER,
-        ROUTES.FORGOT_PASSWORD,
-      ].includes(window.location.pathname);
-      if (!onAuthPage) {
-        toast.error('Your session has expired. Please log in again.');
-        window.location.href = ROUTES.LOGIN;
-      }
-      return Promise.reject(error);
-    }
-
-    // Other 4xx/5xx — show the toast unless the caller silenced it.
-    // Validation errors (errors array) tend to look better as a single line.
-    if (!error.config?.silent) {
+    if (!originalRequest.silent) {
       toast.error(message);
     }
 

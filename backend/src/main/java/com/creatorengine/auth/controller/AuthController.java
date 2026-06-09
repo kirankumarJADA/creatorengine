@@ -3,6 +3,7 @@ package com.creatorengine.auth.controller;
 import com.creatorengine.auth.dto.AuthResponse;
 import com.creatorengine.auth.dto.ForgotPasswordRequest;
 import com.creatorengine.auth.dto.LoginRequest;
+import com.creatorengine.auth.dto.RefreshRequest;
 import com.creatorengine.auth.dto.RegisterRequest;
 import com.creatorengine.auth.dto.UserResponse;
 import com.creatorengine.auth.service.AuthService;
@@ -33,6 +34,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest req) {
         return ResponseEntity.ok(ApiResponse.ok("Logged in.", authService.login(req)));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<AuthResponse>> refresh(@Valid @RequestBody RefreshRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Token refreshed.", authService.refresh(req.refreshToken())));
     }
 
     @PostMapping("/logout")

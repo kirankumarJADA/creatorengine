@@ -16,6 +16,7 @@ import com.creatorengine.security.JwtTokenProvider;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
+import io.jsonwebtoken.Claims;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -111,6 +112,25 @@ public class AuthService {
         userRepository.save(user);
 
         log.debug("Login OK for uid={}", uid);
+        return buildAuthResponse(user);
+    }
+
+    public AuthResponse refresh(String refreshToken) {
+        if (refreshToken == null || !tokenProvider.isValidRefreshToken(refreshToken)) {
+            throw new UnauthorizedException("Invalid or expired refresh token. Please log in again.");
+        }
+
+        Claims claims = tokenProvider.parse(refreshToken);
+        String uid = claims.getSubject();
+
+        User user = userRepository.findById(uid)
+                .orElseThrow(() -> new UnauthorizedException("Account no longer exists."));
+
+        if (!user.getEnabled()) {
+            throw new UnauthorizedException("This account has been disabled.");
+        }
+
+        log.debug("Refreshed tokens for uid={}", uid);
         return buildAuthResponse(user);
     }
 
