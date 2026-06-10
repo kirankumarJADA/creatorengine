@@ -61,6 +61,8 @@ public class AutomationService {
         existing.setAction(incoming.getAction());
         existing.setMessage(incoming.getMessage());
         existing.setActions(incoming.getActions());
+        existing.setPublicReplyEnabled(incoming.getPublicReplyEnabled());
+        existing.setPublicReplies(incoming.getPublicReplies());
 
         if (req.enabled() != null) {
             existing.setEnabled(req.enabled());

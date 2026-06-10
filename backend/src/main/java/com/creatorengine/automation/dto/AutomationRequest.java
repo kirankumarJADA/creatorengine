@@ -63,7 +63,17 @@ public record AutomationRequest(
         Boolean enabled,
 
         /** Anti-spam cooldown in minutes. Null/0 = no cooldown. Capped at 24 hours. */
-        Integer cooldownMinutes
+        Integer cooldownMinutes,
+
+        /** Master toggle: also post a public reply on the triggering comment. */
+        Boolean publicReplyEnabled,
+
+        /**
+         * Public reply templates (max 10). One *active* template is chosen
+         * at random per triggering comment.
+         */
+        @Size(max = 10, message = "At most 10 public replies")
+        @Valid List<PublicReplyDto> publicReplies
 ) {
 
     /** Hard caps on DELAY action duration. */
@@ -85,6 +95,17 @@ public record AutomationRequest(
             validateChain();
         } else {
             validateLegacyAction();
+        }
+
+        if (Boolean.TRUE.equals(publicReplyEnabled)) {
+            boolean anyActive = publicReplies != null && publicReplies.stream()
+                    .anyMatch(r -> r != null
+                            && r.text() != null && !r.text().isBlank()
+                            && (r.enabled() == null || r.enabled()));
+            if (!anyActive) {
+                throw new BadRequestException(
+                        "Add at least one active public reply, or turn off public replies.");
+            }
         }
     }
 
@@ -164,7 +185,15 @@ public record AutomationRequest(
                 .targetPostId(targetPostId)
                 .condition(condition.toEntity())
                 .enabled(enabled == null || enabled)
-                .cooldownMinutes(cooldownMinutes == null ? 0 : Math.max(0, Math.min(cooldownMinutes, 24 * 60)));
+                .cooldownMinutes(cooldownMinutes == null ? 0 : Math.max(0, Math.min(cooldownMinutes, 24 * 60)))
+                .publicReplyEnabled(Boolean.TRUE.equals(publicReplyEnabled));
+
+        if (publicReplies != null) {
+            builder.publicReplies(publicReplies.stream()
+                    .filter(r -> r != null && r.text() != null && !r.text().isBlank())
+                    .map(PublicReplyDto::toEntity)
+                    .toList());
+        }
 
         if (actions != null && !actions.isEmpty()) {
             // New chain — write to actions[] and clear legacy fields so they

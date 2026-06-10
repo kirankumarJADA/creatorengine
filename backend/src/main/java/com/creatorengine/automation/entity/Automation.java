@@ -13,13 +13,18 @@ public class Automation {
 
     private String name;
     private TriggerType trigger;
-    private String targetPostId;          // NEW: IG media id this automation targets; null = all posts
+    private String targetPostId;          // IG media id this automation targets; null = all posts
     private Condition condition = new Condition();
     private Action action = new Action();
     private String message;
     private List<Action> actions;
     private boolean enabled = true;
     private int cooldownMinutes = 0;
+
+    // Public comment reply: master toggle + rotating templates
+    private boolean publicReplyEnabled = false;
+    private List<PublicReply> publicReplies;
+
     private long runCount;
     private long successCount;
     private Instant createdAt;
@@ -39,6 +44,8 @@ public class Automation {
             List<Action> actions,
             boolean enabled,
             int cooldownMinutes,
+            boolean publicReplyEnabled,
+            List<PublicReply> publicReplies,
             long runCount,
             long successCount,
             Instant createdAt,
@@ -54,6 +61,8 @@ public class Automation {
         this.actions = actions;
         this.enabled = enabled;
         this.cooldownMinutes = cooldownMinutes;
+        this.publicReplyEnabled = publicReplyEnabled;
+        this.publicReplies = publicReplies;
         this.runCount = runCount;
         this.successCount = successCount;
         this.createdAt = createdAt;
@@ -144,6 +153,22 @@ public class Automation {
         this.cooldownMinutes = cooldownMinutes;
     }
 
+    public boolean getPublicReplyEnabled() {
+        return publicReplyEnabled;
+    }
+
+    public void setPublicReplyEnabled(boolean publicReplyEnabled) {
+        this.publicReplyEnabled = publicReplyEnabled;
+    }
+
+    public List<PublicReply> getPublicReplies() {
+        return publicReplies;
+    }
+
+    public void setPublicReplies(List<PublicReply> publicReplies) {
+        this.publicReplies = publicReplies;
+    }
+
     public long getRunCount() {
         return runCount;
     }
@@ -175,7 +200,8 @@ public class Automation {
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
-   @Exclude
+
+    @Exclude
     public List<Action> getEffectiveActions() {
         if (actions != null && !actions.isEmpty()) {
             return actions;
@@ -205,6 +231,8 @@ public class Automation {
         private List<Action> actions;
         private boolean enabled = true;
         private int cooldownMinutes = 0;
+        private boolean publicReplyEnabled = false;
+        private List<PublicReply> publicReplies;
         private long runCount;
         private long successCount;
         private Instant createdAt;
@@ -260,6 +288,16 @@ public class Automation {
             return this;
         }
 
+        public AutomationBuilder publicReplyEnabled(boolean publicReplyEnabled) {
+            this.publicReplyEnabled = publicReplyEnabled;
+            return this;
+        }
+
+        public AutomationBuilder publicReplies(List<PublicReply> publicReplies) {
+            this.publicReplies = publicReplies;
+            return this;
+        }
+
         public AutomationBuilder runCount(long runCount) {
             this.runCount = runCount;
             return this;
@@ -292,6 +330,8 @@ public class Automation {
                     actions,
                     enabled,
                     cooldownMinutes,
+                    publicReplyEnabled,
+                    publicReplies,
                     runCount,
                     successCount,
                     createdAt,
@@ -449,6 +489,36 @@ public class Automation {
             public Action build() {
                 return new Action(type, link, message, delaySeconds);
             }
+        }
+    }
+
+    /** One public-reply template: its text and whether it's in the rotation. */
+    public static class PublicReply {
+        private String text;
+        private boolean enabled = true;
+
+        public PublicReply() {
+        }
+
+        public PublicReply(String text, boolean enabled) {
+            this.text = text;
+            this.enabled = enabled;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        public void setText(String text) {
+            this.text = text;
+        }
+
+        public boolean getEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
         }
     }
 }

@@ -15,6 +15,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
+
 @Component
 public class ActionExecutor {
 
@@ -89,10 +92,65 @@ public class ActionExecutor {
 
         if (result.success()) {
             contactService.recordFromEvent(ctx.uid(), ctx.event(), message);
+            maybePostPublicReply(ctx, tokenCtx);
             return ExecutionResult.sent(message, result.messageId());
         }
 
         return ExecutionResult.failed(message, result.error(), result.httpStatus());
+    }
+
+    /**
+     * For COMMENT-triggered automations with public replies turned on, post one
+     * of the automation's *active* reply templates on the comment, in addition
+     * to the private DM. Best-effort — a failure here never affects the DM.
+     */
+    private void maybePostPublicReply(ExecutionContext ctx, AccessTokenContext tokenCtx) {
+        var event = ctx.event();
+        if (event == null || event.type() != EventType.COMMENT) {
+            return;
+        }
+
+        Automation automation = ctx.automation();
+        if (automation == null || !automation.getPublicReplyEnabled()) {
+            return;
+        }
+
+        String commentId = event.commentId();
+        if (commentId == null || commentId.isBlank()) {
+            return;
+        }
+
+        List<String> active = activeReplyTexts(automation);
+        if (active.isEmpty()) {
+            return;
+        }
+
+        String template = active.get(ThreadLocalRandom.current().nextInt(active.size()));
+        String reply = templateRenderer.renderWithUsername(template, event.username());
+
+        try {
+            SendResult result = metaMessaging.replyToComment(commentId, reply, tokenCtx);
+            if (result.success()) {
+                log.info("Public reply posted on comment_id={}", commentId);
+            } else {
+                log.warn("Public reply failed for comment_id={}: {}", commentId, result.error());
+            }
+        } catch (Exception ex) {
+            log.warn("Public reply threw for comment_id={}: {}", commentId, ex.getMessage());
+        }
+    }
+
+    private static List<String> activeReplyTexts(Automation automation) {
+        var replies = automation.getPublicReplies();
+        if (replies == null || replies.isEmpty()) {
+            return List.of();
+        }
+
+        return replies.stream()
+                .filter(r -> r != null && r.getEnabled())
+                .map(Automation.PublicReply::getText)
+                .filter(t -> t != null && !t.isBlank())
+                .toList();
     }
 
     private ExecutionResult saveContactOnly(ExecutionContext ctx, String renderedMessage) {

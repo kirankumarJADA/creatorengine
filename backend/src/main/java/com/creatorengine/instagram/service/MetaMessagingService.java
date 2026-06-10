@@ -94,6 +94,50 @@ public class MetaMessagingService {
         }
     }
 
+    /**
+     * Post a PUBLIC reply on a comment (visible to everyone on the post).
+     * Endpoint: POST /{comment-id}/replies?message=...  This is separate from
+     * the private DM sent via /{ig-id}/messages. Best-effort: callers should
+     * not fail the whole automation if this fails.
+     */
+    public SendResult replyToComment(String commentId, String text, AccessTokenContext ctx) {
+        if (commentId == null || commentId.isBlank() || text == null || text.isBlank()) {
+            return SendResult.failure("Empty comment id or reply text.", 0);
+        }
+
+        if (ctx == null || ctx.pageAccessToken() == null) {
+            return SendResult.failure("Instagram account not connected.", 0);
+        }
+
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = client().post()
+                    .uri(uri -> uri
+                            .path("/" + commentId + "/replies")
+                            .queryParam("message", text)
+                            .queryParam("access_token", ctx.pageAccessToken())
+                            .build())
+                    .retrieve()
+                    .body(Map.class);
+
+            String replyId = response != null
+                    ? String.valueOf(response.getOrDefault("id", ""))
+                    : null;
+
+            log.info("Public reply posted comment_id={} reply_id={}", commentId, replyId);
+            return SendResult.success(replyId);
+        } catch (HttpStatusCodeException ex) {
+            String responseBody = ex.getResponseBodyAsString();
+            log.warn("Public reply failed status={} body={}", ex.getStatusCode(), responseBody);
+            return SendResult.failure(
+                    "Meta returned " + ex.getStatusCode() + ": " + responseBody,
+                    ex.getStatusCode().value());
+        } catch (Exception ex) {
+            log.warn("Public reply failed unexpectedly: {}", ex.getMessage());
+            return SendResult.failure(ex.getMessage(), 0);
+        }
+    }
+
     public sealed interface Recipient permits ByUserId, ByCommentId {
         Map<String, Object> toJsonShape();
     }

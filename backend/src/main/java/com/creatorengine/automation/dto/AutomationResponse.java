@@ -17,6 +17,8 @@ public record AutomationResponse(
         List<ActionDto> actions,
         boolean enabled,
         int cooldownMinutes,
+        boolean publicReplyEnabled,
+        List<PublicReplyDto> publicReplies,
         long runCount,
         long successCount,
         Instant createdAt,
@@ -26,6 +28,10 @@ public record AutomationResponse(
         List<ActionDto> effective = a.getEffectiveActions().stream()
                 .map(ActionDto::from)
                 .toList();
+
+        List<PublicReplyDto> replies = a.getPublicReplies() == null
+                ? List.of()
+                : a.getPublicReplies().stream().map(PublicReplyDto::from).toList();
 
         return new AutomationResponse(
                 a.getId(),
@@ -38,6 +44,8 @@ public record AutomationResponse(
                 effective,
                 a.getEnabled(),
                 a.getCooldownMinutes(),
+                a.getPublicReplyEnabled(),
+                replies,
                 a.getRunCount(),
                 a.getSuccessCount(),
                 a.getCreatedAt(),
