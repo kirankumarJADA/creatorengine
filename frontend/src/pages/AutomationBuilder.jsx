@@ -137,14 +137,29 @@ const AutomationBuilder = () => {
       return;
     }
 
+    const isCommentTrigger = String(draft.trigger || '').toUpperCase().includes('COMMENT');
+    const publicReplyEnabled = isCommentTrigger && draft.publicReplyEnabled === true;
+    const publicReplies = (draft.publicReplies || [])
+      .filter((r) => r.text && r.text.trim())
+      .map((r) => ({ text: r.text.trim(), enabled: r.enabled !== false }));
+
+    // Mirror the backend rule: toggle on ⇒ at least one active template.
+    if (publicReplyEnabled && !publicReplies.some((r) => r.enabled)) {
+      toast.error('Add at least one active public reply, or turn off public replies.');
+      goToStep(4);
+      return;
+    }
+
     setIsSaving(true);
     const payload = {
       name: draft.name?.trim() || autoName(draft),
       trigger: draft.trigger,
-      targetPostId: draft.targetPostId ?? null,   // NEW: which post this automation watches (null = all)
+      targetPostId: draft.targetPostId ?? null,   // which post this automation watches (null = all)
       condition: draft.condition,
       // Canonical chain — backend prefers this over legacy action+message.
       actions: draft.actions,
+      publicReplyEnabled,
+      publicReplies,
       enabled: draft.enabled,
     };
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Hourglass, UserCheck, MessageCircle, Link2, ArrowDown } from 'lucide-react';
 import DmPreview from './DmPreview.jsx';
+import PublicReplyEditor from './PublicReplyEditor.jsx';
 import { useBuilderStore } from '../../store/builderStore.js';
 import { renderTemplate } from '../../utils/automationEngine.js';
 import { ACTION_TYPE } from '../../utils/constants.js';
@@ -9,11 +10,8 @@ import { cn } from '../../utils/helpers.js';
 /**
  * Preview step — renders the multi-action chain with {{username}}
  * substituted, so the user can sanity-check what the recipient will
- * actually experience.
- *
- * This used to be the single-message editor. With per-action message
- * editing in Step 3, this step is now read-only — it's the dress
- * rehearsal before Review.
+ * actually experience. Also hosts the public comment reply settings
+ * for comment-triggered automations.
  */
 const MessageStep = () => {
   const actions = useBuilderStore((s) => s.draft.actions);
@@ -62,6 +60,9 @@ const MessageStep = () => {
           </li>
         ))}
       </ol>
+
+      {/* Public comment reply settings (comment triggers only) */}
+      <PublicReplyEditor />
     </div>
   );
 };

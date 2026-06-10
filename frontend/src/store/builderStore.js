@@ -39,7 +39,7 @@ export const blankAction = (type = ACTION_TYPE.SEND_MESSAGE) => ({
 const emptyDraft = () => ({
   name: '',
   trigger: null,
-  targetPostId: null,          // NEW: IG media id to scope a comment automation to one post; null = all posts
+  targetPostId: null,          // IG media id to scope a comment automation to one post; null = all posts
   condition: {
     type: CONDITION_TYPE.ANY,
     keyword: '',
@@ -50,6 +50,9 @@ const emptyDraft = () => ({
   message: '',
   // Canonical multi-step chain. Always starts with one blank send-message card.
   actions: [blankAction(ACTION_TYPE.SEND_MESSAGE)],
+  // Public comment reply: master toggle + rotating templates.
+  publicReplyEnabled: false,
+  publicReplies: [],
   enabled: true,
 });
 
@@ -80,6 +83,15 @@ const normalizeActionsFromBackend = (automation) => {
   return [blankAction(ACTION_TYPE.SEND_MESSAGE)];
 };
 
+/** Normalize publicReplies[] coming back from the API into draft shape. */
+const normalizePublicReplies = (automation) => {
+  if (!Array.isArray(automation.publicReplies)) return [];
+  return automation.publicReplies.map((r) => ({
+    text:    r.text ?? '',
+    enabled: r.enabled !== false,
+  }));
+};
+
 export const useBuilderStore = create((set, get) => ({
   // ─── State ─────────────────────────────────────
   step: 1,
@@ -99,7 +111,7 @@ export const useBuilderStore = create((set, get) => ({
     draft: {
       name:      automation.name || '',
       trigger:   automation.trigger ?? null,
-      targetPostId: automation.targetPostId ?? null,   // NEW
+      targetPostId: automation.targetPostId ?? null,
       condition: {
         type:      automation.condition?.type      ?? CONDITION_TYPE.ANY,
         keyword:   automation.condition?.keyword   ?? '',
@@ -112,6 +124,8 @@ export const useBuilderStore = create((set, get) => ({
       },
       message: automation.message ?? '',
       actions: normalizeActionsFromBackend(automation),
+      publicReplyEnabled: automation.publicReplyEnabled === true,
+      publicReplies: normalizePublicReplies(automation),
       enabled: automation.enabled !== false,
     },
   }),
@@ -130,7 +144,7 @@ export const useBuilderStore = create((set, get) => ({
   setTrigger: (trigger) =>
     set((s) => ({ draft: { ...s.draft, trigger } })),
 
-  setTargetPostId: (targetPostId) =>          // NEW
+  setTargetPostId: (targetPostId) =>
     set((s) => ({ draft: { ...s.draft, targetPostId } })),
 
   setConditionType: (type) =>
@@ -147,6 +161,40 @@ export const useBuilderStore = create((set, get) => ({
 
   setEnabled: (enabled) =>
     set((s) => ({ draft: { ...s.draft, enabled } })),
+
+  // ─── Public reply mutations ────────────────────
+  setPublicReplyEnabled: (publicReplyEnabled) =>
+    set((s) => ({ draft: { ...s.draft, publicReplyEnabled } })),
+
+  /** Replace the whole templates list (used for seeding defaults). */
+  setPublicReplies: (publicReplies) =>
+    set((s) => ({ draft: { ...s.draft, publicReplies } })),
+
+  addPublicReply: (text = '') =>
+    set((s) => {
+      if (s.draft.publicReplies.length >= 10) return s;
+      return {
+        draft: {
+          ...s.draft,
+          publicReplies: [...s.draft.publicReplies, { text, enabled: true }],
+        },
+      };
+    }),
+
+  updatePublicReply: (index, patch) =>
+    set((s) => {
+      const next = s.draft.publicReplies.map((r, i) =>
+        i === index ? { ...r, ...patch } : r);
+      return { draft: { ...s.draft, publicReplies: next } };
+    }),
+
+  removePublicReply: (index) =>
+    set((s) => ({
+      draft: {
+        ...s.draft,
+        publicReplies: s.draft.publicReplies.filter((_, i) => i !== index),
+      },
+    })),
 
   // ─── Legacy single-action mutations (still used by review fallbacks) ──
   setActionType: (type) =>
