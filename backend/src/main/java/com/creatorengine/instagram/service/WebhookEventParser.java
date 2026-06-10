@@ -107,6 +107,10 @@ public class WebhookEventParser {
         boolean isStoryReply = !message.path("reply_to").path("story").isMissingNode();
         EventType type = isStoryReply ? EventType.STORY_REPLY : EventType.DM;
 
+        // When a user taps a quick-reply button, the message carries the
+        // hidden payload we set on the button (e.g. "fgate:<automationId>").
+        String quickReplyPayload = text(message.path("quick_reply").path("payload"));
+
         return WebhookEventDto.builder()
                 .type(type)
                 .message(text(message.path("text")))
@@ -116,6 +120,7 @@ public class WebhookEventParser {
                         ? text(message.path("reply_to").path("story").path("id"))
                         : null)
                 .messageId(text(message.path("mid")))
+                .quickReplyPayload(quickReplyPayload)
                 .eventTime(msToInstant(timestampMs))
                 .receivingAccountId(accountId)
                 .build();

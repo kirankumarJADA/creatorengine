@@ -9,6 +9,7 @@ import com.creatorengine.instagram.service.MetaMessagingService;
 import com.creatorengine.instagram.service.MetaMessagingService.AccessTokenContext;
 import com.creatorengine.instagram.service.MetaMessagingService.ByCommentId;
 import com.creatorengine.instagram.service.MetaMessagingService.ByUserId;
+import com.creatorengine.instagram.service.MetaMessagingService.QuickReply;
 import com.creatorengine.instagram.service.MetaMessagingService.Recipient;
 import com.creatorengine.instagram.service.MetaMessagingService.SendResult;
 import org.slf4j.Logger;
@@ -69,6 +70,61 @@ public class ActionExecutor {
         }
 
         return execute(ctx, actions.get(0));
+    }
+
+    /**
+     * Follow-gate ASK: post the public reply (if enabled), then send the
+     * "please follow" DM with an "I Followed ✅" button as a private reply to
+     * the comment. The button's payload carries the automation id so the tap
+     * later delivers this automation's content.
+     */
+    public ExecutionResult executeFollowGateAsk(ExecutionContext ctx) {
+        InstagramAccount acct = ctx.connectedAccount();
+        if (acct == null) {
+            return ExecutionResult.failed(null, "Instagram account not connected.");
+        }
+
+        var event = ctx.event();
+        if (event == null || event.commentId() == null || event.commentId().isBlank()) {
+            return ExecutionResult.failed(null, "Follow gate requires a comment to reply to.");
+        }
+
+        Automation automation = ctx.automation();
+
+        String askText = templateRenderer.renderWithUsername(
+                automation.getFollowGateMessage(),
+                event.username()
+        );
+        if (askText == null || askText.isBlank()) {
+            return ExecutionResult.failed(null, "Follow-gate message is empty.");
+        }
+
+        String buttonLabel = automation.getFollowGateButtonLabel();
+        if (buttonLabel == null || buttonLabel.isBlank()) {
+            buttonLabel = "I Followed \u2705";
+        }
+
+        AccessTokenContext tokenCtx = AccessTokenContext.builder()
+                .instagramBusinessAccountId(acct.getInstagramUserId())
+                .pageAccessToken(acct.getAccessToken())
+                .build();
+
+        QuickReply button = new QuickReply(buttonLabel, "fgate:" + automation.getId());
+
+        SendResult result = metaMessaging.sendTextWithQuickReplies(
+                new ByCommentId(event.commentId()),
+                askText,
+                List.of(button),
+                tokenCtx
+        );
+
+        if (result.success()) {
+            contactService.recordFromEvent(ctx.uid(), event, askText);
+            maybePostPublicReply(ctx, tokenCtx);
+            return ExecutionResult.sent(askText, result.messageId());
+        }
+
+        return ExecutionResult.failed(askText, result.error(), result.httpStatus());
     }
 
     private ExecutionResult sendDirect(ExecutionContext ctx, String message) {

@@ -12,6 +12,7 @@ public record WebhookEventDto(
         String postId,
         String commentId,
         String messageId,
+        String quickReplyPayload,
         Instant eventTime,
         String receivingAccountId
 ) {
@@ -38,6 +39,7 @@ public record WebhookEventDto(
         private String postId;
         private String commentId;
         private String messageId;
+        private String quickReplyPayload;
         private Instant eventTime;
         private String receivingAccountId;
 
@@ -76,6 +78,11 @@ public record WebhookEventDto(
             return this;
         }
 
+        public WebhookEventDtoBuilder quickReplyPayload(String quickReplyPayload) {
+            this.quickReplyPayload = quickReplyPayload;
+            return this;
+        }
+
         public WebhookEventDtoBuilder eventTime(Instant eventTime) {
             this.eventTime = eventTime;
             return this;
@@ -95,6 +102,7 @@ public record WebhookEventDto(
                     postId,
                     commentId,
                     messageId,
+                    quickReplyPayload,
                     eventTime,
                     receivingAccountId
             );

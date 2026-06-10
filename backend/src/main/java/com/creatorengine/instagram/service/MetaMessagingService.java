@@ -9,6 +9,7 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Component
@@ -60,6 +61,41 @@ public class MetaMessagingService {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("recipient", recipient.toJsonShape());
         body.put("message", Map.of("text", text));
+
+        return post(ctx.instagramBusinessAccountId(), ctx.pageAccessToken(), body);
+    }
+
+    /**
+     * Send a text DM with quick-reply buttons (e.g. "I Followed ✅"). Each button
+     * carries a hidden payload that comes back to our webhook when tapped.
+     */
+    public SendResult sendTextWithQuickReplies(
+            Recipient recipient,
+            String text,
+            List<QuickReply> quickReplies,
+            AccessTokenContext ctx
+    ) {
+        if (recipient == null || text == null || text.isBlank()) {
+            return SendResult.failure("Empty recipient or message.", 0);
+        }
+
+        if (ctx == null
+                || ctx.instagramBusinessAccountId() == null
+                || ctx.pageAccessToken() == null) {
+            return SendResult.failure("Instagram account not connected.", 0);
+        }
+
+        Map<String, Object> message = new LinkedHashMap<>();
+        message.put("text", text);
+        if (quickReplies != null && !quickReplies.isEmpty()) {
+            message.put("quick_replies", quickReplies.stream()
+                    .map(QuickReply::toJsonShape)
+                    .toList());
+        }
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("recipient", recipient.toJsonShape());
+        body.put("message", message);
 
         return post(ctx.instagramBusinessAccountId(), ctx.pageAccessToken(), body);
     }
@@ -153,6 +189,18 @@ public class MetaMessagingService {
         @Override
         public Map<String, Object> toJsonShape() {
             return Map.of("comment_id", commentId);
+        }
+    }
+
+    /** One quick-reply button. Instagram caps the title at 20 chars. */
+    public record QuickReply(String title, String payload) {
+        public Map<String, Object> toJsonShape() {
+            String safeTitle = title == null ? "" : (title.length() > 20 ? title.substring(0, 20) : title);
+            return Map.of(
+                    "content_type", "text",
+                    "title", safeTitle,
+                    "payload", payload == null ? "" : payload
+            );
         }
     }
 

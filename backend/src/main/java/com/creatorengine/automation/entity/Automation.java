@@ -25,6 +25,12 @@ public class Automation {
     private boolean publicReplyEnabled = false;
     private List<PublicReply> publicReplies;
 
+    // Follow gate: ask the commenter to follow, then deliver the content
+    // after they tap the "I Followed" button (trust-based, no verification).
+    private boolean followGateEnabled = false;
+    private String followGateMessage;
+    private String followGateButtonLabel;
+
     private long runCount;
     private long successCount;
     private Instant createdAt;
@@ -46,6 +52,9 @@ public class Automation {
             int cooldownMinutes,
             boolean publicReplyEnabled,
             List<PublicReply> publicReplies,
+            boolean followGateEnabled,
+            String followGateMessage,
+            String followGateButtonLabel,
             long runCount,
             long successCount,
             Instant createdAt,
@@ -63,6 +72,9 @@ public class Automation {
         this.cooldownMinutes = cooldownMinutes;
         this.publicReplyEnabled = publicReplyEnabled;
         this.publicReplies = publicReplies;
+        this.followGateEnabled = followGateEnabled;
+        this.followGateMessage = followGateMessage;
+        this.followGateButtonLabel = followGateButtonLabel;
         this.runCount = runCount;
         this.successCount = successCount;
         this.createdAt = createdAt;
@@ -169,6 +181,30 @@ public class Automation {
         this.publicReplies = publicReplies;
     }
 
+    public boolean getFollowGateEnabled() {
+        return followGateEnabled;
+    }
+
+    public void setFollowGateEnabled(boolean followGateEnabled) {
+        this.followGateEnabled = followGateEnabled;
+    }
+
+    public String getFollowGateMessage() {
+        return followGateMessage;
+    }
+
+    public void setFollowGateMessage(String followGateMessage) {
+        this.followGateMessage = followGateMessage;
+    }
+
+    public String getFollowGateButtonLabel() {
+        return followGateButtonLabel;
+    }
+
+    public void setFollowGateButtonLabel(String followGateButtonLabel) {
+        this.followGateButtonLabel = followGateButtonLabel;
+    }
+
     public long getRunCount() {
         return runCount;
     }
@@ -233,6 +269,9 @@ public class Automation {
         private int cooldownMinutes = 0;
         private boolean publicReplyEnabled = false;
         private List<PublicReply> publicReplies;
+        private boolean followGateEnabled = false;
+        private String followGateMessage;
+        private String followGateButtonLabel;
         private long runCount;
         private long successCount;
         private Instant createdAt;
@@ -298,6 +337,21 @@ public class Automation {
             return this;
         }
 
+        public AutomationBuilder followGateEnabled(boolean followGateEnabled) {
+            this.followGateEnabled = followGateEnabled;
+            return this;
+        }
+
+        public AutomationBuilder followGateMessage(String followGateMessage) {
+            this.followGateMessage = followGateMessage;
+            return this;
+        }
+
+        public AutomationBuilder followGateButtonLabel(String followGateButtonLabel) {
+            this.followGateButtonLabel = followGateButtonLabel;
+            return this;
+        }
+
         public AutomationBuilder runCount(long runCount) {
             this.runCount = runCount;
             return this;
@@ -332,6 +386,9 @@ public class Automation {
                     cooldownMinutes,
                     publicReplyEnabled,
                     publicReplies,
+                    followGateEnabled,
+                    followGateMessage,
+                    followGateButtonLabel,
                     runCount,
                     successCount,
                     createdAt,

@@ -18,6 +18,7 @@ import com.creatorengine.automation.ratelimit.RateLimitService;
 import com.creatorengine.automation.repository.AutomationRepository;
 import com.creatorengine.automation.retry.RetryPolicy;
 import com.creatorengine.instagram.dto.WebhookEventDto;
+import com.creatorengine.instagram.entity.EventType;
 import com.creatorengine.instagram.entity.InstagramAccount;
 import com.creatorengine.instagram.service.InstagramAccountService;
 import org.slf4j.Logger;
@@ -32,6 +33,9 @@ import java.util.Optional;
 public class AutomationEngine {
 
     private static final Logger log = LoggerFactory.getLogger(AutomationEngine.class);
+
+    /** Prefix on the "I Followed" button payload: fgate:<automationId>. */
+    private static final String FOLLOW_GATE_PREFIX = "fgate:";
 
     private final AutomationMatcher matcher;
     private final ConditionEvaluator evaluator;
@@ -85,6 +89,14 @@ public class AutomationEngine {
             return;
         }
 
+        // Follow-gate completion: a tapped "I Followed" button arrives as a DM
+        // carrying fgate:<automationId>. Deliver that automation's content now,
+        // skipping normal matching.
+        if (event.type() == EventType.DM && isFollowGatePayload(event.quickReplyPayload())) {
+            handleFollowGateCompletion(uid, event);
+            return;
+        }
+
         List<Automation> candidates = matcher.findCandidates(uid, event);
         if (candidates.isEmpty()) {
             log.debug("No matching automations uid={} event={}", uid, event.type());
@@ -109,6 +121,34 @@ public class AutomationEngine {
         }
     }
 
+    private static boolean isFollowGatePayload(String payload) {
+        return payload != null && payload.startsWith(FOLLOW_GATE_PREFIX);
+    }
+
+    private void handleFollowGateCompletion(String uid, WebhookEventDto event) {
+        String automationId = event.quickReplyPayload().substring(FOLLOW_GATE_PREFIX.length());
+        if (automationId.isBlank()) {
+            log.warn("Follow-gate payload had no automation id.");
+            return;
+        }
+
+        Optional<Automation> automationOpt = automationRepository.findById(uid, automationId);
+        if (automationOpt.isEmpty()) {
+            log.info("Follow-gate completion: automation {} no longer exists.", automationId);
+            return;
+        }
+        if (!automationOpt.get().getEnabled()) {
+            log.info("Follow-gate completion: automation {} is disabled.", automationId);
+            return;
+        }
+
+        // Deliver the promised content now — runs the chain against this DM,
+        // so messages go to the sender (ByUserId) inside the 24h window.
+        AutomationJob job = AutomationJob.fresh(uid, event, automationId);
+        queue.enqueue(job);
+        log.info("Follow-gate completed for automation {} - delivering content.", automationId);
+    }
+
     public void processJob(AutomationJob job) {
         if (job == null || job.uid() == null || job.event() == null || job.automationId() == null) {
             log.warn("Worker got malformed job, skipping.");
@@ -131,6 +171,16 @@ public class AutomationEngine {
             return;
         }
 
+        InstagramAccount account = instagramAccountService.find(job.uid()).orElse(null);
+
+        // Follow-gate ASK phase: a gated COMMENT sends the "please follow" DM
+        // (with the button) instead of the content. The content is delivered
+        // later, when the tap arrives as a DM and runs the normal chain below.
+        if (automation.getFollowGateEnabled() && job.event().type() == EventType.COMMENT) {
+            runFollowGateAsk(job, automation, account);
+            return;
+        }
+
         List<Automation.Action> actions = automation.getEffectiveActions();
         if (actions.isEmpty()) {
             log.warn("Skipping job {} - automation {} has no actions",
@@ -144,7 +194,6 @@ public class AutomationEngine {
             return;
         }
 
-        InstagramAccount account = instagramAccountService.find(job.uid()).orElse(null);
         String rateKey = account != null ? account.getInstagramUserId() : null;
 
         int currentAttempt = Math.max(1, job.attempt());
@@ -246,6 +295,59 @@ public class AutomationEngine {
         }
 
         log.info("Job {} chain complete ({} action(s))", job.jobId(), actions.size());
+    }
+
+    /**
+     * Send the follow-gate ask (the "please follow + button" DM). Best-effort
+     * with the same rate-limit / retry / dead-letter handling as a normal send.
+     */
+    private void runFollowGateAsk(AutomationJob job, Automation automation, InstagramAccount account) {
+        String rateKey = account != null ? account.getInstagramUserId() : null;
+        if (rateKey != null && !rateLimitService.tryAcquire(rateKey)) {
+            Duration backoff = rateLimitService.suggestedBackoff(rateKey);
+            if (backoff.isZero() || backoff.isNegative()) {
+                backoff = Duration.ofSeconds(5);
+            }
+            queue.enqueueDelayed(job, backoff);
+            log.info("Follow-gate ask rate-limited, deferring {}s", backoff.toSeconds());
+            return;
+        }
+
+        ExecutionContext ctx = new ExecutionContext(job.uid(), automation, job.event(), account);
+        ExecutionResult result;
+        try {
+            result = executor.executeFollowGateAsk(ctx);
+        } catch (Exception ex) {
+            log.error("Follow-gate ask threw for automation {}: {}",
+                    automation.getId(), ex.getMessage(), ex);
+            result = ExecutionResult.failed(null,
+                    "Follow-gate ask exception: " + ex.getMessage(), null);
+        }
+
+        logger.logMatch(job.uid(), automation, job.event(), result);
+
+        if (result.messageSent()) {
+            cooldownService.recordFiring(job.uid(), automation, job.event());
+            return;
+        }
+
+        if (retryPolicy.isRetryable(result)) {
+            int nextAttempt = Math.max(1, job.attempt()) + 1;
+            if (nextAttempt <= retryPolicy.maxAttempts()) {
+                Duration delay = retryPolicy.backoffFor(nextAttempt);
+                queue.enqueueDelayed(
+                        job.withAttempt(nextAttempt).withLastError(result.error()), delay);
+                log.info("Follow-gate ask failed retryably (attempt {}), retrying in {}s: {}",
+                        nextAttempt, delay.toSeconds(), result.error());
+                return;
+            }
+            deadLetterService.record(job, automation,
+                    "Follow-gate ask max retries: " + result.error());
+            return;
+        }
+
+        deadLetterService.record(job, automation,
+                "Follow-gate ask failed: " + result.error());
     }
 
     private boolean isSaveContactSuccess(ExecutionResult result, Automation.Action action) {

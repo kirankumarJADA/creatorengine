@@ -63,6 +63,9 @@ public class AutomationService {
         existing.setActions(incoming.getActions());
         existing.setPublicReplyEnabled(incoming.getPublicReplyEnabled());
         existing.setPublicReplies(incoming.getPublicReplies());
+        existing.setFollowGateEnabled(incoming.getFollowGateEnabled());
+        existing.setFollowGateMessage(incoming.getFollowGateMessage());
+        existing.setFollowGateButtonLabel(incoming.getFollowGateButtonLabel());
 
         if (req.enabled() != null) {
             existing.setEnabled(req.enabled());
