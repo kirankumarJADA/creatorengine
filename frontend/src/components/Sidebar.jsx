@@ -43,11 +43,6 @@ const NAV_GROUPS = [
  * Sidebar — layout-agnostic. The parent decides whether to render it
  * as a fixed rail (desktop) or as the contents of a slide-in drawer
  * (mobile). All sidebar state lives in {@code useUiStore}.
- *
- * Props:
- *  - collapsed:   icon-only rail mode (desktop)
- *  - onNavigate:  optional callback fired when a link is tapped
- *                 (used by the mobile drawer to close itself)
  */
 const Sidebar = ({ collapsed = false, onNavigate }) => {
   const user = useAuthStore((s) => s.user);
@@ -139,7 +134,7 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
                         'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
                         collapsed && 'justify-center px-2',
                         isActive
-                          ? 'text-white dark:text-white'
+                          ? 'text-white'
                           : 'text-ink-700 hover:bg-ink-100 hover:text-ink-950 dark:text-ink-300 dark:hover:bg-ink-800 dark:hover:text-ink-100'
                       )
                     }
@@ -149,7 +144,7 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
                         {isActive && (
                           <motion.span
                             layoutId="sidebar-active-pill"
-                            className="absolute inset-0 -z-10 rounded-xl bg-ink-900 dark:bg-brand-600"
+                            className="absolute inset-0 -z-10 rounded-xl bg-brand-600 shadow-sm"
                             transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                           />
                         )}
