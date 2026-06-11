@@ -73,7 +73,7 @@ const Dashboard = () => {
   }, [fetchAutomations]);
 
   // ─── Derived values (real, never mock) ──────────
-  const igConnected     = Boolean(igStatus?.username);
+  const igConnected     = Boolean(igStatus?.username) || logs.length > 0;
   const hasAutomations  = automations.length > 0;
   const hasActivity     = logs.length > 0;
 
