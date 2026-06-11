@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Workflow,
@@ -6,11 +6,9 @@ import {
   Users,
   MessageSquare,
   Plus,
-  ArrowUpRight,
   Send,
   UserPlus,
   Play,
-  PauseCircle,
   Inbox,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -22,59 +20,97 @@ import StatCard from '../components/ui/StatCard.jsx';
 import Skeleton from '../components/ui/Skeleton.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import Button from '../components/form/Button.jsx';
+import OnboardingChecklist from '../components/dashboard/OnboardingChecklist.jsx';
 
 import { useAuthStore } from '../store/authStore.js';
+import { useAutomationStore } from '../store/automationStore.js';
+import dashboardService from '../services/dashboardService.js';
 import { ROUTES, TRIGGER_LABEL } from '../utils/constants.js';
 import { cn } from '../utils/helpers.js';
-import {
-  mockStats,
-  mockAutomations,
-  mockActivity,
-} from '../utils/mockData.js';
 
 /**
- * Analytics-style dashboard.
+ * Real-data dashboard.
  *
- * Layout:
+ *   [onboarding checklist (until all 3 steps done)]
  *   [4 stat cards across the top]
- *   [Recent activity (2/3)]     [Active automations preview (1/3)]
+ *   [Recent activity (2/3)] [Active automations preview (1/3)]
  *
- * The page simulates a network fetch on mount so the skeleton state
- * is visible long enough to verify it works — swap the timeout for
- * real API calls once the backend resources exist.
+ * All counts and feed items come from the live backend — automations
+ * via {@link useAutomationStore}, logs/contacts/IG status via
+ * {@link dashboardService}. Empty states are honest: a brand-new
+ * account sees zeros, not someone else's stats.
  */
 const Dashboard = () => {
   const user = useAuthStore((s) => s.user);
   const firstName = user?.name?.split(' ')[0] || 'there';
 
-  const [isLoading, setIsLoading] = useState(true);
+  const automations    = useAutomationStore((s) => s.automations);
+  const fetchAutomations = useAutomationStore((s) => s.fetchAutomations);
+
+  const [isLoading, setIsLoading]   = useState(true);
+  const [logs, setLogs]             = useState([]);
+  const [contacts, setContacts]     = useState([]);
+  const [igStatus, setIgStatus]     = useState(null);
+
   useEffect(() => {
-    const t = setTimeout(() => setIsLoading(false), 700);
-    return () => clearTimeout(t);
-  }, []);
+    let cancelled = false;
+
+    const load = async () => {
+      setIsLoading(true);
+      const [, snapshot] = await Promise.all([
+        fetchAutomations(),
+        dashboardService.loadAll(),
+      ]);
+      if (cancelled) return;
+      setLogs(snapshot.logs);
+      setContacts(snapshot.contacts);
+      setIgStatus(snapshot.igStatus);
+      setIsLoading(false);
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [fetchAutomations]);
+
+  // ─── Derived values (real, never mock) ──────────
+  const igConnected     = Boolean(igStatus?.username);
+  const hasAutomations  = automations.length > 0;
+  const hasActivity     = logs.length > 0;
+
+  const activeCount     = automations.filter((a) => a.enabled).length;
+  const contactsCount   = contacts.length;
+  const sentLast7d      = useMemo(() => countSentLast7d(logs), [logs]);
 
   const stats = [
-    { label: 'Total automations',  value: mockStats.totalAutomations,  icon: Workflow,       tone: 'brand',   delta: mockStats.deltas.totalAutomations },
-    { label: 'Active automations', value: mockStats.activeAutomations, icon: Zap,            tone: 'success', delta: mockStats.deltas.activeAutomations },
-    { label: 'Total contacts',     value: mockStats.totalContacts,     icon: Users,          tone: 'neutral', delta: mockStats.deltas.totalContacts },
-    { label: 'Messages sent',      value: mockStats.messagesSent,      icon: MessageSquare,  tone: 'warning', delta: mockStats.deltas.messagesSent },
+    { label: 'Total automations',  value: automations.length, icon: Workflow,      tone: 'brand'   },
+    { label: 'Active automations', value: activeCount,        icon: Zap,           tone: 'success' },
+    { label: 'Total contacts',     value: contactsCount,      icon: Users,         tone: 'neutral' },
+    { label: 'Messages sent (7d)', value: sentLast7d,         icon: MessageSquare, tone: 'warning' },
   ];
 
-  const activeAutomations = mockAutomations
-    .filter((a) => a.enabled)
-    .slice(0, 4);
+  const activeAutomations = automations.filter((a) => a.enabled).slice(0, 4);
+  const recentActivity    = useMemo(() => logs.slice(0, 6).map(toActivityItem), [logs]);
 
   return (
     <div>
       <PageHeader
         title={`Welcome back, ${firstName}`}
-        description="Here’s what’s happening across your workspace today."
+        description="Here's what's happening across your workspace."
         actions={
           <Link to={ROUTES.AUTOMATION_NEW}>
             <Button leftIcon={Plus}>New automation</Button>
           </Link>
         }
       />
+
+      {/* Onboarding (auto-hides once all 3 steps done) */}
+      {!isLoading && (
+        <OnboardingChecklist
+          igConnected={igConnected}
+          hasAutomations={hasAutomations}
+          hasActivity={hasActivity}
+        />
+      )}
 
       {/* ─── Stats ──────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -91,7 +127,7 @@ const Dashboard = () => {
 
       {/* ─── Activity + automations ─────────────────── */}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3 lg:mt-8">
-        <RecentActivity isLoading={isLoading} />
+        <RecentActivity isLoading={isLoading} items={recentActivity} />
         <ActiveAutomationsPreview
           isLoading={isLoading}
           automations={activeAutomations}
@@ -101,15 +137,61 @@ const Dashboard = () => {
   );
 };
 
-// ─── Recent activity feed ────────────────────────────
-const ACTIVITY_ICON = {
-  message_sent:         { icon: Send,         tone: 'bg-brand-100 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300' },
-  contact_added:        { icon: UserPlus,     tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' },
-  automation_triggered: { icon: Play,         tone: 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400' },
-  automation_paused:    { icon: PauseCircle,  tone: 'bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-400' },
+// ─── Derivations ─────────────────────────────────────
+
+const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+const countSentLast7d = (logs) => {
+  const cutoff = Date.now() - ONE_WEEK_MS;
+  return logs.filter((l) => {
+    if (!l.messageSent) return false;
+    const ts = l.timestamp ? new Date(l.timestamp).getTime() : 0;
+    return ts >= cutoff;
+  }).length;
 };
 
-const RecentActivity = ({ isLoading }) => (
+const toActivityItem = (log) => {
+  const username = log.username ? `@${log.username}` : 'someone';
+  const auto = log.automationName ? `"${log.automationName}"` : 'an automation';
+
+  let type;
+  let message;
+  if (log.messageSent) {
+    type = 'message_sent';
+    message = `DM sent to ${username} from ${auto}`;
+  } else if (log.matched) {
+    type = 'automation_triggered';
+    message = `${auto} triggered for ${username}`;
+  } else {
+    type = 'automation_triggered';
+    message = `Event from ${username} (no match)`;
+  }
+
+  return { id: log.id, type, message, timeAgo: timeAgo(log.timestamp) };
+};
+
+const timeAgo = (iso) => {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const sec = Math.max(0, Math.floor(diff / 1000));
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  return `${day}d ago`;
+};
+
+// ─── Recent activity feed ────────────────────────────
+
+const ACTIVITY_ICON = {
+  message_sent:         { icon: Send,     tone: 'bg-brand-100 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300' },
+  contact_added:        { icon: UserPlus, tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' },
+  automation_triggered: { icon: Play,     tone: 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400' },
+};
+
+const RecentActivity = ({ isLoading, items }) => (
   <Card className="lg:col-span-2">
     <div className="mb-4 flex items-center justify-between">
       <div>
@@ -120,7 +202,12 @@ const RecentActivity = ({ isLoading }) => (
           Live events from your workspace.
         </p>
       </div>
-      <Button variant="ghost" size="sm">View all</Button>
+      <Link
+        to="/activity"
+        className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200"
+      >
+        View all
+      </Link>
     </div>
 
     {isLoading ? (
@@ -135,7 +222,7 @@ const RecentActivity = ({ isLoading }) => (
           </li>
         ))}
       </ul>
-    ) : mockActivity.length === 0 ? (
+    ) : items.length === 0 ? (
       <EmptyState
         icon={Inbox}
         title="No activity yet"
@@ -151,7 +238,7 @@ const RecentActivity = ({ isLoading }) => (
         }}
         className="divide-y divide-ink-100 dark:divide-ink-800"
       >
-        {mockActivity.map((evt) => {
+        {items.map((evt) => {
           const meta = ACTIVITY_ICON[evt.type] || ACTIVITY_ICON.message_sent;
           const Icon = meta.icon;
           return (
@@ -176,6 +263,7 @@ const RecentActivity = ({ isLoading }) => (
 );
 
 // ─── Active automations preview ──────────────────────
+
 const ActiveAutomationsPreview = ({ isLoading, automations }) => (
   <Card>
     <div className="mb-4 flex items-center justify-between">
@@ -223,17 +311,11 @@ const ActiveAutomationsPreview = ({ isLoading, automations }) => (
                 </p>
                 <p className="mt-0.5 truncate text-xs text-ink-500 dark:text-ink-400">
                   {TRIGGER_LABEL[a.trigger] || a.trigger}
-                  {a.condition?.keyword ? ` · “${a.condition.keyword}”` : ''}
+                  {a.condition?.keyword ? ` · "${a.condition.keyword}"` : ''}
                 </p>
               </div>
               <Badge tone="success" dot>Active</Badge>
             </div>
-            <p className="mt-3 text-xs text-ink-500 dark:text-ink-400">
-              {a.runCount.toLocaleString()} runs
-              <span className="mx-1.5">·</span>
-              <ArrowUpRight size={11} className="inline -translate-y-px text-emerald-500" />
-              {Math.round((a.successCount / Math.max(1, a.runCount)) * 100)}% success
-            </p>
           </li>
         ))}
       </ul>

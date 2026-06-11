@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import automationService from '../services/automationService.js';
-import { mockAutomations } from '../utils/mockData.js';
+
 
 /**
  * Automation list + CRUD store.
@@ -34,7 +34,7 @@ const ensureRuntimeFields = (a) => ({
 
 export const useAutomationStore = create((set, get) => ({
   // ─── State ─────────────────────────────────────
-  automations: mockAutomations,
+  automations: [],
   isLoading: false,
   lastError: null,
 
