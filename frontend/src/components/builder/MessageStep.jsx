@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Hourglass, UserCheck, MessageCircle, Link2, ArrowDown } from 'lucide-react';
 import DmPreview from './DmPreview.jsx';
 import PublicReplyEditor from './PublicReplyEditor.jsx';
+import FollowGateEditor from './FollowGateEditor.jsx';
 import { useBuilderStore } from '../../store/builderStore.js';
 import { renderTemplate } from '../../utils/automationEngine.js';
 import { ACTION_TYPE } from '../../utils/constants.js';
@@ -9,9 +10,8 @@ import { cn } from '../../utils/helpers.js';
 
 /**
  * Preview step — renders the multi-action chain with {{username}}
- * substituted, so the user can sanity-check what the recipient will
- * actually experience. Also hosts the public comment reply settings
- * for comment-triggered automations.
+ * substituted, then hosts the comment-only engagement settings:
+ * public replies and the follow gate.
  */
 const MessageStep = () => {
   const actions = useBuilderStore((s) => s.draft.actions);
@@ -61,8 +61,9 @@ const MessageStep = () => {
         ))}
       </ol>
 
-      {/* Public comment reply settings (comment triggers only) */}
+      {/* Comment-only engagement settings */}
       <PublicReplyEditor />
+      <FollowGateEditor />
     </div>
   );
 };
@@ -80,7 +81,6 @@ const StepPreview = ({ index, action, previewName }) => {
   }
 
   if (action.type === ACTION_TYPE.SEND_LINK) {
-    // Append link the same way the backend does — newline separated.
     const rendered = renderTemplate(action.message, variables);
     const withLink = action.link
       ? (rendered ? `${rendered}\n${action.link}` : action.link)

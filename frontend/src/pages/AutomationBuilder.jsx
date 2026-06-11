@@ -22,21 +22,6 @@ import {
   ACTION_LABEL,
 } from '../utils/constants.js';
 
-/**
- * The 5-step automation wizard.
- *
- * Mounted on two routes:
- *   /automations/new        → blank draft
- *   /automations/:id/edit   → seed draft from the saved automation
- *
- * Edit mode hydration:
- *   - Tries the in-memory cache first (instant if user came from list).
- *   - Falls back to GET /api/automations/{id} when the store is cold
- *     (e.g. direct URL hit, hard refresh, opened in new tab).
- *   - Shows a loading skeleton during the fetch instead of a blank page.
- *   - Bounces to /automations only after the fetch confirms the
- *     automation truly doesn't exist.
- */
 const AutomationBuilder = () => {
   const navigate    = useNavigate();
   const { id }      = useParams();
@@ -60,7 +45,6 @@ const AutomationBuilder = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isHydrating, setIsHydrating] = useState(false);
 
-  // ─── Seed the draft on mount ─────────────────────
   useEffect(() => {
     let cancelled = false;
 
@@ -89,11 +73,8 @@ const AutomationBuilder = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Reset draft on unmount so a stale wizard doesn't leak into the
-  // next "Create" click.
   useEffect(() => () => reset(), [reset]);
 
-  // ─── Per-step gating ─────────────────────────────
   const stepErrors = useMemo(() => {
     const { errors: full } = validateAutomationDraft(draft);
     switch (builderStep) {
@@ -125,27 +106,35 @@ const AutomationBuilder = () => {
     prev();
   };
 
-  // ─── Save ───────────────────────────────────────
   const handleSave = async () => {
     const { isValid, errors: allErrors } = validateAutomationDraft(draft);
     if (!isValid) {
       setErrors(allErrors);
       toast.error('Some fields still need attention.');
-      // Jump to the earliest step with errors
       const firstStep = stepOf(allErrors);
       if (firstStep) goToStep(firstStep);
       return;
     }
 
     const isCommentTrigger = String(draft.trigger || '').toUpperCase().includes('COMMENT');
+
     const publicReplyEnabled = isCommentTrigger && draft.publicReplyEnabled === true;
     const publicReplies = (draft.publicReplies || [])
       .filter((r) => r.text && r.text.trim())
       .map((r) => ({ text: r.text.trim(), enabled: r.enabled !== false }));
 
-    // Mirror the backend rule: toggle on ⇒ at least one active template.
     if (publicReplyEnabled && !publicReplies.some((r) => r.enabled)) {
       toast.error('Add at least one active public reply, or turn off public replies.');
+      goToStep(4);
+      return;
+    }
+
+    const followGateEnabled = isCommentTrigger && draft.followGateEnabled === true;
+    const followGateMessage = (draft.followGateMessage || '').trim();
+    const followGateButtonLabel = (draft.followGateButtonLabel || '').trim();
+
+    if (followGateEnabled && !followGateMessage) {
+      toast.error('Add a follow message, or turn off "Ask to follow first".');
       goToStep(4);
       return;
     }
@@ -154,12 +143,14 @@ const AutomationBuilder = () => {
     const payload = {
       name: draft.name?.trim() || autoName(draft),
       trigger: draft.trigger,
-      targetPostId: draft.targetPostId ?? null,   // which post this automation watches (null = all)
+      targetPostId: draft.targetPostId ?? null,
       condition: draft.condition,
-      // Canonical chain — backend prefers this over legacy action+message.
       actions: draft.actions,
       publicReplyEnabled,
       publicReplies,
+      followGateEnabled,
+      followGateMessage,
+      followGateButtonLabel,
       enabled: draft.enabled,
     };
 
@@ -179,10 +170,6 @@ const AutomationBuilder = () => {
 
   const handleCancel = () => navigate(ROUTES.AUTOMATIONS);
 
-  // ─── Render ──────────────────────────────────────
-  // While we're fetching an existing automation from the backend (the
-  // cold-edit path), show a minimal skeleton — empty wizard scaffolding
-  // would render with placeholder data and confuse the user.
   if (isEditing && isHydrating) {
     return (
       <div className="mx-auto max-w-5xl">
@@ -199,7 +186,6 @@ const AutomationBuilder = () => {
 
   return (
     <div className="mx-auto max-w-5xl">
-      {/* Header */}
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-brand-700 dark:text-brand-400">
@@ -214,12 +200,10 @@ const AutomationBuilder = () => {
         </Button>
       </div>
 
-      {/* Progress */}
       <div className="card mb-5 p-4 sm:p-5">
         <StepIndicator current={builderStep} onStepClick={goToStep} />
       </div>
 
-      {/* Step card */}
       <div className="card p-5 sm:p-8">
         <AnimatePresence mode="wait">
           <motion.div
@@ -242,7 +226,6 @@ const AutomationBuilder = () => {
           </motion.div>
         </AnimatePresence>
 
-        {/* Footer nav */}
         <div className="mt-8 flex items-center justify-between border-t border-ink-100 pt-5 dark:border-ink-800">
           <Button
             variant="secondary"
@@ -272,7 +255,6 @@ const AutomationBuilder = () => {
   );
 };
 
-// Map an errors object to the earliest step that contains one of those keys.
 const stepOf = (errors) => {
   if (errors.trigger) return 1;
   if (errors.condition || errors.keyword || errors.matchType) return 2;
@@ -281,10 +263,8 @@ const stepOf = (errors) => {
   return null;
 };
 
-// Build a friendly default name when the user leaves the name blank.
 const autoName = (draft) => {
   const trigger = TRIGGER_LABEL[draft.trigger] || 'Trigger';
-  // First action of the chain — falls back to legacy single action if absent.
   const firstActionType = Array.isArray(draft.actions) && draft.actions[0]?.type
     ? draft.actions[0].type
     : draft.action?.type;

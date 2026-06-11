@@ -8,16 +8,6 @@ import {
 
 /**
  * Builder draft store — owns the in-flight wizard state.
- *
- * Kept separate from {@link useAutomationStore} so that abandoning
- * the wizard doesn't pollute the saved list, and so the wizard can
- * be reset cleanly between mount cycles.
- *
- * Multi-step support: the draft's canonical action chain is
- * {@code draft.actions[]}. The legacy {@code draft.action} +
- * {@code draft.message} singular fields are kept on the draft only
- * to ease the transition for any code paths that read them
- * directly — the wizard saves from {@code actions[]}.
  */
 
 export const STEPS = Object.freeze([
@@ -39,29 +29,25 @@ export const blankAction = (type = ACTION_TYPE.SEND_MESSAGE) => ({
 const emptyDraft = () => ({
   name: '',
   trigger: null,
-  targetPostId: null,          // IG media id to scope a comment automation to one post; null = all posts
+  targetPostId: null,
   condition: {
     type: CONDITION_TYPE.ANY,
     keyword: '',
     matchType: MATCH_TYPE.CONTAINS,
   },
-  // Legacy fields — only read by old code paths; new code uses actions[].
   action: { type: ACTION_TYPE.SEND_DM, link: '' },
   message: '',
-  // Canonical multi-step chain. Always starts with one blank send-message card.
   actions: [blankAction(ACTION_TYPE.SEND_MESSAGE)],
-  // Public comment reply: master toggle + rotating templates.
+  // Public comment reply.
   publicReplyEnabled: false,
   publicReplies: [],
+  // Follow gate.
+  followGateEnabled: false,
+  followGateMessage: '',
+  followGateButtonLabel: '',
   enabled: true,
 });
 
-/**
- * Build actions[] from an existing automation payload, accepting both
- * the new {@code actions[]} shape and the legacy
- * {@code action + message} singular pair. Always returns at least
- * one action so the builder can render a card.
- */
 const normalizeActionsFromBackend = (automation) => {
   if (Array.isArray(automation.actions) && automation.actions.length > 0) {
     return automation.actions.map((a) => ({
@@ -71,7 +57,6 @@ const normalizeActionsFromBackend = (automation) => {
       delaySeconds: a.delaySeconds ?? null,
     }));
   }
-  // Legacy wrap — single action + top-level message.
   if (automation.action) {
     return [{
       type:         automation.action.type ?? ACTION_TYPE.SEND_DM,
@@ -83,7 +68,6 @@ const normalizeActionsFromBackend = (automation) => {
   return [blankAction(ACTION_TYPE.SEND_MESSAGE)];
 };
 
-/** Normalize publicReplies[] coming back from the API into draft shape. */
 const normalizePublicReplies = (automation) => {
   if (!Array.isArray(automation.publicReplies)) return [];
   return automation.publicReplies.map((r) => ({
@@ -117,7 +101,6 @@ export const useBuilderStore = create((set, get) => ({
         keyword:   automation.condition?.keyword   ?? '',
         matchType: automation.condition?.matchType ?? MATCH_TYPE.CONTAINS,
       },
-      // Keep legacy fields populated for any reader, but actions[] is canonical.
       action: {
         type: automation.action?.type ?? ACTION_TYPE.SEND_DM,
         link: automation.action?.link ?? '',
@@ -126,6 +109,9 @@ export const useBuilderStore = create((set, get) => ({
       actions: normalizeActionsFromBackend(automation),
       publicReplyEnabled: automation.publicReplyEnabled === true,
       publicReplies: normalizePublicReplies(automation),
+      followGateEnabled: automation.followGateEnabled === true,
+      followGateMessage: automation.followGateMessage ?? '',
+      followGateButtonLabel: automation.followGateButtonLabel ?? '',
       enabled: automation.enabled !== false,
     },
   }),
@@ -166,7 +152,6 @@ export const useBuilderStore = create((set, get) => ({
   setPublicReplyEnabled: (publicReplyEnabled) =>
     set((s) => ({ draft: { ...s.draft, publicReplyEnabled } })),
 
-  /** Replace the whole templates list (used for seeding defaults). */
   setPublicReplies: (publicReplies) =>
     set((s) => ({ draft: { ...s.draft, publicReplies } })),
 
@@ -196,7 +181,17 @@ export const useBuilderStore = create((set, get) => ({
       },
     })),
 
-  // ─── Legacy single-action mutations (still used by review fallbacks) ──
+  // ─── Follow gate mutations ─────────────────────
+  setFollowGateEnabled: (followGateEnabled) =>
+    set((s) => ({ draft: { ...s.draft, followGateEnabled } })),
+
+  setFollowGateMessage: (followGateMessage) =>
+    set((s) => ({ draft: { ...s.draft, followGateMessage } })),
+
+  setFollowGateButtonLabel: (followGateButtonLabel) =>
+    set((s) => ({ draft: { ...s.draft, followGateButtonLabel } })),
+
+  // ─── Legacy single-action mutations ────────────
   setActionType: (type) =>
     set((s) => ({ draft: { ...s.draft, action: { ...s.draft.action, type } } })),
 
@@ -207,13 +202,11 @@ export const useBuilderStore = create((set, get) => ({
     set((s) => ({ draft: { ...s.draft, message } })),
 
   // ─── Multi-action mutations ────────────────────
-  /** Append a new blank action card at the end. */
   addAction: (type = ACTION_TYPE.SEND_MESSAGE) =>
     set((s) => ({
       draft: { ...s.draft, actions: [...s.draft.actions, blankAction(type)] },
     })),
 
-  /** Patch one field of one action by index. */
   updateAction: (index, patch) =>
     set((s) => {
       const next = s.draft.actions.map((a, i) =>
@@ -221,15 +214,13 @@ export const useBuilderStore = create((set, get) => ({
       return { draft: { ...s.draft, actions: next } };
     }),
 
-  /** Drop the action at {@code index} — never lets the list become empty. */
   removeAction: (index) =>
     set((s) => {
-      if (s.draft.actions.length <= 1) return s;   // keep at least one
+      if (s.draft.actions.length <= 1) return s;
       const next = s.draft.actions.filter((_, i) => i !== index);
       return { draft: { ...s.draft, actions: next } };
     }),
 
-  /** Insert a shallow copy of the action at {@code index} right after it. */
   duplicateAction: (index) =>
     set((s) => {
       const source = s.draft.actions[index];
@@ -243,7 +234,6 @@ export const useBuilderStore = create((set, get) => ({
       return { draft: { ...s.draft, actions: next } };
     }),
 
-  /** Move action at {@code index} by {@code delta} positions (±1 typically). */
   moveAction: (index, delta) =>
     set((s) => {
       const newIndex = index + delta;
