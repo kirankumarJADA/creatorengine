@@ -3,20 +3,14 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 import Sidebar from '../components/Sidebar.jsx';
 import Topbar from '../components/Topbar.jsx';
+import ErrorBoundary from '../components/ErrorBoundary.jsx';
 import { useUiStore } from '../store/uiStore.js';
 
 /**
- * The authenticated app shell.
- *
- *   ┌───────────┬────────────────────────────┐
- *   │ Sidebar   │  Topbar                    │
- *   │ (desktop) ├────────────────────────────┤
- *   │           │  <Outlet />                │
- *   └───────────┴────────────────────────────┘
- *
- * Mobile: sidebar slides in from the left as an overlay drawer.
- * The drawer closes on backdrop tap or after any nav-link click
- * (Sidebar receives an {@code onNavigate} prop to wire that up).
+ * The authenticated app shell: Sidebar + Topbar + routed <Outlet/>.
+ * The Outlet sits inside an ErrorBoundary, and the wrapper is keyed by
+ * pathname — so a render error shows a friendly reload card instead of
+ * a blank screen, and navigating to another page auto-recovers.
  */
 const AppLayout = () => {
   const isSidebarOpen    = useUiStore((s) => s.isSidebarOpen);
@@ -26,7 +20,7 @@ const AppLayout = () => {
 
   return (
     <div className="flex min-h-screen bg-ink-50 dark:bg-ink-950">
-      {/* ─── Desktop sidebar (fixed rail) ────────────── */}
+      {/* Desktop sidebar (fixed rail) */}
       <aside
         className={`hidden shrink-0 border-r border-ink-100 bg-white transition-all duration-300 dark:border-ink-800 dark:bg-ink-900 lg:flex ${
           isSidebarOpen ? 'w-64' : 'w-20'
@@ -35,7 +29,7 @@ const AppLayout = () => {
         <Sidebar collapsed={!isSidebarOpen} />
       </aside>
 
-      {/* ─── Mobile drawer ───────────────────────────── */}
+      {/* Mobile drawer */}
       <AnimatePresence>
         {isMobileNavOpen && (
           <>
@@ -62,7 +56,7 @@ const AppLayout = () => {
         )}
       </AnimatePresence>
 
-      {/* ─── Main column ────────────────────────────── */}
+      {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
         <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
@@ -75,7 +69,9 @@ const AppLayout = () => {
               transition={{ duration: 0.2 }}
               className="mx-auto w-full max-w-7xl"
             >
-              <Outlet />
+              <ErrorBoundary>
+                <Outlet />
+              </ErrorBoundary>
             </motion.div>
           </AnimatePresence>
         </main>
