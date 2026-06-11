@@ -11,7 +11,6 @@ import {
   ChevronLeft,
   Instagram,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 import { useAuthStore } from '../store/authStore.js';
 import { useUiStore } from '../store/uiStore.js';
@@ -19,7 +18,6 @@ import { ROUTES, APP_NAME } from '../utils/constants.js';
 import { cn, getInitials } from '../utils/helpers.js';
 import IconButton from './ui/IconButton.jsx';
 
-// ─── Nav config ───────────────────────────────────────────
 const NAV_GROUPS = [
   {
     label: 'Workspace',
@@ -39,11 +37,6 @@ const NAV_GROUPS = [
   },
 ];
 
-/**
- * Sidebar — layout-agnostic. The parent decides whether to render it
- * as a fixed rail (desktop) or as the contents of a slide-in drawer
- * (mobile). All sidebar state lives in {@code useUiStore}.
- */
 const Sidebar = ({ collapsed = false, onNavigate }) => {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -51,7 +44,7 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
 
   return (
     <div className="flex h-full w-full flex-col">
-      {/* ─── Logo + collapse toggle ──────────────────── */}
+      {/* Logo + collapse toggle */}
       <div
         className={cn(
           'flex items-center border-b border-ink-100 px-4 py-5 dark:border-ink-800',
@@ -85,7 +78,7 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
         )}
       </div>
 
-      {/* ─── Connect Instagram CTA ──────────────────── */}
+      {/* Connect Instagram CTA */}
       {!collapsed && (
         <div className="px-4 pt-4">
           <Link
@@ -113,7 +106,7 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
         </div>
       )}
 
-      {/* ─── Nav groups ──────────────────────────────── */}
+      {/* Nav groups */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {NAV_GROUPS.map((group) => (
           <div key={group.label} className="mb-6 last:mb-0">
@@ -131,23 +124,16 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
                     end={to === ROUTES.DASHBOARD}
                     className={({ isActive }) =>
                       cn(
-                        'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                        'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
                         collapsed && 'justify-center px-2',
                         isActive
-                          ? 'text-white'
+                          ? 'bg-brand-600 text-white shadow-sm'
                           : 'text-ink-700 hover:bg-ink-100 hover:text-ink-950 dark:text-ink-300 dark:hover:bg-ink-800 dark:hover:text-ink-100'
                       )
                     }
                   >
                     {({ isActive }) => (
                       <>
-                        {isActive && (
-                          <motion.span
-                            layoutId="sidebar-active-pill"
-                            className="absolute inset-0 -z-10 rounded-xl bg-brand-600 shadow-sm"
-                            transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-                          />
-                        )}
                         <Icon size={18} strokeWidth={isActive ? 2.25 : 2} className="shrink-0" />
                         {!collapsed && <span>{label}</span>}
                       </>
@@ -160,7 +146,7 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
         ))}
       </nav>
 
-      {/* ─── User footer ─────────────────────────────── */}
+      {/* User footer */}
       <div className="border-t border-ink-100 p-3 dark:border-ink-800">
         <div
           className={cn(
