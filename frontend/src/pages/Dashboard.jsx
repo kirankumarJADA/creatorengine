@@ -25,6 +25,7 @@ import OnboardingChecklist from '../components/dashboard/OnboardingChecklist.jsx
 import { useAuthStore } from '../store/authStore.js';
 import { useAutomationStore } from '../store/automationStore.js';
 import dashboardService from '../services/dashboardService.js';
+import SystemStatus from '../components/dashboard/SystemStatus.jsx';
 import { ROUTES, TRIGGER_LABEL } from '../utils/constants.js';
 import { cn } from '../utils/helpers.js';
 
@@ -110,6 +111,10 @@ const Dashboard = () => {
           hasAutomations={hasAutomations}
           hasActivity={hasActivity}
         />
+      )}
+      {/* System status strip */}
+      {!isLoading && (
+        <SystemStatus igStatus={igStatus} logs={logs} automations={automations} />
       )}
 
       {/* ─── Stats ──────────────────────────────────── */}
