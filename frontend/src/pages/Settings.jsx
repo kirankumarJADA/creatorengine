@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
+import { useSearchParams } from 'react-router-dom';
 import {
   User,
   Lock,
@@ -35,8 +36,10 @@ const TABS = [
 ];
 
 const Settings = () => {
-  const [tab, setTab] = useState('profile');
-
+  const [searchParams] = useSearchParams();
+  const requested = searchParams.get('tab');
+  const initialTab = TABS.some((t) => t.id === requested) ? requested : 'profile';
+  const [tab, setTab] = useState(initialTab);
   return (
     <div>
       <PageHeader

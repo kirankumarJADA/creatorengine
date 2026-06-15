@@ -120,7 +120,7 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
             </div>
           ) : igConnected ? (
             <Link
-              to={ROUTES.SETTINGS}
+             to={ROUTES.SETTINGS + '?tab=instagram'}
               onClick={onNavigate}
               className="group flex w-full items-center justify-between rounded-xl border border-ink-200 bg-ink-50/40 px-3 py-2.5 text-left text-sm transition-colors hover:border-brand-300 hover:bg-brand-50/30 dark:border-ink-800 dark:bg-ink-800/30 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/5"
             >
