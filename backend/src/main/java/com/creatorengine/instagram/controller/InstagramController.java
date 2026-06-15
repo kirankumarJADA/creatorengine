@@ -93,6 +93,7 @@ public class InstagramController {
     public ResponseEntity<ApiResponse<StatusResponse>> status() {
         String uid = SecurityUtils.getCurrentUserId();
         StatusResponse body = accountService.find(uid)
+                .filter(acc -> !accountService.isTokenRevoked(acc.getAccessToken()))
                 .map(StatusResponse::from)
                 .orElseGet(StatusResponse::notConnected);
         return ResponseEntity.ok(ApiResponse.ok(body));
