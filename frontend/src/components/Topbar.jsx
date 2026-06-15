@@ -1,4 +1,4 @@
-import { Bell, Menu, Search, PanelLeft } from 'lucide-react';
+import { Menu, Search, PanelLeft } from 'lucide-react';
 import IconButton from './ui/IconButton.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
 import { useUiStore } from '../store/uiStore.js';
@@ -51,13 +51,6 @@ const Topbar = () => {
 
       <div className="ml-auto flex items-center gap-1.5">
         <ThemeToggle />
-        <IconButton aria-label="Notifications" className="relative">
-          <Bell size={16} />
-          <span
-            aria-hidden="true"
-            className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-ink-950"
-          />
-        </IconButton>
       </div>
     </header>
   );

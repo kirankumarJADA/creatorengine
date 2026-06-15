@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
 
 import { useAuthStore } from '../store/authStore.js';
 import { useUiStore } from '../store/uiStore.js';
+import instagramService from '../services/instagramService.js';
 import { ROUTES, APP_NAME } from '../utils/constants.js';
 import { cn, getInitials } from '../utils/helpers.js';
 import IconButton from './ui/IconButton.jsx';
@@ -41,6 +43,36 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
+
+  const [igStatus, setIgStatus] = useState(null);   // null = loading
+  const [connecting, setConnecting] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    instagramService
+      .getStatus()
+      .then((s) => { if (active) setIgStatus(s || { status: 'NOT_CONNECTED' }); })
+      .catch(() => { if (active) setIgStatus({ status: 'NOT_CONNECTED' }); });
+    return () => { active = false; };
+  }, []);
+
+  const igConnected = Boolean(igStatus?.username);
+
+  const handleConnect = async () => {
+    if (connecting) return;
+    setConnecting(true);
+    try {
+      const data = await instagramService.startConnect();
+      const url = data?.authUrl || data?.url;
+      if (url) {
+        window.location.href = url;
+        return; // navigating away
+      }
+    } catch {
+      /* fall through to reset */
+    }
+    setConnecting(false);
+  };
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -78,31 +110,69 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
         )}
       </div>
 
-      {/* Connect Instagram CTA */}
+      {/* Instagram card: loading / connected profile / connect CTA */}
       {!collapsed && (
         <div className="px-4 pt-4">
-          <Link
-            to={ROUTES.SETTINGS}
-            onClick={onNavigate}
-            className="group flex w-full items-center justify-between rounded-xl border border-dashed border-ink-200 bg-ink-50/40 px-3 py-2.5 text-left text-sm transition-colors hover:border-brand-300 hover:bg-brand-50/30 dark:border-ink-800 dark:bg-ink-800/30 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/5"
-          >
-            <span className="flex min-w-0 items-center gap-2.5">
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-pink-500 via-fuchsia-500 to-amber-400 text-white">
-                <Instagram size={14} />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate font-medium text-ink-900 dark:text-ink-100">
-                  Connect Instagram
+          {igStatus === null ? (
+            <div className="flex w-full items-center gap-2.5 rounded-xl border border-ink-200 bg-ink-50/40 px-3 py-2.5 dark:border-ink-800 dark:bg-ink-800/30">
+              <span className="h-7 w-7 shrink-0 animate-pulse rounded-lg bg-ink-200 dark:bg-ink-700" />
+              <span className="text-xs text-ink-400 dark:text-ink-500">Checking Instagram…</span>
+            </div>
+          ) : igConnected ? (
+            <Link
+              to={ROUTES.SETTINGS}
+              onClick={onNavigate}
+              className="group flex w-full items-center justify-between rounded-xl border border-ink-200 bg-ink-50/40 px-3 py-2.5 text-left text-sm transition-colors hover:border-brand-300 hover:bg-brand-50/30 dark:border-ink-800 dark:bg-ink-800/30 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/5"
+            >
+              <span className="flex min-w-0 items-center gap-2.5">
+                {igStatus.profilePictureUrl ? (
+                  <img
+                    src={igStatus.profilePictureUrl}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="h-7 w-7 shrink-0 rounded-lg object-cover"
+                  />
+                ) : (
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-pink-500 via-fuchsia-500 to-amber-400 text-white">
+                    <Instagram size={14} />
+                  </span>
+                )}
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-ink-900 dark:text-ink-100">
+                    {igStatus.name || igStatus.username}
+                  </span>
+                  <span className="block truncate text-xs text-ink-500 dark:text-ink-400">
+                    @{igStatus.username}
+                  </span>
                 </span>
-                <span className="block truncate text-xs text-ink-500 dark:text-ink-400">
-                  Link your Business account
+              </span>
+              <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" title="Connected" />
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={handleConnect}
+              disabled={connecting}
+              className="group flex w-full items-center justify-between rounded-xl border border-dashed border-ink-200 bg-ink-50/40 px-3 py-2.5 text-left text-sm transition-colors hover:border-brand-300 hover:bg-brand-50/30 disabled:opacity-60 dark:border-ink-800 dark:bg-ink-800/30 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/5"
+            >
+              <span className="flex min-w-0 items-center gap-2.5">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-pink-500 via-fuchsia-500 to-amber-400 text-white">
+                  <Instagram size={14} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-ink-900 dark:text-ink-100">
+                    {connecting ? 'Connecting…' : 'Connect Instagram'}
+                  </span>
+                  <span className="block truncate text-xs text-ink-500 dark:text-ink-400">
+                    Link your Business account
+                  </span>
                 </span>
               </span>
-            </span>
-            <span className="text-xs font-medium text-ink-400 group-hover:text-brand-600 dark:group-hover:text-brand-400">
-              →
-            </span>
-          </Link>
+              <span className="text-xs font-medium text-ink-400 group-hover:text-brand-600 dark:group-hover:text-brand-400">
+                →
+              </span>
+            </button>
+          )}
         </div>
       )}
 
