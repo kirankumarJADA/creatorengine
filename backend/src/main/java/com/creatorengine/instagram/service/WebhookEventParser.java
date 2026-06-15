@@ -104,6 +104,28 @@ public class WebhookEventParser {
             return null;
         }
 
+        // ---------------------------------------------------------------
+        // CRITICAL SAFETY FILTER
+        // Instagram also notifies us about messages the OWNER's own account
+        // SENT (not just received). Those carry "is_echo": true. If we treated
+        // them as incoming events, the owner's normal outgoing messages would
+        // trigger DM automations and create loops / unwanted auto-DMs.
+        // NEVER react to our own sent messages.
+        // ---------------------------------------------------------------
+        if (message.path("is_echo").asBoolean(false)) {
+            log.debug("Skipping message echo (owner-sent message).");
+            return null;
+        }
+
+        String senderId = text(sender.path("id"));
+
+        // Extra guard: if the sender IS the receiving (owner) account, skip it.
+        // We only ever react to messages FROM other users.
+        if (senderId != null && senderId.equals(accountId)) {
+            log.debug("Skipping message where sender == owning account.");
+            return null;
+        }
+
         boolean isStoryReply = !message.path("reply_to").path("story").isMissingNode();
         EventType type = isStoryReply ? EventType.STORY_REPLY : EventType.DM;
 
@@ -115,7 +137,7 @@ public class WebhookEventParser {
                 .type(type)
                 .message(text(message.path("text")))
                 .username(text(sender.path("username")))
-                .instagramUserId(text(sender.path("id")))
+                .instagramUserId(senderId)
                 .postId(isStoryReply
                         ? text(message.path("reply_to").path("story").path("id"))
                         : null)

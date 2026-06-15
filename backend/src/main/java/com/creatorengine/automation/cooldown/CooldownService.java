@@ -30,16 +30,33 @@ public class CooldownService {
     }
 
     public boolean canFire(String uid, Automation automation, WebhookEventDto event) {
-        int minutes = automation.getCooldownMinutes();
-        if (minutes <= 0) return true;
         if (event == null || event.instagramUserId() == null) return true;
+
+        boolean matchAllDm = isMatchAllDirectMessage(automation);
+        int minutes = automation.getCooldownMinutes();
+
+        // Nothing to limit: not a "reply to any message" DM, and no cooldown set.
+        if (!matchAllDm && minutes <= 0) return true;
 
         String key = key(automation.getId(), event.instagramUserId());
 
         try {
             DocumentSnapshot snap = docRef(uid, key).get().get();
+
+            // Never replied to this person for this automation yet -> allow.
             if (!snap.exists()) return true;
 
+            // SAFETY: a DM/story automation that replies to ANY message reaches
+            // everyone who contacts you. We reply to each person at most ONCE,
+            // EVER -- a one-time auto-responder -- so it can never spam the
+            // people you talk with regularly.
+            if (matchAllDm) {
+                log.debug("Once-per-person guard active uid={} automation={} sender={}",
+                        uid, automation.getId(), event.instagramUserId());
+                return false;
+            }
+
+            // Otherwise: normal time-based cooldown (keyword automations, comments).
             Date lastFired = snap.getDate(FIELD_FIRED_AT);
             if (lastFired == null) return true;
 
@@ -63,7 +80,12 @@ public class CooldownService {
     }
 
     public void recordFiring(String uid, Automation automation, WebhookEventDto event) {
-        if (automation.getCooldownMinutes() <= 0) return;
+        boolean matchAllDm = isMatchAllDirectMessage(automation);
+
+        // Record a firing whenever we need to limit future ones:
+        //  - a "reply to any message" DM (so once-per-person works), OR
+        //  - a configured time-based cooldown.
+        if (!matchAllDm && automation.getCooldownMinutes() <= 0) return;
         if (event == null || event.instagramUserId() == null) return;
 
         String key = key(automation.getId(), event.instagramUserId());
@@ -79,6 +101,28 @@ public class CooldownService {
 
             log.warn("Cooldown record failed uid={} key={}: {}", uid, key, e.getMessage());
         }
+    }
+
+    /**
+     * True when this automation replies to EVERY message in someone's inbox:
+     * a DM or story-reply trigger whose condition is ANY (or unset). These are
+     * limited to one reply per person. Keyword DMs and comments are NOT match-all.
+     */
+    private static boolean isMatchAllDirectMessage(Automation automation) {
+        if (automation == null || automation.getTrigger() == null) {
+            return false;
+        }
+        String trigger = automation.getTrigger().name();
+        boolean directInbox = "DM".equals(trigger) || "STORY_REPLY".equals(trigger);
+        if (!directInbox) {
+            return false;
+        }
+
+        Automation.Condition condition = automation.getCondition();
+        if (condition == null || condition.getType() == null) {
+            return true; // no condition configured = matches everything
+        }
+        return "ANY".equals(condition.getType().name());
     }
 
     private DocumentReference docRef(String uid, String key) {
