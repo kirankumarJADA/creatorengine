@@ -12,18 +12,15 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ─── Request: attach Authorization header ──────────────────────────
+// ─── Request: attach Authorization header ──────────────────────────────────
 api.interceptors.request.use(
   (config) => {
     const token = storage.get(STORAGE_KEYS.ACCESS_TOKEN);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    // Stash the ORIGINAL (un-serialized) body. After axios sends a request it
-    // replaces config.data with a JSON string; if we then retry after a token
-    // refresh, axios would JSON.stringify that string AGAIN (double-encoding it
-    // so the backend can't read the fields → 400). Keep the raw object so the
-    // retry can restore it.
+    // Stash the ORIGINAL (un-serialized) body so a retry after token refresh
+    // doesn't double-encode it.
     if (config.data !== undefined && config.__rawData === undefined) {
       config.__rawData = config.data;
     }
@@ -32,7 +29,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ─── Token refresh plumbing ────────────────────────────────────────
+// ─── Token refresh plumbing ────────────────────────────────────────────────
 let isRefreshing = false;
 let pendingQueue = [];
 
@@ -61,8 +58,6 @@ const redirectToLogin = () => {
   }
 };
 
-// Re-issue the original request after a refresh, restoring its raw body so
-// axios doesn't double-stringify it.
 const resendOriginal = (originalRequest, token) => {
   if (originalRequest.__rawData !== undefined) {
     originalRequest.data = originalRequest.__rawData;
@@ -72,11 +67,10 @@ const resendOriginal = (originalRequest, token) => {
   return api(originalRequest);
 };
 
-// ─── Response: unwrap envelope + refresh-on-401 + error handling ────
+// ─── Response: unwrap envelope + refresh-on-401 + error handling ────────────
 api.interceptors.response.use(
   (response) => {
     const body = response.data;
-    // Backend wraps payloads as { success, data, message }. Unwrap `data`.
     if (body && typeof body === 'object' && 'data' in body) {
       return { ...response, data: body.data, raw: body };
     }
@@ -95,13 +89,35 @@ api.interceptors.response.use(
     }
 
     if (status === 401) {
-      const isRefreshCall = (originalRequest.url || '').includes('/auth/refresh');
+      const url = originalRequest.url || '';
+
+      // A 401 from these endpoints means BAD CREDENTIALS — not an expired
+      // session. Never refresh, clear, or redirect. Just show the real reason
+      // (e.g. "Incorrect email or password").
+      const isCredentialEndpoint =
+        url.includes('/auth/login') ||
+        url.includes('/auth/register') ||
+        url.includes('/auth/refresh') ||
+        url.includes('/auth/forgot-password');
+
+      if (isCredentialEndpoint) {
+        const apiData = error.response?.data;
+        const message =
+          apiData?.message ||
+          (Array.isArray(apiData?.errors) ? apiData.errors[0] : null) ||
+          'Incorrect email or password.';
+        if (!originalRequest.silent) {
+          toast.error(message);
+        }
+        return Promise.reject(error);
+      }
+
+      // Otherwise: a protected call whose access token likely expired → refresh.
       const refreshToken = storage.get(STORAGE_KEYS.REFRESH_TOKEN);
 
-      if (!originalRequest._retry && !isRefreshCall && refreshToken) {
+      if (!originalRequest._retry && refreshToken) {
         originalRequest._retry = true;
 
-        // A refresh is already in flight — wait for it, then retry.
         if (isRefreshing) {
           return new Promise((resolve, reject) => {
             pendingQueue.push({ resolve, reject });
@@ -110,7 +126,6 @@ api.interceptors.response.use(
 
         isRefreshing = true;
         try {
-          // Raw axios (no interceptors) so this call can't recurse.
           const resp = await axios.post(`${API_BASE_URL}/auth/refresh`, {
             refreshToken,
           });
@@ -125,7 +140,6 @@ api.interceptors.response.use(
           flushQueue(null, newAccess);
           return resendOriginal(originalRequest, newAccess);
         } catch (refreshError) {
-          // Refresh token is also expired/invalid → real logout.
           flushQueue(refreshError, null);
           clearSession();
           if (!originalRequest.silent) {
