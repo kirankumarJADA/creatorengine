@@ -2,19 +2,12 @@ import api from './api.js';
 import { API_ENDPOINTS } from '../utils/constants.js';
 
 /**
- * Auth API surface.
- *
- * Each method returns the unwrapped backend `data` (the api
- * interceptor strips the envelope automatically).
+ * Auth API surface. Each method returns the unwrapped backend `data`.
  */
 const authService = {
   register: async ({ name, email, password }) => {
-    const { data } = await api.post(API_ENDPOINTS.REGISTER, {
-      name,
-      email,
-      password,
-    });
-    return data; // { user, accessToken, refreshToken, tokenType, expiresIn }
+    const { data } = await api.post(API_ENDPOINTS.REGISTER, { name, email, password });
+    return data;
   },
 
   login: async ({ email, password }) => {
@@ -26,8 +19,7 @@ const authService = {
     try {
       await api.post(API_ENDPOINTS.LOGOUT, null, { silent: true });
     } catch {
-      // Server-side logout is a best-effort no-op for stateless JWT —
-      // swallow errors and let the caller clear local state regardless.
+      /* best-effort no-op for stateless JWT */
     }
   },
 
@@ -36,9 +28,18 @@ const authService = {
     return data;
   },
 
+  updateProfile: async ({ name }) => {
+    const { data } = await api.patch('/auth/profile', { name });
+    return data; // updated user
+  },
+
+  changePassword: async ({ currentPassword, newPassword }) => {
+    await api.post('/auth/change-password', { currentPassword, newPassword });
+  },
+
   forgotPassword: async ({ email }) => {
     const { raw } = await api.post(API_ENDPOINTS.FORGOT_PASSWORD, { email });
-    return raw; // { success, message }
+    return raw;
   },
 };
 

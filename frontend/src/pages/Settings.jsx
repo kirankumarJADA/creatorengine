@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import authService from '../services/authService.js';
 import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -82,6 +83,7 @@ const Settings = () => {
 // ─── Profile ─────────────────────────────────────────
 const ProfileTab = () => {
   const user = useAuthStore((s) => s.user);
+  const refreshUser = useAuthStore((s) => s.refreshUser);
 
   const {
     register,
@@ -94,10 +96,17 @@ const ProfileTab = () => {
     },
   });
 
-  const onSubmit = async () => {
-    // Simulate persistence delay so the spinner is visible
-    await new Promise((r) => setTimeout(r, 500));
-    toast.success('Profile updated.');
+  const onSubmit = async ({ current, next }) => {
+    try {
+      await authService.changePassword({ currentPassword: current, newPassword: next });
+      toast.success('Password updated.');
+      reset({ current: '', next: '', confirm: '' });
+    } catch (e) {
+      toast.error(
+        e?.response?.data?.message ||
+          'Could not update password. Check your current password.'
+      );
+    }
   };
 
   return (

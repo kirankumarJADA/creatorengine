@@ -1,10 +1,12 @@
 package com.creatorengine.auth.controller;
 
 import com.creatorengine.auth.dto.AuthResponse;
+import com.creatorengine.auth.dto.ChangePasswordRequest;
 import com.creatorengine.auth.dto.ForgotPasswordRequest;
 import com.creatorengine.auth.dto.LoginRequest;
 import com.creatorengine.auth.dto.RefreshRequest;
 import com.creatorengine.auth.dto.RegisterRequest;
+import com.creatorengine.auth.dto.UpdateProfileRequest;
 import com.creatorengine.auth.dto.UserResponse;
 import com.creatorengine.auth.service.AuthService;
 import com.creatorengine.common.ApiResponse;
@@ -51,6 +53,22 @@ public class AuthController {
     public ResponseEntity<ApiResponse<UserResponse>> me() {
         UserResponse me = authService.getCurrentUser(SecurityUtils.getCurrentUserId());
         return ResponseEntity.ok(ApiResponse.ok(me));
+    }
+
+    @PatchMapping("/profile")
+    public ResponseEntity<ApiResponse<UserResponse>> updateProfile(
+            @Valid @RequestBody UpdateProfileRequest req) {
+        String uid = SecurityUtils.getCurrentUserId();
+        UserResponse updated = authService.updateProfile(uid, req);
+        return ResponseEntity.ok(ApiResponse.ok("Profile updated.", updated));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @Valid @RequestBody ChangePasswordRequest req) {
+        String uid = SecurityUtils.getCurrentUserId();
+        authService.changePassword(uid, req);
+        return ResponseEntity.ok(ApiResponse.ok("Password updated."));
     }
 
     @PostMapping("/forgot-password")

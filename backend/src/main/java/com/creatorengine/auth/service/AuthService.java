@@ -1,14 +1,17 @@
 package com.creatorengine.auth.service;
 
 import com.creatorengine.auth.dto.AuthResponse;
+import com.creatorengine.auth.dto.ChangePasswordRequest;
 import com.creatorengine.auth.dto.ForgotPasswordRequest;
 import com.creatorengine.auth.dto.LoginRequest;
 import com.creatorengine.auth.dto.RegisterRequest;
+import com.creatorengine.auth.dto.UpdateProfileRequest;
 import com.creatorengine.auth.dto.UserResponse;
 import com.creatorengine.auth.entity.Role;
 import com.creatorengine.auth.entity.User;
 import com.creatorengine.auth.repository.UserRepository;
 import com.creatorengine.config.AppProperties;
+import com.creatorengine.exception.BadRequestException;
 import com.creatorengine.exception.ConflictException;
 import com.creatorengine.exception.ResourceNotFoundException;
 import com.creatorengine.exception.UnauthorizedException;
@@ -142,6 +145,51 @@ public class AuthService {
 
     public void logout() {
         log.debug("Logout called (no-op for stateless JWT).");
+    }
+
+    public UserResponse updateProfile(String uid, UpdateProfileRequest req) {
+        User user = userRepository.findById(uid)
+                .orElseThrow(() -> new ResourceNotFoundException("User", uid));
+
+        String name = req.name() == null ? "" : req.name().trim();
+        if (name.isEmpty()) {
+            throw new BadRequestException("Name cannot be empty.");
+        }
+
+        user.setName(name);
+        userRepository.save(user);
+
+        // Keep Firebase display name in sync (best-effort).
+        try {
+            firebaseAuth.updateUser(new UserRecord.UpdateRequest(uid).setDisplayName(name));
+        } catch (FirebaseAuthException ex) {
+            log.warn("Firebase displayName sync failed for uid={}: {}", uid, ex.getMessage());
+        }
+
+        log.info("Updated profile name for uid={}", uid);
+        return UserResponse.from(user);
+    }
+
+    public void changePassword(String uid, ChangePasswordRequest req) {
+        User user = userRepository.findById(uid)
+                .orElseThrow(() -> new ResourceNotFoundException("User", uid));
+
+        // Verify the current password by authenticating with it.
+        try {
+            firebaseAuthClient.verifyPassword(user.getEmail(), req.currentPassword());
+        } catch (Exception ex) {
+            throw new UnauthorizedException("Current password is incorrect.");
+        }
+
+        // Apply the new password via the Admin SDK.
+        try {
+            firebaseAuth.updateUser(new UserRecord.UpdateRequest(uid).setPassword(req.newPassword()));
+        } catch (FirebaseAuthException ex) {
+            log.warn("Firebase password update failed for uid={}: {}", uid, ex.getMessage());
+            throw new BadRequestException("Could not update password. Please try again.");
+        }
+
+        log.info("Password changed for uid={}", uid);
     }
 
     public void sendPasswordResetEmail(ForgotPasswordRequest req) {
