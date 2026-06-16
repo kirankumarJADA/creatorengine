@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import authService from '../services/authService.js';
-import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import toast from 'react-hot-toast';
 import {
   User,
   Lock,
@@ -24,6 +23,7 @@ import Button from '../components/form/Button.jsx';
 import FormField from '../components/form/FormField.jsx';
 import PasswordField from '../components/form/PasswordField.jsx';
 
+import authService from '../services/authService.js';
 import { useAuthStore } from '../store/authStore.js';
 import { useInstagramStore } from '../store/instagramStore.js';
 import { cn, formatRelative } from '../utils/helpers.js';
@@ -41,6 +41,7 @@ const Settings = () => {
   const requested = searchParams.get('tab');
   const initialTab = TABS.some((t) => t.id === requested) ? requested : 'profile';
   const [tab, setTab] = useState(initialTab);
+
   return (
     <div>
       <PageHeader
@@ -49,7 +50,6 @@ const Settings = () => {
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr] lg:gap-8">
-        {/* Side nav */}
         <nav className="flex gap-1 overflow-x-auto rounded-2xl border border-ink-100 bg-white p-1.5 dark:border-ink-800 dark:bg-ink-900 lg:h-fit lg:flex-col lg:gap-0.5 lg:p-2">
           {TABS.map((t) => (
             <button
@@ -68,7 +68,6 @@ const Settings = () => {
           ))}
         </nav>
 
-        {/* Content */}
         <div>
           {tab === 'profile'       && <ProfileTab />}
           {tab === 'security'      && <SecurityTab />}
@@ -80,7 +79,7 @@ const Settings = () => {
   );
 };
 
-// ─── Profile ─────────────────────────────────────────
+// ─── Profile (saves the NAME) ────────────────────────
 const ProfileTab = () => {
   const user = useAuthStore((s) => s.user);
   const refreshUser = useAuthStore((s) => s.refreshUser);
@@ -96,25 +95,19 @@ const ProfileTab = () => {
     },
   });
 
-  const onSubmit = async ({ current, next }) => {
+  const onSubmit = async ({ name }) => {
     try {
-      await authService.changePassword({ currentPassword: current, newPassword: next });
-      toast.success('Password updated.');
-      reset({ current: '', next: '', confirm: '' });
-    } catch (e) {
-      toast.error(
-        e?.response?.data?.message ||
-          'Could not update password. Check your current password.'
-      );
+      await authService.updateProfile({ name });
+      await refreshUser();
+      toast.success('Profile updated.');
+    } catch {
+      toast.error('Could not update profile.');
     }
   };
 
   return (
     <Card>
-      <CardHeader
-        title="Profile"
-        description="Update your personal information."
-      />
+      <CardHeader title="Profile" description="Update your personal information." />
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <FormField
           label="Full name"
@@ -140,7 +133,7 @@ const ProfileTab = () => {
   );
 };
 
-// ─── Security ────────────────────────────────────────
+// ─── Security (changes the PASSWORD) ─────────────────
 const SecurityTab = () => {
   const {
     register,
@@ -153,10 +146,17 @@ const SecurityTab = () => {
   });
   const newPassword = watch('next');
 
-  const onSubmit = async () => {
-    await new Promise((r) => setTimeout(r, 500));
-    toast.success('Password updated.');
-    reset({ current: '', next: '', confirm: '' });
+  const onSubmit = async ({ current, next }) => {
+    try {
+      await authService.changePassword({ currentPassword: current, newPassword: next });
+      toast.success('Password updated.');
+      reset({ current: '', next: '', confirm: '' });
+    } catch (e) {
+      toast.error(
+        e?.response?.data?.message ||
+          'Could not update password. Check your current password.'
+      );
+    }
   };
 
   return (
@@ -198,7 +198,7 @@ const SecurityTab = () => {
   );
 };
 
-// ─── Instagram (functional) ──────────────────────────
+// ─── Instagram ───────────────────────────────────────
 const STATUS_META = {
   [CONNECTION_STATUS.CONNECTED]:     { tone: 'success', label: 'Connected' },
   [CONNECTION_STATUS.EXPIRED]:       { tone: 'warning', label: 'Token expired' },
@@ -220,8 +220,6 @@ const InstagramTab = () => {
 
   const handleConnect = async () => {
     try {
-      // startConnect performs a hard browser redirect on success;
-      // we only land here if the /connect call itself failed.
       await startConnect();
     } catch {
       toast.error('Could not start the Instagram connection.');
@@ -240,7 +238,6 @@ const InstagramTab = () => {
 
   const handleRefresh = () => fetchStatus();
 
-  // Pick the right body for the current state
   let body;
   if (isLoading && !account) {
     body = (
@@ -289,7 +286,6 @@ const InstagramTab = () => {
   );
 };
 
-// ─── Account details when connected (or expired) ─────
 const ConnectedCard = ({ account, expired, onDisconnect, onReconnect, isConnecting }) => (
   <div className="space-y-5">
     {expired && (
@@ -303,12 +299,7 @@ const ConnectedCard = ({ account, expired, onDisconnect, onReconnect, isConnecti
             Reconnect to keep receiving webhook events.
           </p>
         </div>
-        <Button
-          size="sm"
-          onClick={onReconnect}
-          isLoading={isConnecting}
-          leftIcon={Instagram}
-        >
+        <Button size="sm" onClick={onReconnect} isLoading={isConnecting} leftIcon={Instagram}>
           Reconnect
         </Button>
       </div>
@@ -331,22 +322,14 @@ const ConnectedCard = ({ account, expired, onDisconnect, onReconnect, isConnecti
         <p className="text-base font-semibold text-ink-900 dark:text-ink-100">
           {account?.name || account?.username || 'Instagram account'}
         </p>
-        <p className="text-sm text-ink-500 dark:text-ink-400">
-          @{account?.username || '—'}
-        </p>
+        <p className="text-sm text-ink-500 dark:text-ink-400">@{account?.username || '—'}</p>
       </div>
 
-      <Button
-        variant="secondary"
-        leftIcon={Link2Off}
-        onClick={onDisconnect}
-        className="sm:shrink-0"
-      >
+      <Button variant="secondary" leftIcon={Link2Off} onClick={onDisconnect} className="sm:shrink-0">
         Disconnect
       </Button>
     </div>
 
-    {/* Metadata grid */}
     <dl className="grid grid-cols-1 gap-4 rounded-2xl border border-ink-100 bg-white p-5 text-sm dark:border-ink-800 dark:bg-ink-900 sm:grid-cols-3">
       <Meta label="Instagram user ID" value={account?.instagramUserId || '—'} mono />
       <Meta label="Page ID"            value={account?.pageId || '—'} mono />
@@ -359,13 +342,9 @@ const ConnectedCard = ({ account, expired, onDisconnect, onReconnect, isConnecti
 
 const Meta = ({ label, value, mono = false }) => (
   <div>
-    <dt className="text-xs uppercase tracking-wider text-ink-400 dark:text-ink-500">
-      {label}
-    </dt>
+    <dt className="text-xs uppercase tracking-wider text-ink-400 dark:text-ink-500">{label}</dt>
     <dd
-      className={`mt-0.5 truncate text-ink-800 dark:text-ink-200 ${
-        mono ? 'font-mono text-xs' : ''
-      }`}
+      className={`mt-0.5 truncate text-ink-800 dark:text-ink-200 ${mono ? 'font-mono text-xs' : ''}`}
       title={value}
     >
       {value}
@@ -373,7 +352,6 @@ const Meta = ({ label, value, mono = false }) => (
   </div>
 );
 
-// ─── Empty state ─────────────────────────────────────
 const NotConnectedCard = ({ onConnect, isConnecting }) => (
   <div className="flex flex-col items-start gap-5 rounded-2xl border border-dashed border-ink-200 bg-ink-50/40 p-6 dark:border-ink-800 dark:bg-ink-800/20 sm:flex-row sm:items-center">
     <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-pink-500 via-fuchsia-500 to-amber-400 text-white shadow-soft">
@@ -384,17 +362,11 @@ const NotConnectedCard = ({ onConnect, isConnecting }) => (
         Connect your Instagram Business account
       </h4>
       <p className="mt-1 text-sm text-ink-500 dark:text-ink-400">
-        We&apos;ll redirect you to Meta to authorize CreatorEngine. After
-        you return, comments, DMs, and story replies start flowing in
-        automatically.
+        We&apos;ll redirect you to Meta to authorize CreatorEngine. After you return, comments,
+        DMs, and story replies start flowing in automatically.
       </p>
     </div>
-    <Button
-      leftIcon={Instagram}
-      onClick={onConnect}
-      isLoading={isConnecting}
-      className="sm:shrink-0"
-    >
+    <Button leftIcon={Instagram} onClick={onConnect} isLoading={isConnecting} className="sm:shrink-0">
       Connect Instagram
     </Button>
   </div>
@@ -402,30 +374,10 @@ const NotConnectedCard = ({ onConnect, isConnecting }) => (
 
 // ─── Notifications ───────────────────────────────────
 const NOTIFICATION_PREFS = [
-  {
-    key: 'weekly_digest',
-    title: 'Weekly digest',
-    description: 'A summary of your automations’ performance every Monday.',
-    default: true,
-  },
-  {
-    key: 'new_conversation',
-    title: 'New conversations',
-    description: 'Email me when a new DM thread starts from an automation.',
-    default: true,
-  },
-  {
-    key: 'automation_errors',
-    title: 'Automation errors',
-    description: 'Get notified when an automation fails or is paused by the system.',
-    default: true,
-  },
-  {
-    key: 'product_updates',
-    title: 'Product updates',
-    description: 'Occasional emails about new features and improvements.',
-    default: false,
-  },
+  { key: 'weekly_digest', title: 'Weekly digest', description: 'A summary of your automations’ performance every Monday.', default: true },
+  { key: 'new_conversation', title: 'New conversations', description: 'Email me when a new DM thread starts from an automation.', default: true },
+  { key: 'automation_errors', title: 'Automation errors', description: 'Get notified when an automation fails or is paused by the system.', default: true },
+  { key: 'product_updates', title: 'Product updates', description: 'Occasional emails about new features and improvements.', default: false },
 ];
 
 const NotificationsTab = () => {
@@ -443,29 +395,15 @@ const NotificationsTab = () => {
 
   return (
     <Card>
-      <CardHeader
-        title="Email notifications"
-        description="Choose what we email you about."
-      />
+      <CardHeader title="Email notifications" description="Choose what we email you about." />
       <ul className="divide-y divide-ink-100 dark:divide-ink-800">
         {NOTIFICATION_PREFS.map((p) => (
-          <li
-            key={p.key}
-            className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0"
-          >
+          <li key={p.key} className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
-                {p.title}
-              </p>
-              <p className="mt-0.5 text-sm text-ink-500 dark:text-ink-400">
-                {p.description}
-              </p>
+              <p className="text-sm font-medium text-ink-900 dark:text-ink-100">{p.title}</p>
+              <p className="mt-0.5 text-sm text-ink-500 dark:text-ink-400">{p.description}</p>
             </div>
-            <Switch
-              checked={prefs[p.key]}
-              onChange={() => toggle(p.key)}
-              srLabel={p.title}
-            />
+            <Switch checked={prefs[p.key]} onChange={() => toggle(p.key)} srLabel={p.title} />
           </li>
         ))}
       </ul>
