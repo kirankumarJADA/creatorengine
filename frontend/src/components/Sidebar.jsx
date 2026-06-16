@@ -7,7 +7,6 @@ import {
   ScrollText,
   AlertOctagon,
   Settings as SettingsIcon,
-  Sparkles,
   LogOut,
   ChevronLeft,
   Instagram,
@@ -88,9 +87,11 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
           onClick={onNavigate}
           className="inline-flex items-center gap-2.5"
         >
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-ink-900 text-white shadow-sm dark:bg-brand-600">
-            <Sparkles size={18} strokeWidth={2.5} />
-          </span>
+          <img
+            src="/logo-mark.png"
+            alt="CreatorEngine"
+            className="h-9 w-9 shrink-0 object-contain"
+          />
           {!collapsed && (
             <span className="text-lg font-semibold text-ink-900 dark:text-ink-100">
               {APP_NAME}
@@ -120,7 +121,7 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
             </div>
           ) : igConnected ? (
             <Link
-             to={ROUTES.SETTINGS + '?tab=instagram'}
+              to={ROUTES.SETTINGS}
               onClick={onNavigate}
               className="group flex w-full items-center justify-between rounded-xl border border-ink-200 bg-ink-50/40 px-3 py-2.5 text-left text-sm transition-colors hover:border-brand-300 hover:bg-brand-50/30 dark:border-ink-800 dark:bg-ink-800/30 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/5"
             >
