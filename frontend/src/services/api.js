@@ -19,16 +19,20 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Stash the ORIGINAL (un-serialized) body. After axios sends a request it
+    // replaces config.data with a JSON string; if we then retry after a token
+    // refresh, axios would JSON.stringify that string AGAIN (double-encoding it
+    // so the backend can't read the fields → 400). Keep the raw object so the
+    // retry can restore it.
+    if (config.data !== undefined && config.__rawData === undefined) {
+      config.__rawData = config.data;
+    }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
 // ─── Token refresh plumbing ────────────────────────────────────────
-// When the access token expires, the next request 401s. Instead of
-// logging the user out, we use the stored refresh token to mint a new
-// access token (once) and retry. Concurrent 401s are queued so we only
-// refresh a single time.
 let isRefreshing = false;
 let pendingQueue = [];
 
@@ -57,6 +61,17 @@ const redirectToLogin = () => {
   }
 };
 
+// Re-issue the original request after a refresh, restoring its raw body so
+// axios doesn't double-stringify it.
+const resendOriginal = (originalRequest, token) => {
+  if (originalRequest.__rawData !== undefined) {
+    originalRequest.data = originalRequest.__rawData;
+  }
+  originalRequest.headers = originalRequest.headers || {};
+  originalRequest.headers.Authorization = `Bearer ${token}`;
+  return api(originalRequest);
+};
+
 // ─── Response: unwrap envelope + refresh-on-401 + error handling ────
 api.interceptors.response.use(
   (response) => {
@@ -83,8 +98,6 @@ api.interceptors.response.use(
       const isRefreshCall = (originalRequest.url || '').includes('/auth/refresh');
       const refreshToken = storage.get(STORAGE_KEYS.REFRESH_TOKEN);
 
-      // We can still try to refresh: not already retried, not the refresh
-      // call itself, and we actually have a refresh token.
       if (!originalRequest._retry && !isRefreshCall && refreshToken) {
         originalRequest._retry = true;
 
@@ -92,11 +105,7 @@ api.interceptors.response.use(
         if (isRefreshing) {
           return new Promise((resolve, reject) => {
             pendingQueue.push({ resolve, reject });
-          }).then((newToken) => {
-            originalRequest.headers = originalRequest.headers || {};
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            return api(originalRequest);
-          });
+          }).then((newToken) => resendOriginal(originalRequest, newToken));
         }
 
         isRefreshing = true;
@@ -114,9 +123,7 @@ api.interceptors.response.use(
           if (data.user) storage.set(STORAGE_KEYS.USER, data.user);
 
           flushQueue(null, newAccess);
-          originalRequest.headers = originalRequest.headers || {};
-          originalRequest.headers.Authorization = `Bearer ${newAccess}`;
-          return api(originalRequest);
+          return resendOriginal(originalRequest, newAccess);
         } catch (refreshError) {
           // Refresh token is also expired/invalid → real logout.
           flushQueue(refreshError, null);
@@ -131,8 +138,7 @@ api.interceptors.response.use(
         }
       }
 
-      // No refresh possible (no token, the refresh call itself, or already
-      // retried) → the session is genuinely over.
+      // No refresh possible → session is genuinely over.
       clearSession();
       if (!originalRequest.silent) {
         toast.error('Your session has expired. Please log in again.');
