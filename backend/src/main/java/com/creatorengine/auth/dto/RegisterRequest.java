@@ -13,6 +13,10 @@ public record RegisterRequest(
         @NotBlank(message = "Email is required")
         @Email(message = "Invalid email format")
         @Size(max = 254, message = "Email is too long")
+        @Pattern(
+                regexp = "(?i)^[A-Za-z0-9._%+-]+@(gmail\\.com|googlemail\\.com|outlook\\.com|hotmail\\.com|live\\.com)$",
+                message = "Please sign up with a Gmail or Outlook email address"
+        )
         String email,
 
         @NotBlank(message = "Password is required")

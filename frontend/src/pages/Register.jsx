@@ -15,6 +15,20 @@ import {
   NAME_RULES,
 } from '../utils/validators.js';
 
+// Only consumer Gmail / Outlook addresses are allowed at signup.
+const ALLOWED_EMAIL_DOMAINS = [
+  'gmail.com',
+  'googlemail.com',
+  'outlook.com',
+  'hotmail.com',
+  'live.com',
+];
+
+const isAllowedEmailDomain = (email) => {
+  const domain = String(email || '').split('@')[1]?.toLowerCase().trim();
+  return !!domain && ALLOWED_EMAIL_DOMAINS.includes(domain);
+};
+
 const Register = () => {
   const navigate = useNavigate();
   const registerUser = useAuthStore((s) => s.register);
@@ -67,11 +81,22 @@ const Register = () => {
         <FormField
           label="Email"
           type="email"
-          placeholder="you@company.com"
+          placeholder="you@gmail.com"
           autoComplete="email"
           leftIcon={Mail}
+          hint="Use a Gmail or Outlook email address."
           error={errors.email?.message}
-          {...register('email', EMAIL_RULES)}
+          {...register('email', {
+            ...EMAIL_RULES,
+            validate: {
+              ...(typeof EMAIL_RULES.validate === 'function'
+                ? { emailFormat: EMAIL_RULES.validate }
+                : EMAIL_RULES.validate),
+              allowedDomain: (v) =>
+                isAllowedEmailDomain(v) ||
+                'Please use a Gmail or Outlook email address.',
+            },
+          })}
         />
 
         <PasswordField
