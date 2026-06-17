@@ -79,7 +79,6 @@ const Register = () => {
           placeholder="you@gmail.com"
           autoComplete="email"
           leftIcon={Mail}
-          hint="Use a Gmail or Outlook email address."
           error={errors.email?.message}
           {...register('email', {
             ...EMAIL_RULES,
@@ -89,7 +88,7 @@ const Register = () => {
                 : EMAIL_RULES.validate),
               allowedDomain: (v) =>
                 isAllowedEmailDomain(v) ||
-                'Please use a Gmail or Outlook email address.',
+                "This email provider isn't supported. Please use Gmail or Outlook.",
             },
           })}
         />
