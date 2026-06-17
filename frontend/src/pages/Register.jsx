@@ -44,7 +44,6 @@ const Register = () => {
     mode: 'onTouched',
   });
 
-  // We don't send the `confirm` field — it's only for client-side check.
   const password = watch('password');
 
   const onSubmit = async ({ confirm: _confirm, ...payload }) => {
@@ -64,11 +63,7 @@ const Register = () => {
         Start building with CreatorEngine — no credit card required.
       </p>
 
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="mt-8 space-y-4"
-        noValidate
-      >
+      <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-4" noValidate>
         <FormField
           label="Full name"
           placeholder="Jane Doe"
@@ -131,23 +126,15 @@ const Register = () => {
 
         <p className="text-center text-xs text-ink-500">
           By creating an account, you agree to our{' '}
-          <a href="#" className="underline">
-            Terms
-          </a>{' '}
+          <a href="/terms.html" target="_blank" rel="noreferrer" className="underline">Terms</a>{' '}
           and{' '}
-          <a href="#" className="underline">
-            Privacy Policy
-          </a>
-          .
+          <a href="/privacy.html" target="_blank" rel="noreferrer" className="underline">Privacy Policy</a>.
         </p>
       </form>
 
       <p className="mt-8 text-center text-sm text-ink-500">
         Already have an account?{' '}
-        <Link
-          to={ROUTES.LOGIN}
-          className="font-medium text-ink-900 hover:underline"
-        >
+        <Link to={ROUTES.LOGIN} className="font-medium text-ink-900 hover:underline">
           Sign in
         </Link>
       </p>

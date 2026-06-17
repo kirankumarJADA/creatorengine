@@ -1,14 +1,10 @@
 import { Outlet, Link } from 'react-router-dom';
-import { Sparkles, ShieldCheck, Rocket, Users } from 'lucide-react';
+import { ShieldCheck, Rocket, Users } from 'lucide-react';
 import { APP_NAME } from '../utils/constants.js';
 
 /**
  * Split-screen layout shared by Login, Register, and ForgotPassword.
  * Left pane = brand/marketing. Right pane = form.
- *
- * On mobile the left pane collapses entirely so the form gets the
- * full viewport — important since auth flows are the highest-stakes
- * pages in the app and we don't want them feeling cramped on a phone.
  */
 const AuthLayout = () => {
   return (
@@ -22,9 +18,11 @@ const AuthLayout = () => {
 
         {/* Logo */}
         <Link to="/" className="relative z-10 inline-flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-white text-ink-950">
-            <Sparkles size={18} strokeWidth={2.5} />
-          </span>
+          <img
+            src="/logo-mark.png"
+            alt={APP_NAME}
+            className="h-9 w-9 shrink-0 object-contain"
+          />
           <span className="text-lg font-semibold tracking-tight">
             {APP_NAME}
           </span>
