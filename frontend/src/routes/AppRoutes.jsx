@@ -12,6 +12,7 @@ import { ROUTES }      from '../utils/constants.js';
 const Login          = lazy(() => import('../pages/Login.jsx'));
 const Register       = lazy(() => import('../pages/Register.jsx'));
 const ForgotPassword = lazy(() => import('../pages/ForgotPassword.jsx'));
+const AuthAction     = lazy(() => import('../pages/AuthAction.jsx'));
 const Dashboard      = lazy(() => import('../pages/Dashboard.jsx'));
 const Automations    = lazy(() => import('../pages/Automations.jsx'));
 const AutomationBuilder = lazy(() => import('../pages/AutomationBuilder.jsx'));
@@ -26,6 +27,10 @@ const AppRoutes = () => {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
+        {/* Password-reset / email-action handler — public, works whether or
+            not the user is signed in (they arrive from an email link). */}
+        <Route path="/auth/action" element={<AuthAction />} />
+
         {/* Public auth routes — bounce signed-in users to the dashboard */}
         <Route element={<PublicOnlyRoute />}>
           <Route element={<AuthLayout />}>
@@ -39,7 +44,6 @@ const AppRoutes = () => {
         <Route element={<ProtectedRoute />}>
           {/* Standalone protected pages (no sidebar/topbar chrome) */}
           <Route path={ROUTES.INSTAGRAM_CALLBACK} element={<InstagramCallback />} />
-
           <Route element={<AppLayout />}>
             <Route
               index
