@@ -1,10 +1,11 @@
 package com.creatorengine.ai.provider;
 
 import com.creatorengine.ai.dto.GenerateMessageRequest;
-import com.creatorengine.config.AppProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
@@ -17,9 +18,12 @@ import java.util.Map;
 @Component
 public class OpenAiMessageProvider implements AiMessageProvider {
 
+    // NVIDIA's endpoint is OpenAI-compatible, so we reuse the same request shape.
+    private static final String BASE_URL = "https://integrate.api.nvidia.com/v1";
+
     private static final String SYSTEM_PROMPT = """
             You are a copywriting assistant helping a creator write short Instagram DM templates for an automated reply.
-            Output JSON only. No markdown. No preamble.
+            Reply with ONLY a JSON object. No markdown, no code fences, no preamble, no explanation.
             Each generated message must:
             - be under 250 characters
             - include the literal placeholder {{username}} at least once
@@ -27,18 +31,23 @@ public class OpenAiMessageProvider implements AiMessageProvider {
             - be plain text
             """;
 
-    private final AppProperties props;
     private final ObjectMapper json;
+
+    @Value("${NVIDIA_API_KEY:}")
+    private String apiKey;
+
+    @Value("${NVIDIA_MODEL:openai/gpt-oss-20b}")
+    private String model;
+
     private RestClient restClient;
 
-    public OpenAiMessageProvider(AppProperties props, ObjectMapper json) {
-        this.props = props;
+    public OpenAiMessageProvider(ObjectMapper json) {
         this.json = json;
     }
 
     @Override
     public String name() {
-        return "openai";
+        return "nvidia";
     }
 
     @Override
@@ -48,18 +57,17 @@ public class OpenAiMessageProvider implements AiMessageProvider {
 
     @Override
     public boolean isAvailable() {
-        return StringUtils.hasText(props.getAi().getOpenai().getApiKey());
+        return StringUtils.hasText(apiKey);
     }
 
     @Override
     public List<String> generateSuggestions(GenerateMessageRequest req) throws Exception {
-        var cfg = props.getAi().getOpenai();
-        RestClient client = client(cfg);
+        RestClient client = client();
 
         Map<String, Object> body = Map.of(
-                "model", cfg.getModel(),
+                "model", model,
                 "temperature", 0.8,
-                "response_format", Map.of("type", "json_object"),
+                "max_tokens", 2048,
                 "messages", List.of(
                         Map.of("role", "system", "content", SYSTEM_PROMPT),
                         Map.of("role", "user", "content", userPrompt(req))
@@ -68,7 +76,7 @@ public class OpenAiMessageProvider implements AiMessageProvider {
 
         String responseBody = client.post()
                 .uri("/chat/completions")
-                .header("Authorization", "Bearer " + cfg.getApiKey())
+                .header("Authorization", "Bearer " + apiKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
                 .retrieve()
@@ -86,7 +94,7 @@ public class OpenAiMessageProvider implements AiMessageProvider {
                 Audience: %s
                 CTA:      %s
 
-                Return JSON with this exact shape:
+                Return ONLY this JSON shape and nothing else:
                 {"suggestions": ["text 1", "text 2", "text 3"]}
                 """.formatted(
                 req.goal(),
@@ -98,25 +106,24 @@ public class OpenAiMessageProvider implements AiMessageProvider {
 
     private List<String> parseSuggestions(String responseBody) throws Exception {
         if (responseBody == null || responseBody.isBlank()) {
-            throw new IllegalStateException("OpenAI returned an empty body.");
+            throw new IllegalStateException("AI returned an empty body.");
         }
 
         JsonNode root = json.readTree(responseBody);
         JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
 
         if (contentNode.isMissingNode() || !contentNode.isTextual()) {
-            throw new IllegalStateException("OpenAI response missing choices[0].message.content");
+            throw new IllegalStateException("AI response missing choices[0].message.content");
         }
 
-        JsonNode innerRoot = json.readTree(contentNode.asText());
-        JsonNode arr = innerRoot.path("suggestions");
+        JsonNode innerRoot = json.readTree(extractJsonObject(contentNode.asText()));
+        JsonNode arr = innerRoot.has("suggestions") ? innerRoot.path("suggestions") : innerRoot;
 
         if (!arr.isArray() || arr.isEmpty()) {
-            throw new IllegalStateException("OpenAI content did not contain a suggestions array.");
+            throw new IllegalStateException("AI content did not contain a suggestions array.");
         }
 
         List<String> out = new ArrayList<>();
-
         for (JsonNode el : arr) {
             if (el != null && el.isTextual() && !el.asText().isBlank()) {
                 out.add(el.asText().trim());
@@ -124,24 +131,35 @@ public class OpenAiMessageProvider implements AiMessageProvider {
         }
 
         if (out.isEmpty()) {
-            throw new IllegalStateException("OpenAI returned an empty suggestions array.");
+            throw new IllegalStateException("AI returned an empty suggestions array.");
         }
-
         return out;
     }
 
-    private RestClient client(AppProperties.Ai.Openai cfg) {
+    /** Models sometimes wrap JSON in ```fences``` or add stray text — pull out the {...} block. */
+    private String extractJsonObject(String raw) {
+        String s = raw.trim();
+        if (s.startsWith("```")) {
+            int nl = s.indexOf('\n');
+            if (nl >= 0) s = s.substring(nl + 1);
+            if (s.endsWith("```")) s = s.substring(0, s.length() - 3);
+            s = s.trim();
+        }
+        int start = s.indexOf('{');
+        int end = s.lastIndexOf('}');
+        return (start >= 0 && end > start) ? s.substring(start, end + 1) : s;
+    }
+
+    private RestClient client() {
         if (restClient == null) {
             restClient = RestClient.builder()
-                    .baseUrl(cfg.getBaseUrl())
-                    .requestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory() {{
-                        int t = Math.max(1000, cfg.getTimeoutMs());
-                        setConnectTimeout(Duration.ofMillis(Math.min(t, 10_000)));
-                        setReadTimeout(Duration.ofMillis(t));
+                    .baseUrl(BASE_URL)
+                    .requestFactory(new SimpleClientHttpRequestFactory() {{
+                        setConnectTimeout(Duration.ofMillis(10_000));
+                        setReadTimeout(Duration.ofMillis(60_000));
                     }})
                     .build();
         }
-
         return restClient;
     }
 }
