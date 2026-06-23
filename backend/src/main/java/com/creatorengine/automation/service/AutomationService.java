@@ -4,13 +4,18 @@ import com.creatorengine.automation.dto.AutomationRequest;
 import com.creatorengine.automation.dto.AutomationResponse;
 import com.creatorengine.automation.entity.ActionType;
 import com.creatorengine.automation.entity.Automation;
+import com.creatorengine.automation.entity.PostTargetMode;
 import com.creatorengine.automation.repository.AutomationRepository;
 import com.creatorengine.exception.ResourceNotFoundException;
+import com.creatorengine.instagram.entity.InstagramAccount;
+import com.creatorengine.instagram.service.InstagramAccountService;
+import com.creatorengine.instagram.service.InstagramApiClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class AutomationService {
@@ -18,9 +23,17 @@ public class AutomationService {
     private static final Logger log = LoggerFactory.getLogger(AutomationService.class);
 
     private final AutomationRepository repository;
+    private final InstagramAccountService instagramAccountService;
+    private final InstagramApiClient instagramApiClient;
 
-    public AutomationService(AutomationRepository repository) {
+    public AutomationService(
+            AutomationRepository repository,
+            InstagramAccountService instagramAccountService,
+            InstagramApiClient instagramApiClient
+    ) {
         this.repository = repository;
+        this.instagramAccountService = instagramAccountService;
+        this.instagramApiClient = instagramApiClient;
     }
 
     public List<AutomationResponse> listForUser(String uid) {
@@ -41,8 +54,17 @@ public class AutomationService {
             entity.setName(deriveName(entity));
         }
 
+        // For NEXT_POST: snapshot current IG posts so we know which one is "new" later.
+        if (entity.getTargetPostMode() == PostTargetMode.NEXT_POST) {
+            entity.setBaselineMediaIds(snapshotMediaIds(uid));
+            entity.setTargetPostId(null);
+            entity.setNextPostLockedAt(null);
+        }
+
         Automation saved = repository.save(uid, entity);
-        log.info("Created automation id={} for uid={}", saved.getId(), uid);
+        log.info("Created automation id={} uid={} mode={} baselineSize={}",
+                saved.getId(), uid, saved.getEffectiveTargetPostMode(),
+                saved.getBaselineMediaIds() == null ? 0 : saved.getBaselineMediaIds().size());
         return AutomationResponse.from(saved);
     }
 
@@ -52,11 +74,14 @@ public class AutomationService {
         Automation existing = loadOrThrow(uid, id);
         Automation incoming = req.toEntity();
 
+        PostTargetMode prevMode = existing.getEffectiveTargetPostMode();
+        PostTargetMode newMode = incoming.getTargetPostMode();
+
         existing.setName(req.name() == null || req.name().isBlank()
                 ? existing.getName()
                 : req.name().trim());
         existing.setTrigger(req.trigger());
-        existing.setTargetPostId(req.targetPostId());
+        existing.setTargetPostMode(newMode);
         existing.setCondition(req.condition().toEntity());
         existing.setAction(incoming.getAction());
         existing.setMessage(incoming.getMessage());
@@ -67,6 +92,25 @@ public class AutomationService {
         existing.setFollowGateMessage(incoming.getFollowGateMessage());
         existing.setFollowGateButtonLabel(incoming.getFollowGateButtonLabel());
 
+        // Handle mode-change side effects.
+        if (newMode == PostTargetMode.NEXT_POST) {
+            // Re-snapshot only if the user just switched INTO NEXT_POST.
+            if (prevMode != PostTargetMode.NEXT_POST) {
+                existing.setBaselineMediaIds(snapshotMediaIds(uid));
+                existing.setTargetPostId(null);
+                existing.setNextPostLockedAt(null);
+            }
+            // If already NEXT_POST, leave baseline + lock untouched.
+        } else if (newMode == PostTargetMode.SPECIFIC) {
+            existing.setTargetPostId(incoming.getTargetPostId());
+            existing.setBaselineMediaIds(null);
+            existing.setNextPostLockedAt(null);
+        } else { // ALL
+            existing.setTargetPostId(null);
+            existing.setBaselineMediaIds(null);
+            existing.setNextPostLockedAt(null);
+        }
+
         if (req.enabled() != null) {
             existing.setEnabled(req.enabled());
         }
@@ -76,7 +120,7 @@ public class AutomationService {
         }
 
         Automation saved = repository.save(uid, existing);
-        log.info("Updated automation id={} for uid={}", id, uid);
+        log.info("Updated automation id={} uid={} mode={}", id, uid, saved.getEffectiveTargetPostMode());
         return AutomationResponse.from(saved);
     }
 
@@ -95,6 +139,31 @@ public class AutomationService {
     private Automation loadOrThrow(String uid, String id) {
         return repository.findById(uid, id)
                 .orElseThrow(() -> new ResourceNotFoundException("Automation", id));
+    }
+
+    /**
+     * Snapshot the user's current IG media ids so we can detect their next upload.
+     * Returns an empty list (not null) if not connected or the API call fails —
+     * the locker scheduler also enforces a "posted after createdAt" check, so
+     * an empty baseline can never accidentally lock onto an old post.
+     */
+    private List<String> snapshotMediaIds(String uid) {
+        try {
+            Optional<InstagramAccount> account = instagramAccountService.find(uid);
+            if (account.isEmpty() || account.get().getAccessToken() == null) {
+                log.info("snapshotMediaIds: no IG account for uid={}, using empty baseline", uid);
+                return List.of();
+            }
+            var media = instagramApiClient.fetchMedia(account.get().getAccessToken());
+            if (media == null || media.data() == null) return List.of();
+            return media.data().stream()
+                    .map(m -> m.id())
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+        } catch (Exception e) {
+            log.warn("snapshotMediaIds failed for uid={}: {}", uid, e.getMessage());
+            return List.of();
+        }
     }
 
     private String deriveName(Automation a) {

@@ -4,11 +4,8 @@ import {
   CONDITION_TYPE,
   MATCH_TYPE,
   ACTION_TYPE,
+  POST_TARGET_MODE,
 } from '../utils/constants.js';
-
-/**
- * Builder draft store — owns the in-flight wizard state.
- */
 
 export const STEPS = Object.freeze([
   { id: 1, key: 'trigger',   label: 'Trigger' },
@@ -18,7 +15,6 @@ export const STEPS = Object.freeze([
   { id: 5, key: 'review',    label: 'Review' },
 ]);
 
-/** A fresh action card with sensible defaults for the picker. */
 export const blankAction = (type = ACTION_TYPE.SEND_MESSAGE) => ({
   type,
   message: '',
@@ -29,6 +25,7 @@ export const blankAction = (type = ACTION_TYPE.SEND_MESSAGE) => ({
 const emptyDraft = () => ({
   name: '',
   trigger: null,
+  targetPostMode: POST_TARGET_MODE.ALL,
   targetPostId: null,
   condition: {
     type: CONDITION_TYPE.ANY,
@@ -38,10 +35,8 @@ const emptyDraft = () => ({
   action: { type: ACTION_TYPE.SEND_DM, link: '' },
   message: '',
   actions: [blankAction(ACTION_TYPE.SEND_MESSAGE)],
-  // Public comment reply.
   publicReplyEnabled: false,
   publicReplies: [],
-  // Follow gate.
   followGateEnabled: false,
   followGateMessage: '',
   followGateButtonLabel: '',
@@ -76,14 +71,17 @@ const normalizePublicReplies = (automation) => {
   }));
 };
 
+const normalizeTargetPostMode = (automation) => {
+  if (automation.targetPostMode) return automation.targetPostMode;
+  return automation.targetPostId ? POST_TARGET_MODE.SPECIFIC : POST_TARGET_MODE.ALL;
+};
+
 export const useBuilderStore = create((set, get) => ({
-  // ─── State ─────────────────────────────────────
   step: 1,
   mode: 'create',
   editingId: null,
   draft: emptyDraft(),
 
-  // ─── Lifecycle ─────────────────────────────────
   startCreate: () => set({
     step: 1, mode: 'create', editingId: null, draft: emptyDraft(),
   }),
@@ -95,6 +93,7 @@ export const useBuilderStore = create((set, get) => ({
     draft: {
       name:      automation.name || '',
       trigger:   automation.trigger ?? null,
+      targetPostMode: normalizeTargetPostMode(automation),
       targetPostId: automation.targetPostId ?? null,
       condition: {
         type:      automation.condition?.type      ?? CONDITION_TYPE.ANY,
@@ -118,7 +117,6 @@ export const useBuilderStore = create((set, get) => ({
 
   reset: () => set({ step: 1, mode: 'create', editingId: null, draft: emptyDraft() }),
 
-  // ─── Navigation ────────────────────────────────
   goToStep: (step) => {
     const clamped = Math.max(1, Math.min(STEPS.length, step));
     set({ step: clamped });
@@ -126,12 +124,33 @@ export const useBuilderStore = create((set, get) => ({
   next: () => set((s) => ({ step: Math.min(STEPS.length, s.step + 1) })),
   prev: () => set((s) => ({ step: Math.max(1, s.step - 1) })),
 
-  // ─── Top-level mutations ───────────────────────
   setTrigger: (trigger) =>
     set((s) => ({ draft: { ...s.draft, trigger } })),
 
+  /** Set the post-targeting mode and clear targetPostId when it no longer applies. */
+  setTargetPostMode: (targetPostMode) =>
+    set((s) => ({
+      draft: {
+        ...s.draft,
+        targetPostMode,
+        targetPostId: targetPostMode === POST_TARGET_MODE.SPECIFIC
+          ? s.draft.targetPostId
+          : null,
+      },
+    })),
+
   setTargetPostId: (targetPostId) =>
-    set((s) => ({ draft: { ...s.draft, targetPostId } })),
+    set((s) => ({
+      draft: {
+        ...s.draft,
+        targetPostId,
+        targetPostMode: targetPostId
+          ? POST_TARGET_MODE.SPECIFIC
+          : (s.draft.targetPostMode === POST_TARGET_MODE.SPECIFIC
+              ? POST_TARGET_MODE.ALL
+              : s.draft.targetPostMode),
+      },
+    })),
 
   setConditionType: (type) =>
     set((s) => ({ draft: { ...s.draft, condition: { ...s.draft.condition, type } } })),
@@ -148,7 +167,6 @@ export const useBuilderStore = create((set, get) => ({
   setEnabled: (enabled) =>
     set((s) => ({ draft: { ...s.draft, enabled } })),
 
-  // ─── Public reply mutations ────────────────────
   setPublicReplyEnabled: (publicReplyEnabled) =>
     set((s) => ({ draft: { ...s.draft, publicReplyEnabled } })),
 
@@ -181,7 +199,6 @@ export const useBuilderStore = create((set, get) => ({
       },
     })),
 
-  // ─── Follow gate mutations ─────────────────────
   setFollowGateEnabled: (followGateEnabled) =>
     set((s) => ({ draft: { ...s.draft, followGateEnabled } })),
 
@@ -191,7 +208,6 @@ export const useBuilderStore = create((set, get) => ({
   setFollowGateButtonLabel: (followGateButtonLabel) =>
     set((s) => ({ draft: { ...s.draft, followGateButtonLabel } })),
 
-  // ─── Legacy single-action mutations ────────────
   setActionType: (type) =>
     set((s) => ({ draft: { ...s.draft, action: { ...s.draft.action, type } } })),
 
@@ -201,7 +217,6 @@ export const useBuilderStore = create((set, get) => ({
   setMessage: (message) =>
     set((s) => ({ draft: { ...s.draft, message } })),
 
-  // ─── Multi-action mutations ────────────────────
   addAction: (type = ACTION_TYPE.SEND_MESSAGE) =>
     set((s) => ({
       draft: { ...s.draft, actions: [...s.draft.actions, blankAction(type)] },

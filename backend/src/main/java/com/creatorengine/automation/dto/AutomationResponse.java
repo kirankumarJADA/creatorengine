@@ -1,6 +1,7 @@
 package com.creatorengine.automation.dto;
 
 import com.creatorengine.automation.entity.Automation;
+import com.creatorengine.automation.entity.PostTargetMode;
 import com.creatorengine.automation.entity.TriggerType;
 
 import java.time.Instant;
@@ -10,7 +11,9 @@ public record AutomationResponse(
         String id,
         String name,
         TriggerType trigger,
+        PostTargetMode targetPostMode,
         String targetPostId,
+        Instant nextPostLockedAt,
         ConditionDto condition,
         ActionDto action,
         String message,
@@ -40,7 +43,9 @@ public record AutomationResponse(
                 a.getId(),
                 a.getName(),
                 a.getTrigger(),
+                a.getEffectiveTargetPostMode(),
                 a.getTargetPostId(),
+                a.getNextPostLockedAt(),
                 ConditionDto.from(a.getCondition()),
                 ActionDto.from(a.getAction()),
                 a.getMessage(),

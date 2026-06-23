@@ -1,6 +1,7 @@
 package com.creatorengine.automation.matcher;
 
 import com.creatorengine.automation.entity.Automation;
+import com.creatorengine.automation.entity.PostTargetMode;
 import com.creatorengine.automation.repository.AutomationRepository;
 import com.creatorengine.instagram.dto.WebhookEventDto;
 import com.creatorengine.instagram.entity.EventType;
@@ -42,27 +43,33 @@ public class AutomationMatcher {
     }
 
     private boolean matchesTriggerType(Automation a, EventType eventType) {
-        if (a.getTrigger() == null) {
-            return false;
-        }
+        if (a.getTrigger() == null) return false;
         return a.getTrigger().name().equals(eventType.name());
     }
 
     /**
-     * Post targeting. When an automation sets a targetPostId it only fires on
-     * comments on that one post. A null/blank targetPostId means "any post".
-     * Events with no post context (e.g. DMs) skip this filter, so the field is
-     * effectively ignored for DM triggers.
+     * Post targeting:
+     *  - ALL → always matches (DMs etc. ignore this anyway).
+     *  - SPECIFIC → must equal the event's postId.
+     *  - NEXT_POST → if not locked yet (targetPostId null) → never matches; once locked, behaves like SPECIFIC.
      */
     private boolean matchesTargetPost(Automation a, WebhookEventDto event) {
-        String target = a.getTargetPostId();
-        if (target == null || target.isBlank()) {
-            return true;
-        }
+        PostTargetMode mode = a.getEffectiveTargetPostMode();
         String eventPostId = event.postId();
-        if (eventPostId == null) {
-            return true;
+
+        // Events without a post context (DMs) bypass post targeting.
+        if (eventPostId == null) return true;
+
+        if (mode == PostTargetMode.ALL) return true;
+
+        if (mode == PostTargetMode.NEXT_POST
+                && (a.getTargetPostId() == null || a.getTargetPostId().isBlank())) {
+            // Still waiting for the user's next upload; don't fire.
+            return false;
         }
+
+        String target = a.getTargetPostId();
+        if (target == null || target.isBlank()) return true;
         return eventPostId.equals(target);
     }
 }

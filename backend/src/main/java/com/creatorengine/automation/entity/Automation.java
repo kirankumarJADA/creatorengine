@@ -13,7 +13,19 @@ public class Automation {
 
     private String name;
     private TriggerType trigger;
-    private String targetPostId;          // IG media id this automation targets; null = all posts
+
+    /** Which post(s) this automation targets. Null = legacy data; resolve via getEffectiveTargetPostMode(). */
+    private PostTargetMode targetPostMode;
+
+    /** IG media id this automation targets. Null when mode = ALL, or NEXT_POST that hasn't locked yet. */
+    private String targetPostId;
+
+    /** Snapshot of IG media ids at NEXT_POST creation time. Anything not in this list is a "new" post. */
+    private List<String> baselineMediaIds;
+
+    /** When the NEXT_POST automation locked onto its target reel. Null until locked. */
+    private Instant nextPostLockedAt;
+
     private Condition condition = new Condition();
     private Action action = new Action();
     private String message;
@@ -21,12 +33,9 @@ public class Automation {
     private boolean enabled = true;
     private int cooldownMinutes = 0;
 
-    // Public comment reply: master toggle + rotating templates
     private boolean publicReplyEnabled = false;
     private List<PublicReply> publicReplies;
 
-    // Follow gate: ask the commenter to follow, then deliver the content
-    // after they tap the "I Followed" button (trust-based, no verification).
     private boolean followGateEnabled = false;
     private String followGateMessage;
     private String followGateButtonLabel;
@@ -43,7 +52,10 @@ public class Automation {
             String id,
             String name,
             TriggerType trigger,
+            PostTargetMode targetPostMode,
             String targetPostId,
+            List<String> baselineMediaIds,
+            Instant nextPostLockedAt,
             Condition condition,
             Action action,
             String message,
@@ -63,7 +75,10 @@ public class Automation {
         this.id = id;
         this.name = name;
         this.trigger = trigger;
+        this.targetPostMode = targetPostMode;
         this.targetPostId = targetPostId;
+        this.baselineMediaIds = baselineMediaIds;
+        this.nextPostLockedAt = nextPostLockedAt;
         this.condition = condition;
         this.action = action;
         this.message = message;
@@ -85,156 +100,79 @@ public class Automation {
         return new AutomationBuilder();
     }
 
-    public String getId() {
-        return id;
-    }
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
 
-    public void setId(String id) {
-        this.id = id;
-    }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
-    public String getName() {
-        return name;
-    }
+    public TriggerType getTrigger() { return trigger; }
+    public void setTrigger(TriggerType trigger) { this.trigger = trigger; }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    public PostTargetMode getTargetPostMode() { return targetPostMode; }
+    public void setTargetPostMode(PostTargetMode targetPostMode) { this.targetPostMode = targetPostMode; }
 
-    public TriggerType getTrigger() {
-        return trigger;
-    }
+    public String getTargetPostId() { return targetPostId; }
+    public void setTargetPostId(String targetPostId) { this.targetPostId = targetPostId; }
 
-    public void setTrigger(TriggerType trigger) {
-        this.trigger = trigger;
-    }
+    public List<String> getBaselineMediaIds() { return baselineMediaIds; }
+    public void setBaselineMediaIds(List<String> baselineMediaIds) { this.baselineMediaIds = baselineMediaIds; }
 
-    public String getTargetPostId() {
-        return targetPostId;
-    }
+    public Instant getNextPostLockedAt() { return nextPostLockedAt; }
+    public void setNextPostLockedAt(Instant nextPostLockedAt) { this.nextPostLockedAt = nextPostLockedAt; }
 
-    public void setTargetPostId(String targetPostId) {
-        this.targetPostId = targetPostId;
-    }
+    public Condition getCondition() { return condition; }
+    public void setCondition(Condition condition) { this.condition = condition; }
 
-    public Condition getCondition() {
-        return condition;
-    }
+    public Action getAction() { return action; }
+    public void setAction(Action action) { this.action = action; }
 
-    public void setCondition(Condition condition) {
-        this.condition = condition;
-    }
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
 
-    public Action getAction() {
-        return action;
-    }
+    public List<Action> getActions() { return actions; }
+    public void setActions(List<Action> actions) { this.actions = actions; }
 
-    public void setAction(Action action) {
-        this.action = action;
-    }
+    public boolean getEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
-    public String getMessage() {
-        return message;
-    }
+    public int getCooldownMinutes() { return cooldownMinutes; }
+    public void setCooldownMinutes(int cooldownMinutes) { this.cooldownMinutes = cooldownMinutes; }
 
-    public void setMessage(String message) {
-        this.message = message;
-    }
+    public boolean getPublicReplyEnabled() { return publicReplyEnabled; }
+    public void setPublicReplyEnabled(boolean publicReplyEnabled) { this.publicReplyEnabled = publicReplyEnabled; }
 
-    public List<Action> getActions() {
-        return actions;
-    }
+    public List<PublicReply> getPublicReplies() { return publicReplies; }
+    public void setPublicReplies(List<PublicReply> publicReplies) { this.publicReplies = publicReplies; }
 
-    public void setActions(List<Action> actions) {
-        this.actions = actions;
-    }
+    public boolean getFollowGateEnabled() { return followGateEnabled; }
+    public void setFollowGateEnabled(boolean followGateEnabled) { this.followGateEnabled = followGateEnabled; }
 
-    public boolean getEnabled() {
-        return enabled;
-    }
+    public String getFollowGateMessage() { return followGateMessage; }
+    public void setFollowGateMessage(String followGateMessage) { this.followGateMessage = followGateMessage; }
 
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
+    public String getFollowGateButtonLabel() { return followGateButtonLabel; }
+    public void setFollowGateButtonLabel(String followGateButtonLabel) { this.followGateButtonLabel = followGateButtonLabel; }
 
-    public int getCooldownMinutes() {
-        return cooldownMinutes;
-    }
+    public long getRunCount() { return runCount; }
+    public void setRunCount(long runCount) { this.runCount = runCount; }
 
-    public void setCooldownMinutes(int cooldownMinutes) {
-        this.cooldownMinutes = cooldownMinutes;
-    }
+    public long getSuccessCount() { return successCount; }
+    public void setSuccessCount(long successCount) { this.successCount = successCount; }
 
-    public boolean getPublicReplyEnabled() {
-        return publicReplyEnabled;
-    }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
-    public void setPublicReplyEnabled(boolean publicReplyEnabled) {
-        this.publicReplyEnabled = publicReplyEnabled;
-    }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 
-    public List<PublicReply> getPublicReplies() {
-        return publicReplies;
-    }
-
-    public void setPublicReplies(List<PublicReply> publicReplies) {
-        this.publicReplies = publicReplies;
-    }
-
-    public boolean getFollowGateEnabled() {
-        return followGateEnabled;
-    }
-
-    public void setFollowGateEnabled(boolean followGateEnabled) {
-        this.followGateEnabled = followGateEnabled;
-    }
-
-    public String getFollowGateMessage() {
-        return followGateMessage;
-    }
-
-    public void setFollowGateMessage(String followGateMessage) {
-        this.followGateMessage = followGateMessage;
-    }
-
-    public String getFollowGateButtonLabel() {
-        return followGateButtonLabel;
-    }
-
-    public void setFollowGateButtonLabel(String followGateButtonLabel) {
-        this.followGateButtonLabel = followGateButtonLabel;
-    }
-
-    public long getRunCount() {
-        return runCount;
-    }
-
-    public void setRunCount(long runCount) {
-        this.runCount = runCount;
-    }
-
-    public long getSuccessCount() {
-        return successCount;
-    }
-
-    public void setSuccessCount(long successCount) {
-        this.successCount = successCount;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(Instant updatedAt) {
-        this.updatedAt = updatedAt;
+    /** Backwards-compat: legacy rows without targetPostMode get derived from targetPostId. */
+    @Exclude
+    public PostTargetMode getEffectiveTargetPostMode() {
+        if (targetPostMode != null) return targetPostMode;
+        return (targetPostId == null || targetPostId.isBlank())
+                ? PostTargetMode.ALL
+                : PostTargetMode.SPECIFIC;
     }
 
     @Exclude
@@ -242,7 +180,6 @@ public class Automation {
         if (actions != null && !actions.isEmpty()) {
             return actions;
         }
-
         if (action != null) {
             Action wrapped = Action.builder()
                     .type(action.getType())
@@ -252,7 +189,6 @@ public class Automation {
                     .build();
             return List.of(wrapped);
         }
-
         return List.of();
     }
 
@@ -260,7 +196,10 @@ public class Automation {
         private String id;
         private String name;
         private TriggerType trigger;
+        private PostTargetMode targetPostMode;
         private String targetPostId;
+        private List<String> baselineMediaIds;
+        private Instant nextPostLockedAt;
         private Condition condition = new Condition();
         private Action action = new Action();
         private String message;
@@ -277,122 +216,38 @@ public class Automation {
         private Instant createdAt;
         private Instant updatedAt;
 
-        public AutomationBuilder id(String id) {
-            this.id = id;
-            return this;
-        }
-
-        public AutomationBuilder name(String name) {
-            this.name = name;
-            return this;
-        }
-
-        public AutomationBuilder trigger(TriggerType trigger) {
-            this.trigger = trigger;
-            return this;
-        }
-
-        public AutomationBuilder targetPostId(String targetPostId) {
-            this.targetPostId = targetPostId;
-            return this;
-        }
-
-        public AutomationBuilder condition(Condition condition) {
-            this.condition = condition;
-            return this;
-        }
-
-        public AutomationBuilder action(Action action) {
-            this.action = action;
-            return this;
-        }
-
-        public AutomationBuilder message(String message) {
-            this.message = message;
-            return this;
-        }
-
-        public AutomationBuilder actions(List<Action> actions) {
-            this.actions = actions;
-            return this;
-        }
-
-        public AutomationBuilder enabled(boolean enabled) {
-            this.enabled = enabled;
-            return this;
-        }
-
-        public AutomationBuilder cooldownMinutes(int cooldownMinutes) {
-            this.cooldownMinutes = cooldownMinutes;
-            return this;
-        }
-
-        public AutomationBuilder publicReplyEnabled(boolean publicReplyEnabled) {
-            this.publicReplyEnabled = publicReplyEnabled;
-            return this;
-        }
-
-        public AutomationBuilder publicReplies(List<PublicReply> publicReplies) {
-            this.publicReplies = publicReplies;
-            return this;
-        }
-
-        public AutomationBuilder followGateEnabled(boolean followGateEnabled) {
-            this.followGateEnabled = followGateEnabled;
-            return this;
-        }
-
-        public AutomationBuilder followGateMessage(String followGateMessage) {
-            this.followGateMessage = followGateMessage;
-            return this;
-        }
-
-        public AutomationBuilder followGateButtonLabel(String followGateButtonLabel) {
-            this.followGateButtonLabel = followGateButtonLabel;
-            return this;
-        }
-
-        public AutomationBuilder runCount(long runCount) {
-            this.runCount = runCount;
-            return this;
-        }
-
-        public AutomationBuilder successCount(long successCount) {
-            this.successCount = successCount;
-            return this;
-        }
-
-        public AutomationBuilder createdAt(Instant createdAt) {
-            this.createdAt = createdAt;
-            return this;
-        }
-
-        public AutomationBuilder updatedAt(Instant updatedAt) {
-            this.updatedAt = updatedAt;
-            return this;
-        }
+        public AutomationBuilder id(String id) { this.id = id; return this; }
+        public AutomationBuilder name(String name) { this.name = name; return this; }
+        public AutomationBuilder trigger(TriggerType trigger) { this.trigger = trigger; return this; }
+        public AutomationBuilder targetPostMode(PostTargetMode targetPostMode) { this.targetPostMode = targetPostMode; return this; }
+        public AutomationBuilder targetPostId(String targetPostId) { this.targetPostId = targetPostId; return this; }
+        public AutomationBuilder baselineMediaIds(List<String> baselineMediaIds) { this.baselineMediaIds = baselineMediaIds; return this; }
+        public AutomationBuilder nextPostLockedAt(Instant nextPostLockedAt) { this.nextPostLockedAt = nextPostLockedAt; return this; }
+        public AutomationBuilder condition(Condition condition) { this.condition = condition; return this; }
+        public AutomationBuilder action(Action action) { this.action = action; return this; }
+        public AutomationBuilder message(String message) { this.message = message; return this; }
+        public AutomationBuilder actions(List<Action> actions) { this.actions = actions; return this; }
+        public AutomationBuilder enabled(boolean enabled) { this.enabled = enabled; return this; }
+        public AutomationBuilder cooldownMinutes(int cooldownMinutes) { this.cooldownMinutes = cooldownMinutes; return this; }
+        public AutomationBuilder publicReplyEnabled(boolean publicReplyEnabled) { this.publicReplyEnabled = publicReplyEnabled; return this; }
+        public AutomationBuilder publicReplies(List<PublicReply> publicReplies) { this.publicReplies = publicReplies; return this; }
+        public AutomationBuilder followGateEnabled(boolean followGateEnabled) { this.followGateEnabled = followGateEnabled; return this; }
+        public AutomationBuilder followGateMessage(String followGateMessage) { this.followGateMessage = followGateMessage; return this; }
+        public AutomationBuilder followGateButtonLabel(String followGateButtonLabel) { this.followGateButtonLabel = followGateButtonLabel; return this; }
+        public AutomationBuilder runCount(long runCount) { this.runCount = runCount; return this; }
+        public AutomationBuilder successCount(long successCount) { this.successCount = successCount; return this; }
+        public AutomationBuilder createdAt(Instant createdAt) { this.createdAt = createdAt; return this; }
+        public AutomationBuilder updatedAt(Instant updatedAt) { this.updatedAt = updatedAt; return this; }
 
         public Automation build() {
             return new Automation(
-                    id,
-                    name,
-                    trigger,
-                    targetPostId,
-                    condition,
-                    action,
-                    message,
-                    actions,
-                    enabled,
-                    cooldownMinutes,
-                    publicReplyEnabled,
-                    publicReplies,
-                    followGateEnabled,
-                    followGateMessage,
-                    followGateButtonLabel,
-                    runCount,
-                    successCount,
-                    createdAt,
-                    updatedAt
+                    id, name, trigger,
+                    targetPostMode, targetPostId, baselineMediaIds, nextPostLockedAt,
+                    condition, action, message, actions,
+                    enabled, cooldownMinutes,
+                    publicReplyEnabled, publicReplies,
+                    followGateEnabled, followGateMessage, followGateButtonLabel,
+                    runCount, successCount, createdAt, updatedAt
             );
         }
     }
@@ -402,66 +257,31 @@ public class Automation {
         private String keyword;
         private MatchType matchType;
 
-        public Condition() {
-        }
-
+        public Condition() {}
         public Condition(ConditionType type, String keyword, MatchType matchType) {
             this.type = type;
             this.keyword = keyword;
             this.matchType = matchType;
         }
 
-        public static ConditionBuilder builder() {
-            return new ConditionBuilder();
-        }
+        public static ConditionBuilder builder() { return new ConditionBuilder(); }
 
-        public ConditionType getType() {
-            return type;
-        }
-
-        public void setType(ConditionType type) {
-            this.type = type;
-        }
-
-        public String getKeyword() {
-            return keyword;
-        }
-
-        public void setKeyword(String keyword) {
-            this.keyword = keyword;
-        }
-
-        public MatchType getMatchType() {
-            return matchType;
-        }
-
-        public void setMatchType(MatchType matchType) {
-            this.matchType = matchType;
-        }
+        public ConditionType getType() { return type; }
+        public void setType(ConditionType type) { this.type = type; }
+        public String getKeyword() { return keyword; }
+        public void setKeyword(String keyword) { this.keyword = keyword; }
+        public MatchType getMatchType() { return matchType; }
+        public void setMatchType(MatchType matchType) { this.matchType = matchType; }
 
         public static class ConditionBuilder {
             private ConditionType type = ConditionType.ANY;
             private String keyword;
             private MatchType matchType;
 
-            public ConditionBuilder type(ConditionType type) {
-                this.type = type;
-                return this;
-            }
-
-            public ConditionBuilder keyword(String keyword) {
-                this.keyword = keyword;
-                return this;
-            }
-
-            public ConditionBuilder matchType(MatchType matchType) {
-                this.matchType = matchType;
-                return this;
-            }
-
-            public Condition build() {
-                return new Condition(type, keyword, matchType);
-            }
+            public ConditionBuilder type(ConditionType type) { this.type = type; return this; }
+            public ConditionBuilder keyword(String keyword) { this.keyword = keyword; return this; }
+            public ConditionBuilder matchType(MatchType matchType) { this.matchType = matchType; return this; }
+            public Condition build() { return new Condition(type, keyword, matchType); }
         }
     }
 
@@ -471,9 +291,7 @@ public class Automation {
         private String message;
         private Integer delaySeconds;
 
-        public Action() {
-        }
-
+        public Action() {}
         public Action(ActionType type, String link, String message, Integer delaySeconds) {
             this.type = type;
             this.link = link;
@@ -481,41 +299,16 @@ public class Automation {
             this.delaySeconds = delaySeconds;
         }
 
-        public static ActionBuilder builder() {
-            return new ActionBuilder();
-        }
+        public static ActionBuilder builder() { return new ActionBuilder(); }
 
-        public ActionType getType() {
-            return type;
-        }
-
-        public void setType(ActionType type) {
-            this.type = type;
-        }
-
-        public String getLink() {
-            return link;
-        }
-
-        public void setLink(String link) {
-            this.link = link;
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-        public void setMessage(String message) {
-            this.message = message;
-        }
-
-        public Integer getDelaySeconds() {
-            return delaySeconds;
-        }
-
-        public void setDelaySeconds(Integer delaySeconds) {
-            this.delaySeconds = delaySeconds;
-        }
+        public ActionType getType() { return type; }
+        public void setType(ActionType type) { this.type = type; }
+        public String getLink() { return link; }
+        public void setLink(String link) { this.link = link; }
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
+        public Integer getDelaySeconds() { return delaySeconds; }
+        public void setDelaySeconds(Integer delaySeconds) { this.delaySeconds = delaySeconds; }
 
         public static class ActionBuilder {
             private ActionType type = ActionType.SEND_DM;
@@ -523,59 +316,27 @@ public class Automation {
             private String message;
             private Integer delaySeconds;
 
-            public ActionBuilder type(ActionType type) {
-                this.type = type;
-                return this;
-            }
-
-            public ActionBuilder link(String link) {
-                this.link = link;
-                return this;
-            }
-
-            public ActionBuilder message(String message) {
-                this.message = message;
-                return this;
-            }
-
-            public ActionBuilder delaySeconds(Integer delaySeconds) {
-                this.delaySeconds = delaySeconds;
-                return this;
-            }
-
-            public Action build() {
-                return new Action(type, link, message, delaySeconds);
-            }
+            public ActionBuilder type(ActionType type) { this.type = type; return this; }
+            public ActionBuilder link(String link) { this.link = link; return this; }
+            public ActionBuilder message(String message) { this.message = message; return this; }
+            public ActionBuilder delaySeconds(Integer delaySeconds) { this.delaySeconds = delaySeconds; return this; }
+            public Action build() { return new Action(type, link, message, delaySeconds); }
         }
     }
 
-    /** One public-reply template: its text and whether it's in the rotation. */
     public static class PublicReply {
         private String text;
         private boolean enabled = true;
 
-        public PublicReply() {
-        }
-
+        public PublicReply() {}
         public PublicReply(String text, boolean enabled) {
             this.text = text;
             this.enabled = enabled;
         }
 
-        public String getText() {
-            return text;
-        }
-
-        public void setText(String text) {
-            this.text = text;
-        }
-
-        public boolean getEnabled() {
-            return enabled;
-        }
-
-        public void setEnabled(boolean enabled) {
-            this.enabled = enabled;
-        }
+        public String getText() { return text; }
+        public void setText(String text) { this.text = text; }
+        public boolean getEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
     }
 }

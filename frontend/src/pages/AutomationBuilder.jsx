@@ -20,6 +20,7 @@ import {
   ROUTES,
   TRIGGER_LABEL,
   ACTION_LABEL,
+  POST_TARGET_MODE,
 } from '../utils/constants.js';
 
 const AutomationBuilder = () => {
@@ -139,11 +140,21 @@ const AutomationBuilder = () => {
       return;
     }
 
+    // Resolve target-post mode + id (only meaningful for comment triggers).
+    const targetPostMode = isCommentTrigger
+      ? (draft.targetPostMode || POST_TARGET_MODE.ALL)
+      : POST_TARGET_MODE.ALL;
+
+    const targetPostId = targetPostMode === POST_TARGET_MODE.SPECIFIC
+      ? (draft.targetPostId ?? null)
+      : null;
+
     setIsSaving(true);
     const payload = {
       name: draft.name?.trim() || autoName(draft),
       trigger: draft.trigger,
-      targetPostId: draft.targetPostId ?? null,
+      targetPostMode,
+      targetPostId,
       condition: draft.condition,
       actions: draft.actions,
       publicReplyEnabled,
@@ -160,7 +171,10 @@ const AutomationBuilder = () => {
         toast.success('Automation updated.');
       } else {
         await createAutomation(payload);
-        toast.success('Automation created.');
+        const msg = targetPostMode === POST_TARGET_MODE.NEXT_POST
+          ? 'Automation created. It will start working on your next post.'
+          : 'Automation created.';
+        toast.success(msg);
       }
       navigate(ROUTES.AUTOMATIONS);
     } finally {

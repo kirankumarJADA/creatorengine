@@ -1,16 +1,19 @@
 package com.creatorengine.automation.repository;
 
 import com.creatorengine.automation.entity.Automation;
+import com.creatorengine.automation.entity.PostTargetMode;
 import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.Query;
+import com.google.cloud.firestore.QueryDocumentSnapshot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -96,6 +99,64 @@ public class AutomationRepository {
         }
     }
 
+    /**
+     * Cross-user scan for automations waiting on the user's next IG upload.
+     * Used by NextPostLockerService.
+     *
+     * Each Automation is paired with its owner uid (derived from the document
+     * path users/{uid}/automations/{id}), so the locker can save back via
+     * save(uid, a).
+     *
+     * Uses Firestore collectionGroup("automations") to avoid enumerating
+     * users. NOTE: this query may require a collection-group index on the
+     * automations subcollection for the `targetPostMode` field. If you see a
+     * Firestore "needs an index" error in the logs, click the URL Firestore
+     * prints — it builds the index in ~1 minute.
+     */
+    public List<OwnedAutomation> findAllPendingNextPost() {
+        try {
+            List<QueryDocumentSnapshot> docs = firestore
+                    .collectionGroup(AUTOMATIONS_SUBCOLLECTION)
+                    .whereEqualTo("targetPostMode", PostTargetMode.NEXT_POST.name())
+                    .get().get()
+                    .getDocuments();
+
+            List<OwnedAutomation> out = new ArrayList<>();
+            for (QueryDocumentSnapshot doc : docs) {
+                Automation a = doc.toObject(Automation.class);
+                if (a == null) continue;
+
+                // Skip already-locked ones.
+                if (a.getTargetPostId() != null && !a.getTargetPostId().isBlank()) {
+                    continue;
+                }
+
+                String uid = extractOwnerUid(doc);
+                if (uid == null) {
+                    log.warn("findAllPendingNextPost: could not extract uid from path={}",
+                            doc.getReference().getPath());
+                    continue;
+                }
+                out.add(new OwnedAutomation(uid, a));
+            }
+            return out;
+        } catch (InterruptedException | ExecutionException e) {
+            throw wrap("findAllPendingNextPost", e);
+        }
+    }
+
+    /** Extract the parent user's uid from a doc at users/{uid}/automations/{id}. */
+    private String extractOwnerUid(QueryDocumentSnapshot doc) {
+        try {
+            DocumentReference automationRef = doc.getReference();
+            DocumentReference userRef = automationRef.getParent().getParent();
+            return userRef == null ? null : userRef.getId();
+        } catch (Exception e) {
+            log.debug("extractOwnerUid failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
     private RuntimeException wrap(String op, Exception e) {
         if (e instanceof InterruptedException) {
             Thread.currentThread().interrupt();
@@ -103,4 +164,7 @@ public class AutomationRepository {
         log.error("AutomationRepository.{} failed", op, e);
         return new RuntimeException("Firestore operation failed: " + op, e);
     }
+
+    /** An automation tied to its owner's uid — needed for cross-user queries. */
+    public record OwnedAutomation(String uid, Automation automation) {}
 }

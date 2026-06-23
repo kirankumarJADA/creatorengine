@@ -3,6 +3,7 @@ package com.creatorengine.automation.dto;
 import com.creatorengine.automation.entity.ActionType;
 import com.creatorengine.automation.entity.Automation;
 import com.creatorengine.automation.entity.ConditionType;
+import com.creatorengine.automation.entity.PostTargetMode;
 import com.creatorengine.exception.BadRequestException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -10,23 +11,15 @@ import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
-/**
- * Payload for POST (create) and PUT (update).
- *
- * <p>Cross-field rules are enforced by {@link #validate()} which the
- * service layer calls before persistence.</p>
- *
- * <p>Multi-step support: requests may carry either the legacy
- * {@link #action} + {@link #message} pair or the new {@link #actions}
- * list. {@link #toEntity()} reconciles both and writes to the canonical
- * {@code actions} field; legacy fields are cleared when a chain is given.</p>
- */
 public record AutomationRequest(
         @Size(max = 120, message = "Name is too long")
         String name,
 
         @NotNull(message = "Trigger is required")
         com.creatorengine.automation.entity.TriggerType trigger,
+
+        /** How to scope this automation to posts. Null = inferred (ALL / SPECIFIC from targetPostId). */
+        PostTargetMode targetPostMode,
 
         String targetPostId,
 
@@ -45,26 +38,22 @@ public record AutomationRequest(
 
         Integer cooldownMinutes,
 
-        /** Master toggle: also post a public reply on the triggering comment. */
         Boolean publicReplyEnabled,
 
         @Size(max = 10, message = "At most 10 public replies")
         @Valid List<PublicReplyDto> publicReplies,
 
-        /** Master toggle: ask the commenter to follow before delivering content. */
         Boolean followGateEnabled,
 
-        /** The "please follow" DM text. Required when the gate is on. */
         @Size(max = 1000, message = "Follow message is too long (max 1000 characters)")
         String followGateMessage,
 
-        /** Button label, e.g. "I Followed ✅". Instagram caps it at 20 chars. */
         @Size(max = 20, message = "Button label is too long (max 20 characters)")
         String followGateButtonLabel
 ) {
 
     private static final int MIN_DELAY_SECONDS = 1;
-    private static final int MAX_DELAY_SECONDS = 24 * 60 * 60; // 24h
+    private static final int MAX_DELAY_SECONDS = 24 * 60 * 60;
 
     public void validate() {
         if (condition.type() == ConditionType.KEYWORD) {
@@ -74,6 +63,17 @@ public record AutomationRequest(
             if (condition.matchType() == null) {
                 throw new BadRequestException("Match type is required when condition type is KEYWORD.");
             }
+        }
+
+        PostTargetMode resolvedMode = resolveTargetPostMode();
+        if (resolvedMode == PostTargetMode.SPECIFIC
+                && (targetPostId == null || targetPostId.isBlank())) {
+            throw new BadRequestException("Pick a post when target mode is SPECIFIC.");
+        }
+        if (resolvedMode == PostTargetMode.NEXT_POST
+                && targetPostId != null && !targetPostId.isBlank()) {
+            // NEXT_POST should never arrive with a pre-set post id from the client.
+            throw new BadRequestException("NEXT_POST automations cannot pre-select a post.");
         }
 
         if (actions != null && !actions.isEmpty()) {
@@ -98,6 +98,13 @@ public record AutomationRequest(
             throw new BadRequestException(
                     "Add a follow message, or turn off 'Ask to follow first'.");
         }
+    }
+
+    private PostTargetMode resolveTargetPostMode() {
+        if (targetPostMode != null) return targetPostMode;
+        return (targetPostId != null && !targetPostId.isBlank())
+                ? PostTargetMode.SPECIFIC
+                : PostTargetMode.ALL;
     }
 
     private void validateChain() {
@@ -166,10 +173,13 @@ public record AutomationRequest(
     }
 
     public Automation toEntity() {
+        PostTargetMode resolvedMode = resolveTargetPostMode();
+
         Automation.AutomationBuilder builder = Automation.builder()
                 .name(name == null ? null : name.trim())
                 .trigger(trigger)
-                .targetPostId(targetPostId)
+                .targetPostMode(resolvedMode)
+                .targetPostId(resolvedMode == PostTargetMode.NEXT_POST ? null : targetPostId)
                 .condition(condition.toEntity())
                 .enabled(enabled == null || enabled)
                 .cooldownMinutes(cooldownMinutes == null ? 0 : Math.max(0, Math.min(cooldownMinutes, 24 * 60)))
