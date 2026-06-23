@@ -1,5 +1,6 @@
 import { UserPlus } from 'lucide-react';
 import { useBuilderStore } from '../../store/builderStore.js';
+import { TRIGGER_TYPE } from '../../utils/constants.js';
 import { cn } from '../../utils/helpers.js';
 
 const MAX_MESSAGE = 1000;
@@ -8,11 +9,8 @@ const DEFAULT_MESSAGE =
   "Hey {{username}}! 🙌 Make sure you're following me, then tap the button below and I'll send it right over 👇";
 const DEFAULT_BUTTON = 'I Followed ✅';
 
-/**
- * Follow-gate settings — ask the commenter to follow before delivering the DM
- * content. Trust-based: they tap the button, content is sent. Renders only for
- * comment-triggered automations.
- */
+const COMMENT_LIKE_TRIGGERS = new Set([TRIGGER_TYPE.COMMENT, TRIGGER_TYPE.NEXT_POST]);
+
 const FollowGateEditor = () => {
   const trigger     = useBuilderStore((s) => s.draft.trigger);
   const enabled     = useBuilderStore((s) => s.draft.followGateEnabled);
@@ -22,8 +20,7 @@ const FollowGateEditor = () => {
   const setMessage     = useBuilderStore((s) => s.setFollowGateMessage);
   const setButtonLabel = useBuilderStore((s) => s.setFollowGateButtonLabel);
 
-  const isCommentTrigger = String(trigger || '').toUpperCase().includes('COMMENT');
-  if (!isCommentTrigger) return null;
+  if (!COMMENT_LIKE_TRIGGERS.has(trigger)) return null;
 
   const handleToggle = () => {
     if (!enabled) {

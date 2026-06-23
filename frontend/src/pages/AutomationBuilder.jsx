@@ -18,10 +18,13 @@ import { useAutomationStore } from '../store/automationStore.js';
 import { validateAutomationDraft } from '../utils/automationEngine.js';
 import {
   ROUTES,
+  TRIGGER_TYPE,
   TRIGGER_LABEL,
   ACTION_LABEL,
   POST_TARGET_MODE,
 } from '../utils/constants.js';
+
+const COMMENT_LIKE_TRIGGERS = new Set([TRIGGER_TYPE.COMMENT, TRIGGER_TYPE.NEXT_POST]);
 
 const AutomationBuilder = () => {
   const navigate    = useNavigate();
@@ -117,9 +120,9 @@ const AutomationBuilder = () => {
       return;
     }
 
-    const isCommentTrigger = String(draft.trigger || '').toUpperCase().includes('COMMENT');
+    const isCommentLike = COMMENT_LIKE_TRIGGERS.has(draft.trigger);
 
-    const publicReplyEnabled = isCommentTrigger && draft.publicReplyEnabled === true;
+    const publicReplyEnabled = isCommentLike && draft.publicReplyEnabled === true;
     const publicReplies = (draft.publicReplies || [])
       .filter((r) => r.text && r.text.trim())
       .map((r) => ({ text: r.text.trim(), enabled: r.enabled !== false }));
@@ -130,7 +133,7 @@ const AutomationBuilder = () => {
       return;
     }
 
-    const followGateEnabled = isCommentTrigger && draft.followGateEnabled === true;
+    const followGateEnabled = isCommentLike && draft.followGateEnabled === true;
     const followGateMessage = (draft.followGateMessage || '').trim();
     const followGateButtonLabel = (draft.followGateButtonLabel || '').trim();
 
@@ -140,14 +143,24 @@ const AutomationBuilder = () => {
       return;
     }
 
-    // Resolve target-post mode + id (only meaningful for comment triggers).
-    const targetPostMode = isCommentTrigger
-      ? (draft.targetPostMode || POST_TARGET_MODE.ALL)
-      : POST_TARGET_MODE.ALL;
-
-    const targetPostId = targetPostMode === POST_TARGET_MODE.SPECIFIC
-      ? (draft.targetPostId ?? null)
-      : null;
+    // Resolve target-post mode + id.
+    // NEXT_POST trigger → always NEXT_POST mode (backend also enforces this).
+    // Plain COMMENT → use whatever the picker chose.
+    // Anything else → ALL (no post context).
+    let targetPostMode;
+    let targetPostId;
+    if (draft.trigger === TRIGGER_TYPE.NEXT_POST) {
+      targetPostMode = POST_TARGET_MODE.NEXT_POST;
+      targetPostId = null;
+    } else if (draft.trigger === TRIGGER_TYPE.COMMENT) {
+      targetPostMode = draft.targetPostMode || POST_TARGET_MODE.ALL;
+      targetPostId = targetPostMode === POST_TARGET_MODE.SPECIFIC
+        ? (draft.targetPostId ?? null)
+        : null;
+    } else {
+      targetPostMode = POST_TARGET_MODE.ALL;
+      targetPostId = null;
+    }
 
     setIsSaving(true);
     const payload = {
@@ -171,7 +184,7 @@ const AutomationBuilder = () => {
         toast.success('Automation updated.');
       } else {
         await createAutomation(payload);
-        const msg = targetPostMode === POST_TARGET_MODE.NEXT_POST
+        const msg = draft.trigger === TRIGGER_TYPE.NEXT_POST
           ? 'Automation created. It will start working on your next post.'
           : 'Automation created.';
         toast.success(msg);

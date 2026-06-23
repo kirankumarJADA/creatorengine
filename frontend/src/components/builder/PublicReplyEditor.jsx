@@ -1,5 +1,6 @@
 import { Megaphone, Plus, Trash2 } from 'lucide-react';
 import { useBuilderStore } from '../../store/builderStore.js';
+import { TRIGGER_TYPE } from '../../utils/constants.js';
 import { cn } from '../../utils/helpers.js';
 
 const MAX_REPLIES = 10;
@@ -11,12 +12,9 @@ const DEFAULT_TEMPLATES = [
   'Just messaged you — check it out!',
 ];
 
-/**
- * Public comment reply settings — master toggle + rotating templates.
- * Renders only for comment-triggered automations; the engine posts one
- * *active* template (picked at random) on the triggering comment,
- * alongside the private DM.
- */
+/** Triggers that operate on comments. */
+const COMMENT_LIKE_TRIGGERS = new Set([TRIGGER_TYPE.COMMENT, TRIGGER_TYPE.NEXT_POST]);
+
 const PublicReplyEditor = () => {
   const trigger              = useBuilderStore((s) => s.draft.trigger);
   const enabled              = useBuilderStore((s) => s.draft.publicReplyEnabled);
@@ -27,15 +25,13 @@ const PublicReplyEditor = () => {
   const updatePublicReply     = useBuilderStore((s) => s.updatePublicReply);
   const removePublicReply     = useBuilderStore((s) => s.removePublicReply);
 
-  const isCommentTrigger = String(trigger || '').toUpperCase().includes('COMMENT');
-  if (!isCommentTrigger) return null;
+  if (!COMMENT_LIKE_TRIGGERS.has(trigger)) return null;
 
   const activeCount = replies.filter(
     (r) => r.enabled !== false && r.text && r.text.trim()
   ).length;
 
   const handleMasterToggle = () => {
-    // First-time enable on an empty list: seed friendly defaults.
     if (!enabled && replies.length === 0) {
       setPublicReplies(DEFAULT_TEMPLATES.map((text) => ({ text, enabled: true })));
     }
@@ -44,7 +40,6 @@ const PublicReplyEditor = () => {
 
   return (
     <section className="mt-8 border-t border-ink-100 pt-6 dark:border-ink-800">
-      {/* Master toggle */}
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="flex items-center gap-2 text-base font-semibold text-ink-900 dark:text-ink-100">
@@ -60,7 +55,6 @@ const PublicReplyEditor = () => {
         <Switch on={enabled} onClick={handleMasterToggle} />
       </div>
 
-      {/* Template list */}
       {enabled && (
         <div className="mt-4 rounded-xl border border-ink-100 p-4 dark:border-ink-800">
           <div className="mb-3 flex items-center justify-between">
@@ -129,7 +123,6 @@ const PublicReplyEditor = () => {
   );
 };
 
-// Small dependency-free toggle switch styled like the rest of the app.
 const Switch = ({ on, onClick, small = false }) => (
   <button
     type="button"
