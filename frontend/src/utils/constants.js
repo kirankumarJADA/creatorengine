@@ -1,8 +1,3 @@
-/**
- * Centralised constants. Importing from one place avoids
- * "stringly-typed" bugs and makes refactors safe.
- */
-
 export const ROUTES = Object.freeze({
   LOGIN: '/login',
   REGISTER: '/register',
@@ -73,15 +68,16 @@ export const TRIGGER_TYPE = Object.freeze({
   COMMENT:      'COMMENT',
   DM:           'DM',
   STORY_REPLY:  'STORY_REPLY',
+  NEXT_POST:    'NEXT_POST',
 });
 
 export const TRIGGER_LABEL = Object.freeze({
   [TRIGGER_TYPE.COMMENT]:     'Comment on Post/Reel',
   [TRIGGER_TYPE.DM]:          'DM Message',
   [TRIGGER_TYPE.STORY_REPLY]: 'Story Reply',
+  [TRIGGER_TYPE.NEXT_POST]:   'Next Post',
 });
 
-/** How an automation scopes itself to posts. Mirrors backend PostTargetMode. */
 export const POST_TARGET_MODE = Object.freeze({
   ALL:       'ALL',
   SPECIFIC:  'SPECIFIC',

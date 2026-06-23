@@ -5,6 +5,7 @@ import com.creatorengine.automation.dto.AutomationResponse;
 import com.creatorengine.automation.entity.ActionType;
 import com.creatorengine.automation.entity.Automation;
 import com.creatorengine.automation.entity.PostTargetMode;
+import com.creatorengine.automation.entity.TriggerType;
 import com.creatorengine.automation.repository.AutomationRepository;
 import com.creatorengine.exception.ResourceNotFoundException;
 import com.creatorengine.instagram.entity.InstagramAccount;
@@ -54,16 +55,23 @@ public class AutomationService {
             entity.setName(deriveName(entity));
         }
 
-        // For NEXT_POST: snapshot current IG posts so we know which one is "new" later.
-        if (entity.getTargetPostMode() == PostTargetMode.NEXT_POST) {
+        // NEXT_POST trigger always implies NEXT_POST post-targeting mode.
+        if (entity.getTrigger() == TriggerType.NEXT_POST) {
+            entity.setTargetPostMode(PostTargetMode.NEXT_POST);
+            entity.setTargetPostId(null);
+            entity.setNextPostLockedAt(null);
+        }
+
+        // Snapshot current posts whenever the automation waits for the next upload.
+        if (entity.getEffectiveTargetPostMode() == PostTargetMode.NEXT_POST) {
             entity.setBaselineMediaIds(snapshotMediaIds(uid));
             entity.setTargetPostId(null);
             entity.setNextPostLockedAt(null);
         }
 
         Automation saved = repository.save(uid, entity);
-        log.info("Created automation id={} uid={} mode={} baselineSize={}",
-                saved.getId(), uid, saved.getEffectiveTargetPostMode(),
+        log.info("Created automation id={} uid={} trigger={} mode={} baselineSize={}",
+                saved.getId(), uid, saved.getTrigger(), saved.getEffectiveTargetPostMode(),
                 saved.getBaselineMediaIds() == null ? 0 : saved.getBaselineMediaIds().size());
         return AutomationResponse.from(saved);
     }
@@ -75,13 +83,12 @@ public class AutomationService {
         Automation incoming = req.toEntity();
 
         PostTargetMode prevMode = existing.getEffectiveTargetPostMode();
-        PostTargetMode newMode = incoming.getTargetPostMode();
+        TriggerType prevTrigger = existing.getTrigger();
 
         existing.setName(req.name() == null || req.name().isBlank()
                 ? existing.getName()
                 : req.name().trim());
         existing.setTrigger(req.trigger());
-        existing.setTargetPostMode(newMode);
         existing.setCondition(req.condition().toEntity());
         existing.setAction(incoming.getAction());
         existing.setMessage(incoming.getMessage());
@@ -92,15 +99,23 @@ public class AutomationService {
         existing.setFollowGateMessage(incoming.getFollowGateMessage());
         existing.setFollowGateButtonLabel(incoming.getFollowGateButtonLabel());
 
-        // Handle mode-change side effects.
+        // Resolve final post-targeting mode.
+        PostTargetMode newMode = incoming.getTargetPostMode();
+        if (req.trigger() == TriggerType.NEXT_POST) {
+            newMode = PostTargetMode.NEXT_POST;
+        }
+        existing.setTargetPostMode(newMode);
+
         if (newMode == PostTargetMode.NEXT_POST) {
-            // Re-snapshot only if the user just switched INTO NEXT_POST.
-            if (prevMode != PostTargetMode.NEXT_POST) {
+            // Re-snapshot only if user just switched into NEXT_POST (mode or trigger).
+            boolean switchedIntoNextPost =
+                    prevMode != PostTargetMode.NEXT_POST
+                    && prevTrigger != TriggerType.NEXT_POST;
+            if (switchedIntoNextPost) {
                 existing.setBaselineMediaIds(snapshotMediaIds(uid));
                 existing.setTargetPostId(null);
                 existing.setNextPostLockedAt(null);
             }
-            // If already NEXT_POST, leave baseline + lock untouched.
         } else if (newMode == PostTargetMode.SPECIFIC) {
             existing.setTargetPostId(incoming.getTargetPostId());
             existing.setBaselineMediaIds(null);
@@ -120,7 +135,8 @@ public class AutomationService {
         }
 
         Automation saved = repository.save(uid, existing);
-        log.info("Updated automation id={} uid={} mode={}", id, uid, saved.getEffectiveTargetPostMode());
+        log.info("Updated automation id={} uid={} trigger={} mode={}",
+                id, uid, saved.getTrigger(), saved.getEffectiveTargetPostMode());
         return AutomationResponse.from(saved);
     }
 
@@ -141,12 +157,6 @@ public class AutomationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Automation", id));
     }
 
-    /**
-     * Snapshot the user's current IG media ids so we can detect their next upload.
-     * Returns an empty list (not null) if not connected or the API call fails —
-     * the locker scheduler also enforces a "posted after createdAt" check, so
-     * an empty baseline can never accidentally lock onto an old post.
-     */
     private List<String> snapshotMediaIds(String uid) {
         try {
             Optional<InstagramAccount> account = instagramAccountService.find(uid);

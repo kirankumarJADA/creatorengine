@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Check, Image as ImageIcon, Images, RefreshCw, Sparkles } from 'lucide-react';
+import { Check, Image as ImageIcon, Images, RefreshCw } from 'lucide-react';
 
 import { useBuilderStore } from '../../store/builderStore.js';
 import instagramService from '../../services/instagramService.js';
-import { POST_TARGET_MODE } from '../../utils/constants.js';
-
-const isCommentTrigger = (t) =>
-  String(t ?? '').toUpperCase().includes('COMMENT');
+import { POST_TARGET_MODE, TRIGGER_TYPE } from '../../utils/constants.js';
 
 const thumbOf = (post) =>
   post.thumbnailUrl || post.thumbnail_url || post.mediaUrl || post.media_url || null;
@@ -29,7 +26,9 @@ const PostPicker = () => {
   const [error, setError]     = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const show = isCommentTrigger(trigger);
+  // Only show the post picker for the regular COMMENT trigger.
+  // NEXT_POST, DM, STORY_REPLY hide it.
+  const show = trigger === TRIGGER_TYPE.COMMENT;
 
   useEffect(() => {
     if (!show) return undefined;
@@ -56,7 +55,6 @@ const PostPicker = () => {
   if (!show) return null;
 
   const isAll      = targetPostMode === POST_TARGET_MODE.ALL || (!targetPostMode && !targetPostId);
-  const isNextPost = targetPostMode === POST_TARGET_MODE.NEXT_POST;
   const isSpecific = targetPostMode === POST_TARGET_MODE.SPECIFIC || (!targetPostMode && !!targetPostId);
 
   return (
@@ -67,8 +65,7 @@ const PostPicker = () => {
             Which post?
           </h3>
           <p className="mt-0.5 text-xs text-ink-500 dark:text-ink-400">
-            Run on every post, only your <span className="font-medium">next upload</span>,
-            or pick one specific post below.
+            Run this on every post, or pick one specific post.
           </p>
         </div>
         {!loading && (
@@ -106,7 +103,6 @@ const PostPicker = () => {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {/* All posts */}
             <button
               type="button"
               onClick={() => setTargetPostMode(POST_TARGET_MODE.ALL)}
@@ -123,27 +119,6 @@ const PostPicker = () => {
               {isAll && <SelectedBadge />}
             </button>
 
-            {/* Next post (the new feature) */}
-            <button
-              type="button"
-              onClick={() => setTargetPostMode(POST_TARGET_MODE.NEXT_POST)}
-              className={`relative flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border-2 p-3 text-center transition ${
-                isNextPost
-                  ? 'border-brand-500 bg-brand-50 dark:border-brand-500 dark:bg-brand-500/10'
-                  : 'border-ink-200 hover:border-ink-300 dark:border-ink-700 dark:hover:border-ink-600'
-              }`}
-            >
-              <Sparkles className="h-6 w-6 text-brand-600 dark:text-brand-400" />
-              <span className="text-xs font-medium text-ink-700 dark:text-ink-200">
-                Next post
-              </span>
-              <span className="px-1 text-[10px] leading-tight text-ink-500 dark:text-ink-400">
-                Locks onto your next upload
-              </span>
-              {isNextPost && <SelectedBadge />}
-            </button>
-
-            {/* Each existing post */}
             {posts.map((post) => {
               const selected = isSpecific && targetPostId === post.id;
               const thumb = thumbOf(post);
@@ -177,16 +152,9 @@ const PostPicker = () => {
             })}
           </div>
 
-          {isNextPost && (
-            <div className="mt-3 rounded-xl border border-brand-200 bg-brand-50 p-3 text-xs text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
-              This automation will start working only on your <span className="font-semibold">next reel/post</span>.
-              Once it detects your upload, it locks on permanently — same keyword rules, only that one post.
-            </div>
-          )}
-
           {posts.length === 0 && (
             <p className="mt-3 text-xs text-ink-500 dark:text-ink-400">
-              No posts found on your connected account yet — "All posts" and "Next post" still work.
+              No posts found on your connected account yet — "All posts" will still work.
             </p>
           )}
         </>
