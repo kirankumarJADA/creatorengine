@@ -17,12 +17,25 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Component
 public class ActionExecutor {
 
     private static final Logger log = LoggerFactory.getLogger(ActionExecutor.class);
+
+    /**
+     * Tracks which (automationId + commentId) pairs have already had a public
+     * reply posted in this process's lifetime. Prevents the chain from posting
+     * the same public reply once per action (we now post at most ONE public
+     * reply per comment per automation, ever, for this process).
+     *
+     * In-memory: capped at 5,000 entries to avoid unbounded growth. Eviction is
+     * a simple oldest-first when full.
+     */
+    private static final int MAX_REPLIED_KEYS = 5_000;
+    private final ConcurrentHashMap<String, Boolean> publicReplyDone = new ConcurrentHashMap<>();
 
     private final TemplateRenderer templateRenderer;
     private final MetaMessagingService metaMessaging;
@@ -72,12 +85,6 @@ public class ActionExecutor {
         return execute(ctx, actions.get(0));
     }
 
-    /**
-     * Follow-gate ASK: post the public reply (if enabled), then send the
-     * "please follow" DM with an "I Followed ✅" button as a private reply to
-     * the comment. The button's payload carries the automation id so the tap
-     * later delivers this automation's content.
-     */
     public ExecutionResult executeFollowGateAsk(ExecutionContext ctx) {
         InstagramAccount acct = ctx.connectedAccount();
         if (acct == null) {
@@ -156,9 +163,9 @@ public class ActionExecutor {
     }
 
     /**
-     * For COMMENT-triggered automations with public replies turned on, post one
-     * of the automation's *active* reply templates on the comment, in addition
-     * to the private DM. Best-effort — a failure here never affects the DM.
+     * Post the public reply at most ONCE per (automation, comment) pair.
+     * Earlier the method was called once per action in the chain, which is why
+     * a 3-action automation produced 3 public replies on a single comment.
      */
     private void maybePostPublicReply(ExecutionContext ctx, AccessTokenContext tokenCtx) {
         var event = ctx.event();
@@ -176,6 +183,22 @@ public class ActionExecutor {
             return;
         }
 
+        // De-duplication: only one public reply per (automation, comment) pair.
+        String dedupKey = automation.getId() + ":" + commentId;
+        if (publicReplyDone.putIfAbsent(dedupKey, Boolean.TRUE) != null) {
+            log.debug("Public reply already posted for {}, skipping.", dedupKey);
+            return;
+        }
+
+        // Cheap bound on memory: clear half the map if it grows too large.
+        if (publicReplyDone.size() > MAX_REPLIED_KEYS) {
+            int target = MAX_REPLIED_KEYS / 2;
+            for (String k : publicReplyDone.keySet()) {
+                if (publicReplyDone.size() <= target) break;
+                publicReplyDone.remove(k);
+            }
+        }
+
         List<String> active = activeReplyTexts(automation);
         if (active.isEmpty()) {
             return;
@@ -187,12 +210,16 @@ public class ActionExecutor {
         try {
             SendResult result = metaMessaging.replyToComment(commentId, reply, tokenCtx);
             if (result.success()) {
-                log.info("Public reply posted on comment_id={}", commentId);
+                log.info("Public reply posted on comment_id={} (automation={})",
+                        commentId, automation.getId());
             } else {
                 log.warn("Public reply failed for comment_id={}: {}", commentId, result.error());
+                // Allow a retry on a later send for the same comment.
+                publicReplyDone.remove(dedupKey);
             }
         } catch (Exception ex) {
             log.warn("Public reply threw for comment_id={}: {}", commentId, ex.getMessage());
+            publicReplyDone.remove(dedupKey);
         }
     }
 
