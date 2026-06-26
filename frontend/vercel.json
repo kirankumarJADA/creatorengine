@@ -1,14 +1,20 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "framework": "vite",
+
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/((?!sitemap\\.xml|robots\\.txt|favicon\\.ico|favicon\\.png|favicon-32\\.png|favicon-64\\.png|apple-touch-icon\\.png|manifest\\.webmanifest|google35bfe474982413cd\\.html|assets/).*)",
       "destination": "/index.html"
     }
   ],
+
   "headers": [
     {
       "source": "/assets/(.*)",
