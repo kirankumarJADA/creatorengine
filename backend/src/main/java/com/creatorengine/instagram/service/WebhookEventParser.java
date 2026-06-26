@@ -78,11 +78,27 @@ public class WebhookEventParser {
         JsonNode value = change.path("value");
 
         if ("comments".equals(field)) {
+            String fromId = text(value.path("from").path("id"));
+
+            // ---------------------------------------------------------------
+            // CRITICAL SAFETY FILTER (mirror of the DM "is_echo" guard below)
+            // Instagram also notifies us about comments the OWNER's own
+            // account posted (including this app's public replies to other
+            // comments). If we treated those as incoming events, our public
+            // replies would trigger the same automation again, and we'd reply
+            // to our own reply forever — an infinite spam loop.
+            // NEVER react to comments authored by the owning IG account.
+            // ---------------------------------------------------------------
+            if (fromId != null && accountId != null && fromId.equals(accountId)) {
+                log.debug("Skipping comment authored by the owning account (self-comment / our own reply).");
+                return null;
+            }
+
             return WebhookEventDto.builder()
                     .type(EventType.COMMENT)
                     .message(text(value.path("text")))
                     .username(text(value.path("from").path("username")))
-                    .instagramUserId(text(value.path("from").path("id")))
+                    .instagramUserId(fromId)
                     .postId(text(value.path("media").path("id")))
                     .commentId(text(value.path("id")))
                     .eventTime(secsToInstant(entryTimeSec))

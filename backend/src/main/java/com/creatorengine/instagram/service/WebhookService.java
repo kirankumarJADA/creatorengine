@@ -3,6 +3,8 @@ package com.creatorengine.instagram.service;
 import com.creatorengine.automation.engine.AutomationEngine;
 import com.creatorengine.config.AppProperties;
 import com.creatorengine.instagram.dto.WebhookEventDto;
+import com.creatorengine.instagram.entity.EventType;
+import com.creatorengine.instagram.entity.InstagramAccount;
 import com.creatorengine.instagram.entity.WebhookEventRecord;
 import com.creatorengine.instagram.repository.InstagramAccountRepository.OwnedAccount;
 import com.creatorengine.instagram.repository.WebhookEventRepository;
@@ -78,7 +80,6 @@ public class WebhookService {
     }
 
     private ProcessingResult parseAndDispatch(String rawBody) {
-       
         List<WebhookEventDto> events = parser.parse(rawBody);
         log.info("Webhook payload parsed: {} event(s).", events.size());
 
@@ -115,12 +116,53 @@ public class WebhookService {
         }
 
         String uid = owner.get().uid();
+        InstagramAccount account = owner.get().account();
+
+        // ----------------------------------------------------------------
+        // CRITICAL SELF-EVENT FILTER
+        // For COMMENT events, Instagram also delivers the OWNER's own comments
+        // (including this app's public replies). If we processed those, our
+        // own reply would trigger the same automation again -> infinite loop
+        // -> Meta eventually rate-limits and returns 500.
+        //
+        // We compare against the connected account's instagramUserId AND
+        // username, because IG's "from.id" on comments is the IG User ID,
+        // which sometimes differs from the page id used as receivingAccountId.
+        // Username is the most reliable equality check across IG's surfaces.
+        // ----------------------------------------------------------------
+        if (e.type() == EventType.COMMENT && isOwnComment(e, account)) {
+            log.info("Skipping self-authored comment (own public reply or owner comment): commentId={} from={}",
+                    e.commentId(), e.username());
+            return false;
+        }
 
         eventRepository.saveForUser(uid, record);
         accountService.touchLastSync(uid);
         deferAutomationDispatch(uid, e);
 
         return true;
+    }
+
+    private boolean isOwnComment(WebhookEventDto e, InstagramAccount account) {
+        if (account == null) return false;
+
+        String ownerUsername = account.getUsername();
+        String ownerIgUserId = account.getInstagramUserId();
+
+        String eventUsername = e.username();
+        String eventUserId = e.instagramUserId();
+
+        if (ownerUsername != null && eventUsername != null
+                && ownerUsername.equalsIgnoreCase(eventUsername)) {
+            return true;
+        }
+
+        if (ownerIgUserId != null && eventUserId != null
+                && ownerIgUserId.equals(eventUserId)) {
+            return true;
+        }
+
+        return false;
     }
 
     private WebhookEventRecord toRecord(WebhookEventDto e, String rawPayloadHint) {
