@@ -175,12 +175,23 @@ public class Automation {
                 : PostTargetMode.SPECIFIC;
     }
 
+    /**
+     * Returns the actions to execute. Prefers the new actions[] chain.
+     *
+     * Falls back to the legacy single `action` field ONLY when it has a real
+     * payload (a non-empty message or link). The `action` field is initialized
+     * by default to {type: SEND_DM}, so just checking `action != null` isn't
+     * enough — that would wrap an empty no-op DM and cause "Empty recipient or
+     * message" failures for public-reply-only automations (no DM, just a
+     * public reply on the comment).
+     */
     @Exclude
     public List<Action> getEffectiveActions() {
         if (actions != null && !actions.isEmpty()) {
             return actions;
         }
-        if (action != null) {
+
+        if (action != null && hasLegacyPayload()) {
             Action wrapped = Action.builder()
                     .type(action.getType())
                     .link(action.getLink())
@@ -189,7 +200,15 @@ public class Automation {
                     .build();
             return List.of(wrapped);
         }
+
         return List.of();
+    }
+
+    @Exclude
+    private boolean hasLegacyPayload() {
+        boolean hasMessage = message != null && !message.isBlank();
+        boolean hasLink = action != null && action.getLink() != null && !action.getLink().isBlank();
+        return hasMessage || hasLink;
     }
 
     public static class AutomationBuilder {
