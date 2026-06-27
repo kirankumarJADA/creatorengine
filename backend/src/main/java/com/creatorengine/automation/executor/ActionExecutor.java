@@ -85,6 +85,12 @@ public class ActionExecutor {
         return execute(ctx, actions.get(0));
     }
 
+    /**
+     * Follow-gate ASK: post the public reply (if enabled), then send the
+     * "please follow" DM with an "I Followed ✅" button as a private reply to
+     * the comment. The button's payload carries the automation id so the tap
+     * later delivers this automation's content.
+     */
     public ExecutionResult executeFollowGateAsk(ExecutionContext ctx) {
         InstagramAccount acct = ctx.connectedAccount();
         if (acct == null) {
@@ -132,6 +138,73 @@ public class ActionExecutor {
         }
 
         return ExecutionResult.failed(askText, result.error(), result.httpStatus());
+    }
+
+    /**
+     * Public-reply-only path: post a public reply to the triggering comment
+     * without sending any DM and without using the follow gate. Used when the
+     * automation has no action chain but the user enabled "Publicly reply to
+     * comments". Returns a successful result if the reply was posted, failed
+     * otherwise.
+     */
+    public ExecutionResult executePublicReplyOnly(ExecutionContext ctx) {
+        InstagramAccount acct = ctx.connectedAccount();
+        if (acct == null) {
+            return ExecutionResult.failed(null, "Instagram account not connected.");
+        }
+
+        var event = ctx.event();
+        if (event == null || event.type() != EventType.COMMENT) {
+            return ExecutionResult.failed(null, "Public reply requires a COMMENT event.");
+        }
+
+        String commentId = event.commentId();
+        if (commentId == null || commentId.isBlank()) {
+            return ExecutionResult.failed(null, "Comment id missing.");
+        }
+
+        Automation automation = ctx.automation();
+        if (automation == null || !automation.getPublicReplyEnabled()) {
+            return ExecutionResult.failed(null, "Public reply not enabled.");
+        }
+
+        List<String> active = activeReplyTexts(automation);
+        if (active.isEmpty()) {
+            return ExecutionResult.failed(null, "No active public reply templates.");
+        }
+
+        // De-duplication: only one public reply per (automation, comment).
+        String dedupKey = automation.getId() + ":" + commentId;
+        if (publicReplyDone.putIfAbsent(dedupKey, Boolean.TRUE) != null) {
+            log.debug("Public reply already posted for {}, skipping.", dedupKey);
+            return ExecutionResult.failed(null, "Public reply already posted.");
+        }
+        evictIfFull();
+
+        AccessTokenContext tokenCtx = AccessTokenContext.builder()
+                .instagramBusinessAccountId(acct.getInstagramUserId())
+                .pageAccessToken(acct.getAccessToken())
+                .build();
+
+        String template = active.get(ThreadLocalRandom.current().nextInt(active.size()));
+        String reply = templateRenderer.renderWithUsername(template, event.username());
+
+        try {
+            SendResult result = metaMessaging.replyToComment(commentId, reply, tokenCtx);
+            if (result.success()) {
+                log.info("Public-reply-only posted on comment_id={} (automation={})",
+                        commentId, automation.getId());
+                // Save the contact too, so the commenter shows up in your contacts list.
+                contactService.recordFromEvent(ctx.uid(), event, reply);
+                return ExecutionResult.sent(reply, result.messageId());
+            }
+            publicReplyDone.remove(dedupKey);
+            return ExecutionResult.failed(reply, result.error(), result.httpStatus());
+        } catch (Exception ex) {
+            publicReplyDone.remove(dedupKey);
+            log.warn("Public-reply-only threw for comment_id={}: {}", commentId, ex.getMessage());
+            return ExecutionResult.failed(reply, "Public reply exception: " + ex.getMessage(), null);
+        }
     }
 
     private ExecutionResult sendDirect(ExecutionContext ctx, String message) {
@@ -189,15 +262,7 @@ public class ActionExecutor {
             log.debug("Public reply already posted for {}, skipping.", dedupKey);
             return;
         }
-
-        // Cheap bound on memory: clear half the map if it grows too large.
-        if (publicReplyDone.size() > MAX_REPLIED_KEYS) {
-            int target = MAX_REPLIED_KEYS / 2;
-            for (String k : publicReplyDone.keySet()) {
-                if (publicReplyDone.size() <= target) break;
-                publicReplyDone.remove(k);
-            }
-        }
+        evictIfFull();
 
         List<String> active = activeReplyTexts(automation);
         if (active.isEmpty()) {
@@ -214,12 +279,24 @@ public class ActionExecutor {
                         commentId, automation.getId());
             } else {
                 log.warn("Public reply failed for comment_id={}: {}", commentId, result.error());
-                // Allow a retry on a later send for the same comment.
                 publicReplyDone.remove(dedupKey);
             }
         } catch (Exception ex) {
             log.warn("Public reply threw for comment_id={}: {}", commentId, ex.getMessage());
             publicReplyDone.remove(dedupKey);
+        }
+    }
+
+    /**
+     * Cheap bound on memory: clear half the map if it grows too large.
+     */
+    private void evictIfFull() {
+        if (publicReplyDone.size() > MAX_REPLIED_KEYS) {
+            int target = MAX_REPLIED_KEYS / 2;
+            for (String k : publicReplyDone.keySet()) {
+                if (publicReplyDone.size() <= target) break;
+                publicReplyDone.remove(k);
+            }
         }
     }
 
