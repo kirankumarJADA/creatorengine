@@ -7,29 +7,9 @@ import {
   ACTION_LABEL,
 } from './constants.js';
 
-/**
- * Pure-function "mini engine" that mirrors what the real backend
- * webhook handler will do when an Instagram event arrives.
- *
- * Used in two places:
- *  1. The builder's message preview — substitutes {{username}} so the
- *     user sees a realistic DM bubble while editing.
- *  2. The simulator modal — lets the user fire a fake event against
- *     a saved automation and verify the matching + rendering logic
- *     before any real webhook is wired up.
- *
- * Keeping these as pure functions (no React, no fetch) means tests
- * can hit them directly, and the same code can later be lifted to a
- * Node/Spring port without modification.
- */
-
 // ─── Template variables ───────────────────────────────────────
 const VARIABLE_PATTERN = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g;
 
-/**
- * Replace {{username}}-style placeholders with values from `vars`.
- * Unknown variables are left intact so the user can spot typos.
- */
 export const renderTemplate = (template = '', vars = {}) => {
   if (!template) return '';
   return template.replace(VARIABLE_PATTERN, (full, name) => {
@@ -39,7 +19,6 @@ export const renderTemplate = (template = '', vars = {}) => {
   });
 };
 
-/** Extract the variable names referenced in a template. */
 export const extractVariables = (template = '') => {
   const set = new Set();
   let m;
@@ -51,13 +30,6 @@ export const extractVariables = (template = '') => {
 
 // ─── Matching ─────────────────────────────────────────────────
 
-/**
- * Test whether an automation should fire for a given event.
- *
- * @param {object} automation - the saved automation
- * @param {object} event - { type: TRIGGER_TYPE, content: string, username: string }
- * @returns {{ matched: boolean, reason: string }}
- */
 export const evaluateAutomation = (automation, event) => {
   if (!automation || !event) {
     return { matched: false, reason: 'No automation or event supplied.' };
@@ -92,7 +64,6 @@ export const evaluateAutomation = (automation, event) => {
           : `Exact match required — "${event.content}" ≠ "${needle}".`,
       };
     }
-    // CONTAINS
     const ok = haystack.includes(needle);
     return {
       matched: ok,
@@ -105,20 +76,12 @@ export const evaluateAutomation = (automation, event) => {
   return { matched: false, reason: 'Unknown condition type.' };
 };
 
-/**
- * Run an automation against an event and return what would happen.
- *
- * Mirrors what the backend will do — useful for the simulator.
- */
 export const simulateRun = (automation, event) => {
   const { matched, reason } = evaluateAutomation(automation, event);
   if (!matched) {
     return { matched: false, reason, output: null };
   }
 
-  // Resolve the effective chain — same logic as the backend's
-  // Automation.getEffectiveActions(): prefer actions[], else wrap the
-  // legacy single action + top-level message.
   const chain = Array.isArray(automation.actions) && automation.actions.length > 0
     ? automation.actions
     : (automation.action
@@ -131,8 +94,6 @@ export const simulateRun = (automation, event) => {
 
   const vars = { username: event.username || 'follower' };
 
-  // Build per-step preview info so the modal (or any future richer
-  // simulator) can render the full chain.
   const steps = chain.map((action, i) => {
     const a = action || {};
     switch (a.type) {
@@ -186,9 +147,6 @@ export const simulateRun = (automation, event) => {
     }
   });
 
-  // Headline action for the modal's current single-preview UI: the
-  // first send-type step in the chain. The legacy `output` shape stays
-  // intact so SimulatorModal keeps working — it just gets richer data.
   const primary = steps.find(
     (s) => s.type === ACTION_TYPE.SEND_MESSAGE
         || s.type === ACTION_TYPE.SEND_DM
@@ -206,7 +164,7 @@ export const simulateRun = (automation, event) => {
       message: primary.message || '',
       link:    primary.link || null,
       to:      event.username || 'follower',
-      steps,                                 // full chain for future renderers
+      steps,
     } : null,
   };
 };
@@ -232,19 +190,12 @@ export const validateAutomationDraft = (draft = {}) => {
     }
   }
 
-  // ─── Multi-action chain validation ─────────────────────
+  // The action chain is now OPTIONAL. An automation can do just a
+  // public reply (no DM) — useful for viral comment hype like "follow
+  // for more!" — so we no longer require at least one effective action.
+  // Per-action validation still runs when the user did add actions.
   const actions = Array.isArray(draft.actions) ? draft.actions : [];
-
-  if (actions.length === 0) {
-    errors.actionsChain = 'Add at least one step.';
-  } else {
-    const anyEffective = actions.some((a) => a && a.type !== ACTION_TYPE.DELAY);
-    if (!anyEffective) {
-      errors.actionsChain = 'At least one step must do something other than DELAY.';
-    }
-
-    // Per-action errors, indexed positionally so the ActionStep can
-    // render them next to the offending card.
+  if (actions.length > 0) {
     const perAction = actions.map((a) => validateOneAction(a));
     if (perAction.some(Boolean)) {
       errors.actions = perAction;
@@ -255,20 +206,26 @@ export const validateAutomationDraft = (draft = {}) => {
 };
 
 const validateOneAction = (action) => {
-  if (!action || !action.type) return 'Pick an action type.';
+  // Empty/blank steps are tolerated — AutomationBuilder strips them
+  // before save, so the backend never sees no-op rows.
+  if (!action || !action.type) return null;
   if (!Object.values(ACTION_TYPE).includes(action.type)) return 'Unknown action type.';
 
   switch (action.type) {
     case ACTION_TYPE.SEND_LINK:
-      if (!action.message || action.message.trim().length === 0) return 'Enter a message.';
+      // The link is the whole point of SEND_LINK, so it's still required.
       if (!action.link || action.link.trim().length === 0) return 'Enter a link.';
-      if (action.message.length > 2000) return 'Message is too long (max 2000 characters).';
+      if (action.message && action.message.length > 2000) {
+        return 'Message is too long (max 2000 characters).';
+      }
       return null;
 
     case ACTION_TYPE.SEND_MESSAGE:
     case ACTION_TYPE.SEND_DM:
-      if (!action.message || action.message.trim().length === 0) return 'Enter a message.';
-      if (action.message.length > 2000) return 'Message is too long (max 2000 characters).';
+      // Message no longer required — supports "public reply only" automations.
+      if (action.message && action.message.length > 2000) {
+        return 'Message is too long (max 2000 characters).';
+      }
       return null;
 
     case ACTION_TYPE.DELAY: {

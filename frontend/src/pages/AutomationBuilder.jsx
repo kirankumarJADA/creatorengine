@@ -20,6 +20,7 @@ import {
   ROUTES,
   TRIGGER_TYPE,
   TRIGGER_LABEL,
+  ACTION_TYPE,
   ACTION_LABEL,
   POST_TARGET_MODE,
 } from '../utils/constants.js';
@@ -143,10 +144,31 @@ const AutomationBuilder = () => {
       return;
     }
 
+    // Strip empty/no-op actions: SEND_DM/SEND_MESSAGE with no message body
+    // is a "no-op" the user left behind — drop it so the backend isn't asked
+    // to send blank DMs. SEND_LINK still needs a link to count as real.
+    const cleanedActions = (draft.actions || []).filter((a) => {
+      if (!a || !a.type) return false;
+      switch (a.type) {
+        case ACTION_TYPE.SEND_DM:
+        case ACTION_TYPE.SEND_MESSAGE:
+          return a.message && a.message.trim().length > 0;
+        case ACTION_TYPE.SEND_LINK:
+          return a.link && a.link.trim().length > 0;
+        default:
+          return true;
+      }
+    });
+
+    // The automation must DO something: send a DM, a public reply, or
+    // a follow gate. Otherwise saving an empty automation is pointless.
+    if (cleanedActions.length === 0 && !publicReplyEnabled && !followGateEnabled) {
+      toast.error('Add a DM, a public reply, or a follow gate — the automation has to do something.');
+      goToStep(3);
+      return;
+    }
+
     // Resolve target-post mode + id.
-    // NEXT_POST trigger → always NEXT_POST mode (backend also enforces this).
-    // Plain COMMENT → use whatever the picker chose.
-    // Anything else → ALL (no post context).
     let targetPostMode;
     let targetPostId;
     if (draft.trigger === TRIGGER_TYPE.NEXT_POST) {
@@ -169,7 +191,7 @@ const AutomationBuilder = () => {
       targetPostMode,
       targetPostId,
       condition: draft.condition,
-      actions: draft.actions,
+      actions: cleanedActions,
       publicReplyEnabled,
       publicReplies,
       followGateEnabled,

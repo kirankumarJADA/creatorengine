@@ -18,7 +18,6 @@ public record AutomationRequest(
         @NotNull(message = "Trigger is required")
         com.creatorengine.automation.entity.TriggerType trigger,
 
-        /** How to scope this automation to posts. Null = inferred (ALL / SPECIFIC from targetPostId). */
         PostTargetMode targetPostMode,
 
         String targetPostId,
@@ -72,17 +71,29 @@ public record AutomationRequest(
         }
         if (resolvedMode == PostTargetMode.NEXT_POST
                 && targetPostId != null && !targetPostId.isBlank()) {
-            // NEXT_POST should never arrive with a pre-set post id from the client.
             throw new BadRequestException("NEXT_POST automations cannot pre-select a post.");
         }
 
-        if (actions != null && !actions.isEmpty()) {
+        boolean hasActions = actions != null && !actions.isEmpty();
+        boolean hasLegacyAction = action != null && action.type() != null;
+        boolean hasPublicReply = Boolean.TRUE.equals(publicReplyEnabled);
+        boolean hasFollowGate = Boolean.TRUE.equals(followGateEnabled);
+
+        // The automation must DO something: at least one action chain,
+        // OR a public reply, OR a follow gate. An automation with none
+        // of these is a no-op and should be rejected.
+        if (!hasActions && !hasLegacyAction && !hasPublicReply && !hasFollowGate) {
+            throw new BadRequestException(
+                    "Add a DM, a public reply, or a follow gate — the automation has to do something.");
+        }
+
+        if (hasActions) {
             validateChain();
-        } else {
+        } else if (hasLegacyAction) {
             validateLegacyAction();
         }
 
-        if (Boolean.TRUE.equals(publicReplyEnabled)) {
+        if (hasPublicReply) {
             boolean anyActive = publicReplies != null && publicReplies.stream()
                     .anyMatch(r -> r != null
                             && r.text() != null && !r.text().isBlank()
@@ -93,7 +104,7 @@ public record AutomationRequest(
             }
         }
 
-        if (Boolean.TRUE.equals(followGateEnabled)
+        if (hasFollowGate
                 && (followGateMessage == null || followGateMessage.isBlank())) {
             throw new BadRequestException(
                     "Add a follow message, or turn off 'Ask to follow first'.");
@@ -111,10 +122,6 @@ public record AutomationRequest(
         if (actions.size() > 10) {
             throw new BadRequestException("An automation can contain at most 10 actions.");
         }
-        boolean anyEffective = actions.stream().anyMatch(a -> a.type() != ActionType.DELAY);
-        if (!anyEffective) {
-            throw new BadRequestException("At least one action must do something (not just DELAY).");
-        }
 
         for (int i = 0; i < actions.size(); i++) {
             ActionDto a = actions.get(i);
@@ -127,15 +134,13 @@ public record AutomationRequest(
                     if (a.link() == null || a.link().isBlank()) {
                         throw new BadRequestException("Action " + human + ": link is required for SEND_LINK.");
                     }
-                    if (a.message() == null || a.message().isBlank()) {
-                        throw new BadRequestException("Action " + human + ": message is required for SEND_LINK.");
-                    }
+                    // Message is now optional for SEND_LINK as well — the link alone is meaningful.
                     break;
                 case SEND_MESSAGE:
                 case SEND_DM:
-                    if (a.message() == null || a.message().isBlank()) {
-                        throw new BadRequestException("Action " + human + ": message is required.");
-                    }
+                    // Message no longer required — public-reply-only automations need this.
+                    // (The frontend already drops empty SEND_DM/SEND_MESSAGE actions before save,
+                    //  so in practice these shouldn't be empty when they reach here.)
                     break;
                 case DELAY:
                     Integer secs = a.delaySeconds();
@@ -156,16 +161,11 @@ public record AutomationRequest(
 
     private void validateLegacyAction() {
         if (action == null || action.type() == null) {
-            throw new BadRequestException("Action is required.");
+            return;
         }
         if (action.type() == ActionType.SEND_LINK
                 && (action.link() == null || action.link().isBlank())) {
             throw new BadRequestException("Link is required when action type is SEND_LINK.");
-        }
-        if (action.type() != ActionType.SAVE_CONTACT
-                && action.type() != ActionType.DELAY
-                && (message == null || message.isBlank())) {
-            throw new BadRequestException("Response message is required for this action.");
         }
         if (action.type() == ActionType.DELAY) {
             throw new BadRequestException("DELAY must be used inside a multi-step actions[] chain.");
@@ -202,7 +202,7 @@ public record AutomationRequest(
             builder.actions(actions.stream().map(ActionDto::toEntity).toList());
             builder.action(null);
             builder.message(null);
-        } else {
+        } else if (action != null && action.type() != null) {
             builder.action(action.toEntity());
             builder.message(message == null ? null : message.trim());
         }
