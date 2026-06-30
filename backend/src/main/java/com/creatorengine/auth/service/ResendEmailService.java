@@ -1,28 +1,25 @@
 package com.creatorengine.auth.service;
 
-import com.creatorengine.config.AppProperties;
+import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
-
-import java.util.Map;
 
 @Service
 public class ResendEmailService {
 
     private static final Logger log = LoggerFactory.getLogger(ResendEmailService.class);
-    private static final String RESEND_API_URL = "https://api.resend.com/emails";
-    private static final String FROM = "CreatorEngine <onboarding@resend.dev>";
 
-    private final AppProperties props;
-    private final RestClient restClient;
+    private final JavaMailSender mailSender;
 
-    public ResendEmailService(AppProperties props) {
-        this.props = props;
-        this.restClient = RestClient.builder()
-                .defaultHeader("Content-Type", "application/json")
-                .build();
+    @Value("${spring.mail.username:}")
+    private String fromEmail;
+
+    public ResendEmailService(JavaMailSender mailSender) {
+        this.mailSender = mailSender;
     }
 
     public void sendOtpEmail(String toEmail, String otp) {
@@ -89,30 +86,22 @@ public class ResendEmailService {
     }
 
     private void send(String to, String subject, String html) {
-        String apiKey = props.getResend().getApiKey();
-        if (apiKey == null || apiKey.isBlank()) {
-            log.error("RESEND_API_KEY not configured — email NOT sent to {}", to);
+        if (fromEmail == null || fromEmail.isBlank()) {
+            log.error("MAIL_USERNAME not configured — email NOT sent to {}", to);
             return;
         }
 
-        Map<String, Object> body = Map.of(
-                "from", FROM,
-                "to", new String[]{to},
-                "subject", subject,
-                "html", html
-        );
-
         try {
-            restClient.post()
-                    .uri(RESEND_API_URL)
-                    .header("Authorization", "Bearer " + apiKey)
-                    .body(body)
-                    .retrieve()
-                    .toBodilessEntity();
-            log.info("Resend email sent to={} subject='{}'", to, subject);
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail, "CreatorEngine");
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(html, true);
+            mailSender.send(message);
+            log.info("Gmail email sent to={} subject='{}'", to, subject);
         } catch (Exception ex) {
-            log.error("Resend email failed to={} subject='{}': {}",
-                    to, subject, ex.getMessage());
+            log.error("Gmail email failed to={} subject='{}': {}", to, subject, ex.getMessage());
         }
     }
 }
