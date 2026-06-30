@@ -29,6 +29,8 @@ export const STORAGE_KEYS = Object.freeze({
 
 export const API_ENDPOINTS = Object.freeze({
   REGISTER:        '/auth/register',
+  SEND_OTP:        '/auth/send-otp',
+  VERIFY_OTP:      '/auth/verify-otp',
   LOGIN:           '/auth/login',
   LOGOUT:          '/auth/logout',
   ME:              '/auth/me',

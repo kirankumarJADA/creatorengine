@@ -1,12 +1,14 @@
 import api from './api.js';
 import { API_ENDPOINTS } from '../utils/constants.js';
 
-/**
- * Auth API surface. Each method returns the unwrapped backend `data`.
- */
 const authService = {
-  register: async ({ name, email, password }) => {
-    const { data } = await api.post(API_ENDPOINTS.REGISTER, { name, email, password });
+  sendOtp: async ({ email }) => {
+    await api.post(API_ENDPOINTS.SEND_OTP, { email });
+  },
+
+  verifyOtp: async ({ email, otp, name, password }) => {
+    const { data } = await api.post(API_ENDPOINTS.VERIFY_OTP,
+        { email, otp, name, password });
     return data;
   },
 
@@ -19,7 +21,7 @@ const authService = {
     try {
       await api.post(API_ENDPOINTS.LOGOUT, null, { silent: true });
     } catch {
-      /* best-effort no-op for stateless JWT */
+      /* best-effort */
     }
   },
 
@@ -30,7 +32,7 @@ const authService = {
 
   updateProfile: async ({ name }) => {
     const { data } = await api.patch('/auth/profile', { name });
-    return data; // updated user
+    return data;
   },
 
   changePassword: async ({ currentPassword, newPassword }) => {
@@ -38,8 +40,7 @@ const authService = {
   },
 
   forgotPassword: async ({ email }) => {
-    const { raw } = await api.post(API_ENDPOINTS.FORGOT_PASSWORD, { email });
-    return raw;
+    await api.post(API_ENDPOINTS.FORGOT_PASSWORD, { email });
   },
 };
 

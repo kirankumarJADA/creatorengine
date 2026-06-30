@@ -4,9 +4,10 @@ import com.creatorengine.auth.dto.AuthResponse;
 import com.creatorengine.auth.dto.ChangePasswordRequest;
 import com.creatorengine.auth.dto.ForgotPasswordRequest;
 import com.creatorengine.auth.dto.LoginRequest;
-import com.creatorengine.auth.dto.RegisterRequest;
+import com.creatorengine.auth.dto.SendOtpRequest;
 import com.creatorengine.auth.dto.UpdateProfileRequest;
 import com.creatorengine.auth.dto.UserResponse;
+import com.creatorengine.auth.dto.VerifyOtpRequest;
 import com.creatorengine.auth.entity.Role;
 import com.creatorengine.auth.entity.User;
 import com.creatorengine.auth.repository.UserRepository;
@@ -37,23 +38,54 @@ public class AuthService {
     private final FirebaseAuthClient firebaseAuthClient;
     private final JwtTokenProvider tokenProvider;
     private final AppProperties props;
+    private final OtpService otpService;
+    private final ResendEmailService resendEmailService;
 
     public AuthService(
             UserRepository userRepository,
             FirebaseAuth firebaseAuth,
             FirebaseAuthClient firebaseAuthClient,
             JwtTokenProvider tokenProvider,
-            AppProperties props
+            AppProperties props,
+            OtpService otpService,
+            ResendEmailService resendEmailService
     ) {
         this.userRepository = userRepository;
         this.firebaseAuth = firebaseAuth;
         this.firebaseAuthClient = firebaseAuthClient;
         this.tokenProvider = tokenProvider;
         this.props = props;
+        this.otpService = otpService;
+        this.resendEmailService = resendEmailService;
     }
 
-    public AuthResponse register(RegisterRequest req) {
+    /**
+     * Step 1 of signup: check email not taken, generate OTP, send via Resend.
+     * No account is created yet.
+     */
+    public void sendOtp(SendOtpRequest req) {
         String email = normalize(req.email());
+
+        if (userRepository.existsByEmail(email)) {
+            throw new ConflictException("An account with this email already exists.");
+        }
+
+        String otp = otpService.generate(email);
+        resendEmailService.sendOtpEmail(email, otp);
+        log.info("OTP sent for signup email={}", email);
+    }
+
+    /**
+     * Step 2 of signup: verify OTP then create account.
+     * Returns JWT so user is logged in immediately after signup.
+     */
+    public AuthResponse verifyOtpAndRegister(VerifyOtpRequest req) {
+        String email = normalize(req.email());
+
+        if (!otpService.verify(email, req.otp())) {
+            throw new BadRequestException(
+                    "Invalid or expired verification code. Please try again.");
+        }
 
         if (userRepository.existsByEmail(email)) {
             throw new ConflictException("An account with this email already exists.");
@@ -63,7 +95,7 @@ public class AuthService {
         try {
             UserRecord.CreateRequest createReq = new UserRecord.CreateRequest()
                     .setEmail(email)
-                    .setEmailVerified(false)
+                    .setEmailVerified(true)
                     .setPassword(req.password())
                     .setDisplayName(req.name().trim())
                     .setDisabled(false);
@@ -80,20 +112,18 @@ public class AuthService {
                 .email(email)
                 .name(req.name().trim())
                 .roles(List.of(Role.USER))
-                .emailVerified(false)
+                .emailVerified(true)
                 .enabled(true)
                 .lastLoginAt(Instant.now())
                 .build();
 
         user = userRepository.save(user);
-
-        log.info("Registered user uid={}, email={}", user.getUid(), user.getEmail());
+        log.info("Registered user uid={} email={}", user.getUid(), user.getEmail());
         return buildAuthResponse(user);
     }
 
     public AuthResponse login(LoginRequest req) {
         String email = normalize(req.email());
-
         String uid = firebaseAuthClient.verifyPassword(email, req.password());
 
         User user = userRepository.findById(uid).orElseGet(() -> {
@@ -120,7 +150,8 @@ public class AuthService {
 
     public AuthResponse refresh(String refreshToken) {
         if (refreshToken == null || !tokenProvider.isValidRefreshToken(refreshToken)) {
-            throw new UnauthorizedException("Invalid or expired refresh token. Please log in again.");
+            throw new UnauthorizedException(
+                    "Invalid or expired refresh token. Please log in again.");
         }
 
         Claims claims = tokenProvider.parse(refreshToken);
@@ -159,11 +190,11 @@ public class AuthService {
         user.setName(name);
         userRepository.save(user);
 
-        // Keep Firebase display name in sync (best-effort).
         try {
-            firebaseAuth.updateUser(new UserRecord.UpdateRequest(uid).setDisplayName(name));
+            firebaseAuth.updateUser(
+                    new UserRecord.UpdateRequest(uid).setDisplayName(name));
         } catch (FirebaseAuthException ex) {
-            log.warn("Firebase displayName sync failed for uid={}: {}", uid, ex.getMessage());
+            log.warn("Firebase displayName sync failed uid={}: {}", uid, ex.getMessage());
         }
 
         log.info("Updated profile name for uid={}", uid);
@@ -174,38 +205,42 @@ public class AuthService {
         User user = userRepository.findById(uid)
                 .orElseThrow(() -> new ResourceNotFoundException("User", uid));
 
-        // Verify the current password by authenticating with it.
         try {
             firebaseAuthClient.verifyPassword(user.getEmail(), req.currentPassword());
         } catch (Exception ex) {
             throw new UnauthorizedException("Current password is incorrect.");
         }
 
-        // Apply the new password via the Admin SDK.
         try {
-            firebaseAuth.updateUser(new UserRecord.UpdateRequest(uid).setPassword(req.newPassword()));
+            firebaseAuth.updateUser(
+                    new UserRecord.UpdateRequest(uid).setPassword(req.newPassword()));
         } catch (FirebaseAuthException ex) {
-            log.warn("Firebase password update failed for uid={}: {}", uid, ex.getMessage());
+            log.warn("Firebase password update failed uid={}: {}", uid, ex.getMessage());
             throw new BadRequestException("Could not update password. Please try again.");
         }
 
         log.info("Password changed for uid={}", uid);
     }
 
+    /**
+     * Forgot password — generates reset link via Firebase,
+     * sends it via Resend with our custom branded template.
+     */
     public void sendPasswordResetEmail(ForgotPasswordRequest req) {
         String email = normalize(req.email());
 
         if (!userRepository.existsByEmail(email)) {
-            log.debug("Password reset requested for non-existent email (silenced): {}", email);
+            log.debug("Password reset for non-existent email (silenced): {}", email);
             return;
         }
 
         try {
-            firebaseAuthClient.sendPasswordResetEmail(
+            String resetLink = firebaseAuthClient.generatePasswordResetLink(
                     email, props.getFirebase().getPasswordResetRedirectUrl());
-            log.info("Password reset email triggered for {}", email);
+            resendEmailService.sendPasswordResetEmail(email, resetLink);
+            log.info("Password reset email sent via Resend for {}", email);
         } catch (Exception ex) {
-            log.warn("Password reset send failed for {}: {}", email, ex.getMessage());
+            log.warn("Password reset failed for {}: {}", email, ex.getMessage());
         }
     }
 
@@ -214,7 +249,8 @@ public class AuthService {
                 user.getUid(), user.getEmail(), user.getRoles());
         String refresh = tokenProvider.generateRefreshToken(
                 user.getUid(), user.getEmail());
-        long expiresIn = props.getSecurity().getJwt().getAccessTokenExpirationMs() / 1000;
+        long expiresIn =
+                props.getSecurity().getJwt().getAccessTokenExpirationMs() / 1000;
 
         return AuthResponse.builder()
                 .user(UserResponse.from(user))

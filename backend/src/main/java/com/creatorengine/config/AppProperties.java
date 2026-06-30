@@ -14,61 +14,36 @@ public class AppProperties {
     private Firebase firebase = new Firebase();
     private Meta meta = new Meta();
     private Ai ai = new Ai();
+    private Resend resend = new Resend();
 
-    public String getName() {
-        return name;
-    }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    public String getFrontendBaseUrl() { return frontendBaseUrl; }
+    public void setFrontendBaseUrl(String v) { this.frontendBaseUrl = v; }
 
-    public String getFrontendBaseUrl() {
-        return frontendBaseUrl;
-    }
+    public Cors getCors() { return cors; }
+    public void setCors(Cors cors) { this.cors = cors; }
 
-    public void setFrontendBaseUrl(String frontendBaseUrl) {
-        this.frontendBaseUrl = frontendBaseUrl;
-    }
+    public Security getSecurity() { return security; }
+    public void setSecurity(Security security) { this.security = security; }
 
-    public Cors getCors() {
-        return cors;
-    }
+    public Firebase getFirebase() { return firebase; }
+    public void setFirebase(Firebase firebase) { this.firebase = firebase; }
 
-    public void setCors(Cors cors) {
-        this.cors = cors;
-    }
+    public Meta getMeta() { return meta; }
+    public void setMeta(Meta meta) { this.meta = meta; }
 
-    public Security getSecurity() {
-        return security;
-    }
+    public Ai getAi() { return ai; }
+    public void setAi(Ai ai) { this.ai = ai; }
 
-    public void setSecurity(Security security) {
-        this.security = security;
-    }
+    public Resend getResend() { return resend; }
+    public void setResend(Resend resend) { this.resend = resend; }
 
-    public Firebase getFirebase() {
-        return firebase;
-    }
-
-    public void setFirebase(Firebase firebase) {
-        this.firebase = firebase;
-    }
-
-    public Meta getMeta() {
-        return meta;
-    }
-
-    public void setMeta(Meta meta) {
-        this.meta = meta;
-    }
-
-    public Ai getAi() {
-        return ai;
-    }
-
-    public void setAi(Ai ai) {
-        this.ai = ai;
+    public static class Resend {
+        private String apiKey;
+        public String getApiKey() { return apiKey; }
+        public void setApiKey(String apiKey) { this.apiKey = apiKey; }
     }
 
     public static class Cors {
@@ -78,57 +53,22 @@ public class AppProperties {
         private boolean allowCredentials;
         private long maxAge;
 
-        public String getAllowedOrigins() {
-            return allowedOrigins;
-        }
-
-        public void setAllowedOrigins(String allowedOrigins) {
-            this.allowedOrigins = allowedOrigins;
-        }
-
-        public String getAllowedMethods() {
-            return allowedMethods;
-        }
-
-        public void setAllowedMethods(String allowedMethods) {
-            this.allowedMethods = allowedMethods;
-        }
-
-        public String getAllowedHeaders() {
-            return allowedHeaders;
-        }
-
-        public void setAllowedHeaders(String allowedHeaders) {
-            this.allowedHeaders = allowedHeaders;
-        }
-
-        public boolean getAllowCredentials() {
-            return allowCredentials;
-        }
-
-        public void setAllowCredentials(boolean allowCredentials) {
-            this.allowCredentials = allowCredentials;
-        }
-
-        public long getMaxAge() {
-            return maxAge;
-        }
-
-        public void setMaxAge(long maxAge) {
-            this.maxAge = maxAge;
-        }
+        public String getAllowedOrigins() { return allowedOrigins; }
+        public void setAllowedOrigins(String v) { this.allowedOrigins = v; }
+        public String getAllowedMethods() { return allowedMethods; }
+        public void setAllowedMethods(String v) { this.allowedMethods = v; }
+        public String getAllowedHeaders() { return allowedHeaders; }
+        public void setAllowedHeaders(String v) { this.allowedHeaders = v; }
+        public boolean getAllowCredentials() { return allowCredentials; }
+        public void setAllowCredentials(boolean v) { this.allowCredentials = v; }
+        public long getMaxAge() { return maxAge; }
+        public void setMaxAge(long v) { this.maxAge = v; }
     }
 
     public static class Security {
         private Jwt jwt = new Jwt();
-
-        public Jwt getJwt() {
-            return jwt;
-        }
-
-        public void setJwt(Jwt jwt) {
-            this.jwt = jwt;
-        }
+        public Jwt getJwt() { return jwt; }
+        public void setJwt(Jwt jwt) { this.jwt = jwt; }
 
         public static class Jwt {
             private String secret;
@@ -136,37 +76,14 @@ public class AppProperties {
             private long accessTokenExpirationMs;
             private long refreshTokenExpirationMs;
 
-            public String getSecret() {
-                return secret;
-            }
-
-            public void setSecret(String secret) {
-                this.secret = secret;
-            }
-
-            public String getIssuer() {
-                return issuer;
-            }
-
-            public void setIssuer(String issuer) {
-                this.issuer = issuer;
-            }
-
-            public long getAccessTokenExpirationMs() {
-                return accessTokenExpirationMs;
-            }
-
-            public void setAccessTokenExpirationMs(long accessTokenExpirationMs) {
-                this.accessTokenExpirationMs = accessTokenExpirationMs;
-            }
-
-            public long getRefreshTokenExpirationMs() {
-                return refreshTokenExpirationMs;
-            }
-
-            public void setRefreshTokenExpirationMs(long refreshTokenExpirationMs) {
-                this.refreshTokenExpirationMs = refreshTokenExpirationMs;
-            }
+            public String getSecret() { return secret; }
+            public void setSecret(String v) { this.secret = v; }
+            public String getIssuer() { return issuer; }
+            public void setIssuer(String v) { this.issuer = v; }
+            public long getAccessTokenExpirationMs() { return accessTokenExpirationMs; }
+            public void setAccessTokenExpirationMs(long v) { this.accessTokenExpirationMs = v; }
+            public long getRefreshTokenExpirationMs() { return refreshTokenExpirationMs; }
+            public void setRefreshTokenExpirationMs(long v) { this.refreshTokenExpirationMs = v; }
         }
     }
 
@@ -177,45 +94,16 @@ public class AppProperties {
         private String credentialsJson;
         private String passwordResetRedirectUrl;
 
-        public String getProjectId() {
-            return projectId;
-        }
-
-        public void setProjectId(String projectId) {
-            this.projectId = projectId;
-        }
-
-        public String getWebApiKey() {
-            return webApiKey;
-        }
-
-        public void setWebApiKey(String webApiKey) {
-            this.webApiKey = webApiKey;
-        }
-
-        public String getCredentialsPath() {
-            return credentialsPath;
-        }
-
-        public void setCredentialsPath(String credentialsPath) {
-            this.credentialsPath = credentialsPath;
-        }
-
-        public String getCredentialsJson() {
-            return credentialsJson;
-        }
-
-        public void setCredentialsJson(String credentialsJson) {
-            this.credentialsJson = credentialsJson;
-        }
-
-        public String getPasswordResetRedirectUrl() {
-            return passwordResetRedirectUrl;
-        }
-
-        public void setPasswordResetRedirectUrl(String passwordResetRedirectUrl) {
-            this.passwordResetRedirectUrl = passwordResetRedirectUrl;
-        }
+        public String getProjectId() { return projectId; }
+        public void setProjectId(String v) { this.projectId = v; }
+        public String getWebApiKey() { return webApiKey; }
+        public void setWebApiKey(String v) { this.webApiKey = v; }
+        public String getCredentialsPath() { return credentialsPath; }
+        public void setCredentialsPath(String v) { this.credentialsPath = v; }
+        public String getCredentialsJson() { return credentialsJson; }
+        public void setCredentialsJson(String v) { this.credentialsJson = v; }
+        public String getPasswordResetRedirectUrl() { return passwordResetRedirectUrl; }
+        public void setPasswordResetRedirectUrl(String v) { this.passwordResetRedirectUrl = v; }
     }
 
     public static class Meta {
@@ -226,76 +114,29 @@ public class AppProperties {
         private String successRedirectUri;
         private String graphApiVersion = "v19.0";
         private String scopes =
-        "instagram_basic,instagram_manage_comments,instagram_manage_messages,"
-                + "pages_show_list,pages_read_engagement";
+                "instagram_basic,instagram_manage_comments,instagram_manage_messages,"
+                        + "pages_show_list,pages_read_engagement";
 
-        public String getAppId() {
-            return appId;
-        }
-
-        public void setAppId(String appId) {
-            this.appId = appId;
-        }
-
-        public String getAppSecret() {
-            return appSecret;
-        }
-
-        public void setAppSecret(String appSecret) {
-            this.appSecret = appSecret;
-        }
-
-        public String getVerifyToken() {
-            return verifyToken;
-        }
-
-        public void setVerifyToken(String verifyToken) {
-            this.verifyToken = verifyToken;
-        }
-
-        public String getRedirectUri() {
-            return redirectUri;
-        }
-
-        public void setRedirectUri(String redirectUri) {
-            this.redirectUri = redirectUri;
-        }
-
-        public String getSuccessRedirectUri() {
-            return successRedirectUri;
-        }
-
-        public void setSuccessRedirectUri(String successRedirectUri) {
-            this.successRedirectUri = successRedirectUri;
-        }
-
-        public String getGraphApiVersion() {
-            return graphApiVersion;
-        }
-
-        public void setGraphApiVersion(String graphApiVersion) {
-            this.graphApiVersion = graphApiVersion;
-        }
-
-        public String getScopes() {
-            return scopes;
-        }
-
-        public void setScopes(String scopes) {
-            this.scopes = scopes;
-        }
+        public String getAppId() { return appId; }
+        public void setAppId(String v) { this.appId = v; }
+        public String getAppSecret() { return appSecret; }
+        public void setAppSecret(String v) { this.appSecret = v; }
+        public String getVerifyToken() { return verifyToken; }
+        public void setVerifyToken(String v) { this.verifyToken = v; }
+        public String getRedirectUri() { return redirectUri; }
+        public void setRedirectUri(String v) { this.redirectUri = v; }
+        public String getSuccessRedirectUri() { return successRedirectUri; }
+        public void setSuccessRedirectUri(String v) { this.successRedirectUri = v; }
+        public String getGraphApiVersion() { return graphApiVersion; }
+        public void setGraphApiVersion(String v) { this.graphApiVersion = v; }
+        public String getScopes() { return scopes; }
+        public void setScopes(String v) { this.scopes = v; }
     }
 
     public static class Ai {
         private Openai openai = new Openai();
-
-        public Openai getOpenai() {
-            return openai;
-        }
-
-        public void setOpenai(Openai openai) {
-            this.openai = openai;
-        }
+        public Openai getOpenai() { return openai; }
+        public void setOpenai(Openai openai) { this.openai = openai; }
 
         public static class Openai {
             private String apiKey;
@@ -303,37 +144,14 @@ public class AppProperties {
             private String baseUrl = "https://api.openai.com/v1";
             private int timeoutMs = 20000;
 
-            public String getApiKey() {
-                return apiKey;
-            }
-
-            public void setApiKey(String apiKey) {
-                this.apiKey = apiKey;
-            }
-
-            public String getModel() {
-                return model;
-            }
-
-            public void setModel(String model) {
-                this.model = model;
-            }
-
-            public String getBaseUrl() {
-                return baseUrl;
-            }
-
-            public void setBaseUrl(String baseUrl) {
-                this.baseUrl = baseUrl;
-            }
-
-            public int getTimeoutMs() {
-                return timeoutMs;
-            }
-
-            public void setTimeoutMs(int timeoutMs) {
-                this.timeoutMs = timeoutMs;
-            }
+            public String getApiKey() { return apiKey; }
+            public void setApiKey(String v) { this.apiKey = v; }
+            public String getModel() { return model; }
+            public void setModel(String v) { this.model = v; }
+            public String getBaseUrl() { return baseUrl; }
+            public void setBaseUrl(String v) { this.baseUrl = v; }
+            public int getTimeoutMs() { return timeoutMs; }
+            public void setTimeoutMs(int v) { this.timeoutMs = v; }
         }
     }
 }

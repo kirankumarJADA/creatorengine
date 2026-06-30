@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @Component
@@ -20,13 +21,13 @@ public class FirebaseAuthClient {
 
     private static final String SIGN_IN_URL =
             "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword";
-
     private static final String SEND_OOB_CODE_URL =
+            "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode";
+    private static final String GET_OOB_CODE_URL =
             "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode";
 
     private final AppProperties props;
     private final ObjectMapper objectMapper;
-
     private RestClient restClient;
 
     public FirebaseAuthClient(AppProperties props, ObjectMapper objectMapper) {
@@ -41,7 +42,6 @@ public class FirebaseAuthClient {
                     .defaultHeader("Content-Type", "application/json")
                     .build();
         }
-
         return restClient;
     }
 
@@ -84,6 +84,54 @@ public class FirebaseAuthClient {
         }
     }
 
+    /**
+     * Generate a password reset link via Firebase and return it.
+     * We then send it ourselves via Resend with a custom template.
+     */
+    public String generatePasswordResetLink(String email, String continueUrl) {
+        String apiKey = props.getFirebase().getWebApiKey();
+
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new BadRequestException(
+                    "Firebase Web API key is not configured (FIREBASE_WEB_API_KEY).");
+        }
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("requestType", "PASSWORD_RESET");
+        body.put("email", email);
+        if (continueUrl != null && !continueUrl.isBlank()) {
+            body.put("continueUrl", continueUrl);
+        }
+
+        try {
+            RestClient client = RestClient.builder()
+                    .baseUrl(GET_OOB_CODE_URL)
+                    .defaultHeader("Content-Type", "application/json")
+                    .build();
+
+            OobCodeResponse resp = client.post()
+                    .uri(uri -> uri.queryParam("key", apiKey).build())
+                    .body(body)
+                    .retrieve()
+                    .body(OobCodeResponse.class);
+
+            if (resp == null || resp.oobLink() == null) {
+                throw new BadRequestException("Could not generate password reset link.");
+            }
+
+            return resp.oobLink();
+        } catch (HttpClientErrorException ex) {
+            String firebaseError = parseErrorMessage(ex.getResponseBodyAsString());
+            log.warn("Firebase generatePasswordResetLink failed for '{}': code='{}', status={}",
+                    email, firebaseError, ex.getStatusCode().value());
+            throw new UnauthorizedException("Could not generate password reset link.");
+        }
+    }
+
+    /**
+     * Legacy method — kept for backwards compat but no longer used
+     * (replaced by generatePasswordResetLink + Resend).
+     */
     public void sendPasswordResetEmail(String email, String continueUrl) {
         String apiKey = props.getFirebase().getWebApiKey();
 
@@ -92,10 +140,9 @@ public class FirebaseAuthClient {
                     "Firebase Web API key is not configured (FIREBASE_WEB_API_KEY).");
         }
 
-        java.util.Map<String, Object> body = new java.util.HashMap<>();
+        Map<String, Object> body = new HashMap<>();
         body.put("requestType", "PASSWORD_RESET");
         body.put("email", email);
-
         if (continueUrl != null && !continueUrl.isBlank()) {
             body.put("continueUrl", continueUrl);
         }
@@ -122,13 +169,11 @@ public class FirebaseAuthClient {
     private String parseErrorMessage(String body) {
         try {
             ErrorEnvelope envelope = objectMapper.readValue(body, ErrorEnvelope.class);
-            if (envelope != null && envelope.error() != null && envelope.error().message() != null) {
+            if (envelope != null && envelope.error() != null
+                    && envelope.error().message() != null) {
                 return envelope.error().message();
             }
-        } catch (Exception ignored) {
-            // Fall through to generic message.
-        }
-
+        } catch (Exception ignored) {}
         return "UNKNOWN";
     }
 
@@ -152,13 +197,14 @@ public class FirebaseAuthClient {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record SignInResponse(String localId, String email) {
-    }
+    private record SignInResponse(String localId, String email) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record OobCodeResponse(String oobLink, String email) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record ErrorEnvelope(ErrorBody error) {
         @JsonIgnoreProperties(ignoreUnknown = true)
-        record ErrorBody(int code, String message) {
-        }
+        record ErrorBody(int code, String message) {}
     }
 }
