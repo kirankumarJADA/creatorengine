@@ -26,6 +26,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 
@@ -216,11 +220,12 @@ public class AuthService {
     }
 
     /**
-     * Sends a password reset email with our own Brevo-branded template.
-     * handleCodeInApp=true sends the user straight to our EXISTING
-     * AuthAction.jsx page at /auth/action (which already handles the
-     * whole reset UI and calls Firebase directly) instead of Firebase's
-     * own generic firebaseapp.com page.
+     * Generates a reset link via Firebase purely to obtain a valid oobCode,
+     * then builds our OWN link pointing directly at our existing
+     * AuthAction.jsx page (/auth/action). This bypasses Firebase Console's
+     * "Customize action URL" entirely — no Console/Hosting domain
+     * verification needed. AuthAction.jsx only needs mode + oobCode + apiKey
+     * from the URL, which is exactly what we hand it here.
      */
     public void sendPasswordResetEmail(ForgotPasswordRequest req) {
         String email = normalize(req.email());
@@ -232,16 +237,51 @@ public class AuthService {
 
         try {
             ActionCodeSettings settings = ActionCodeSettings.builder()
-                    .setUrl(props.getFrontendBaseUrl() + "/auth/action")
-                    .setHandleCodeInApp(true)
+                    .setUrl(props.getFrontendBaseUrl() + "/login")
+                    .setHandleCodeInApp(false)
                     .build();
 
-            String resetLink = firebaseAuth.generatePasswordResetLink(email, settings);
-            resendEmailService.sendPasswordResetEmail(email, resetLink);
+            String firebaseLink = firebaseAuth.generatePasswordResetLink(email, settings);
+            String oobCode = extractQueryParam(firebaseLink, "oobCode");
+
+            if (oobCode == null || oobCode.isBlank()) {
+                log.warn("Could not extract oobCode from Firebase link for {}", email);
+                return;
+            }
+
+            String apiKey = props.getFirebase().getWebApiKey();
+            String customLink = props.getFrontendBaseUrl()
+                    + "/auth/action?mode=resetPassword&oobCode="
+                    + URLEncoder.encode(oobCode, StandardCharsets.UTF_8)
+                    + "&apiKey="
+                    + URLEncoder.encode(apiKey, StandardCharsets.UTF_8);
+
+            resendEmailService.sendPasswordResetEmail(email, customLink);
             log.info("Password reset email sent via Brevo for {}", email);
         } catch (Exception ex) {
             log.warn("Password reset failed for {}: {}", email, ex.getMessage());
         }
+    }
+
+    private static String extractQueryParam(String url, String paramName) {
+        try {
+            URI uri = URI.create(url);
+            String query = uri.getQuery();
+            if (query == null) return null;
+
+            for (String pair : query.split("&")) {
+                int idx = pair.indexOf('=');
+                if (idx < 0) continue;
+                String key = pair.substring(0, idx);
+                String value = pair.substring(idx + 1);
+                if (key.equals(paramName)) {
+                    return URLDecoder.decode(value, StandardCharsets.UTF_8);
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to parse query param '{}' from url: {}", paramName, ex.getMessage());
+        }
+        return null;
     }
 
     private AuthResponse buildAuthResponse(User user) {
