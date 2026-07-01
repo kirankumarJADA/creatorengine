@@ -2,7 +2,6 @@ package com.creatorengine.auth.controller;
 
 import com.creatorengine.auth.dto.AuthResponse;
 import com.creatorengine.auth.dto.ChangePasswordRequest;
-import com.creatorengine.auth.dto.ConfirmResetRequest;
 import com.creatorengine.auth.dto.ForgotPasswordRequest;
 import com.creatorengine.auth.dto.LoginRequest;
 import com.creatorengine.auth.dto.RefreshRequest;
@@ -95,11 +94,4 @@ public class AuthController {
                 "If an account exists for that email, a reset link has been sent."));
     }
 
-    /** Confirms a password reset from our own custom /reset-password page */
-    @PostMapping("/confirm-reset")
-    public ResponseEntity<ApiResponse<Void>> confirmReset(
-            @Valid @RequestBody ConfirmResetRequest req) {
-        authService.confirmPasswordReset(req);
-        return ResponseEntity.ok(ApiResponse.ok("Password reset successfully."));
-    }
 }
