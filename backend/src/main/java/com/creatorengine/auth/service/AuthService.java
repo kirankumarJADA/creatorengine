@@ -17,6 +17,7 @@ import com.creatorengine.exception.ConflictException;
 import com.creatorengine.exception.ResourceNotFoundException;
 import com.creatorengine.exception.UnauthorizedException;
 import com.creatorengine.security.JwtTokenProvider;
+import com.google.firebase.auth.ActionCodeSettings;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
@@ -59,10 +60,6 @@ public class AuthService {
         this.resendEmailService = resendEmailService;
     }
 
-    /**
-     * Step 1 of signup: check email not taken, generate OTP, send via Resend.
-     * No account is created yet.
-     */
     public void sendOtp(SendOtpRequest req) {
         String email = normalize(req.email());
 
@@ -75,10 +72,6 @@ public class AuthService {
         log.info("OTP sent for signup email={}", email);
     }
 
-    /**
-     * Step 2 of signup: verify OTP then create account.
-     * Returns JWT so user is logged in immediately after signup.
-     */
     public AuthResponse verifyOtpAndRegister(VerifyOtpRequest req) {
         String email = normalize(req.email());
 
@@ -223,8 +216,9 @@ public class AuthService {
     }
 
     /**
-     * Forgot password — generates reset link via Firebase,
-     * sends it via Resend with our custom branded template.
+     * Uses the Firebase ADMIN SDK to generate the reset link.
+     * This does NOT trigger Firebase's own default email —
+     * it only returns the link, which we then send ourselves via Brevo.
      */
     public void sendPasswordResetEmail(ForgotPasswordRequest req) {
         String email = normalize(req.email());
@@ -235,10 +229,14 @@ public class AuthService {
         }
 
         try {
-            String resetLink = firebaseAuthClient.generatePasswordResetLink(
-                    email, props.getFirebase().getPasswordResetRedirectUrl());
+            ActionCodeSettings settings = ActionCodeSettings.builder()
+                    .setUrl(props.getFirebase().getPasswordResetRedirectUrl())
+                    .setHandleCodeInApp(false)
+                    .build();
+
+            String resetLink = firebaseAuth.generatePasswordResetLink(email, settings);
             resendEmailService.sendPasswordResetEmail(email, resetLink);
-            log.info("Password reset email sent via Resend for {}", email);
+            log.info("Password reset email sent via Brevo for {}", email);
         } catch (Exception ex) {
             log.warn("Password reset failed for {}: {}", email, ex.getMessage());
         }
