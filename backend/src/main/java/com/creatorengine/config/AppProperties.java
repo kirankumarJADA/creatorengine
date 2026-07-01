@@ -14,7 +14,7 @@ public class AppProperties {
     private Firebase firebase = new Firebase();
     private Meta meta = new Meta();
     private Ai ai = new Ai();
-    private Resend resend = new Resend();
+    private Brevo brevo = new Brevo();
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
@@ -37,13 +37,18 @@ public class AppProperties {
     public Ai getAi() { return ai; }
     public void setAi(Ai ai) { this.ai = ai; }
 
-    public Resend getResend() { return resend; }
-    public void setResend(Resend resend) { this.resend = resend; }
+    public Brevo getBrevo() { return brevo; }
+    public void setBrevo(Brevo brevo) { this.brevo = brevo; }
 
-    public static class Resend {
+    public static class Brevo {
         private String apiKey;
+        private String fromEmail;
+
         public String getApiKey() { return apiKey; }
         public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+
+        public String getFromEmail() { return fromEmail; }
+        public void setFromEmail(String fromEmail) { this.fromEmail = fromEmail; }
     }
 
     public static class Cors {

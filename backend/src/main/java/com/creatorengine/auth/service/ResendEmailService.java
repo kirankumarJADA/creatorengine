@@ -1,35 +1,39 @@
 package com.creatorengine.auth.service;
 
-import jakarta.mail.internet.MimeMessage;
+import com.creatorengine.config.AppProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class ResendEmailService {
 
     private static final Logger log = LoggerFactory.getLogger(ResendEmailService.class);
+    private static final String BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
+    private static final String FROM_NAME = "CreatorEngine";
 
-    private final JavaMailSender mailSender;
+    private final AppProperties props;
+    private final RestClient restClient;
 
-    @Value("${spring.mail.username:}")
-    private String fromEmail;
-
-    public ResendEmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
+    public ResendEmailService(AppProperties props) {
+        this.props = props;
+        this.restClient = RestClient.builder()
+                .baseUrl(BREVO_API_URL)
+                .defaultHeader("Content-Type", "application/json")
+                .defaultHeader("Accept", "application/json")
+                .build();
     }
 
     public void sendOtpEmail(String toEmail, String otp) {
-        String html = buildOtpHtml(otp);
-        send(toEmail, "Your CreatorEngine verification code: " + otp, html);
+        send(toEmail, "Your CreatorEngine verification code: " + otp, buildOtpHtml(otp));
     }
 
     public void sendPasswordResetEmail(String toEmail, String resetLink) {
-        String html = buildResetHtml(resetLink);
-        send(toEmail, "Reset your CreatorEngine password", html);
+        send(toEmail, "Reset your CreatorEngine password", buildResetHtml(resetLink));
     }
 
     private String buildOtpHtml(String otp) {
@@ -86,22 +90,30 @@ public class ResendEmailService {
     }
 
     private void send(String to, String subject, String html) {
-        if (fromEmail == null || fromEmail.isBlank()) {
-            log.error("MAIL_USERNAME not configured — email NOT sent to {}", to);
+        String apiKey = props.getBrevo().getApiKey();
+        String fromEmail = props.getBrevo().getFromEmail();
+
+        if (apiKey == null || apiKey.isBlank()) {
+            log.error("BREVO_API_KEY not configured — email NOT sent to {}", to);
             return;
         }
 
+        Map<String, Object> body = Map.of(
+                "sender", Map.of("name", FROM_NAME, "email", fromEmail),
+                "to", List.of(Map.of("email", to)),
+                "subject", subject,
+                "htmlContent", html
+        );
+
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail, "CreatorEngine");
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(html, true);
-            mailSender.send(message);
-            log.info("Gmail email sent to={} subject='{}'", to, subject);
+            restClient.post()
+                    .header("api-key", apiKey)
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+            log.info("Brevo email sent to={} subject='{}'", to, subject);
         } catch (Exception ex) {
-            log.error("Gmail email failed to={} subject='{}': {}", to, subject, ex.getMessage());
+            log.error("Brevo email failed to={} subject='{}': {}", to, subject, ex.getMessage());
         }
     }
 }
