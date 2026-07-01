@@ -51,8 +51,9 @@ public class NextPostLockerService {
 
     /** Every 5 minutes, starting 2 min after boot. */
     @Scheduled(initialDelay = 120_000, fixedDelay = 300_000)
-    public void lockPendingNextPostAutomations() {
-        List<OwnedAutomation> pending;
+public void lockPendingNextPostAutomations() {
+    log.info("NextPostLocker: heartbeat — job triggered.");
+    List<OwnedAutomation> pending;
         try {
             pending = automationRepository.findAllPendingNextPost();
         } catch (Exception e) {
