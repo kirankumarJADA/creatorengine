@@ -2,6 +2,7 @@ export const ROUTES = Object.freeze({
   LOGIN: '/login',
   REGISTER: '/register',
   FORGOT_PASSWORD: '/forgot-password',
+  RESET_PASSWORD: '/reset-password',
 
   DASHBOARD: '/dashboard',
   AUTOMATIONS: '/automations',
@@ -31,6 +32,7 @@ export const API_ENDPOINTS = Object.freeze({
   REGISTER:        '/auth/register',
   SEND_OTP:        '/auth/send-otp',
   VERIFY_OTP:      '/auth/verify-otp',
+  CONFIRM_RESET:   '/auth/confirm-reset',
   LOGIN:           '/auth/login',
   LOGOUT:          '/auth/logout',
   ME:              '/auth/me',

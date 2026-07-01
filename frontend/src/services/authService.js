@@ -12,6 +12,10 @@ const authService = {
     return data;
   },
 
+  confirmReset: async ({ oobCode, newPassword }) => {
+    await api.post(API_ENDPOINTS.CONFIRM_RESET, { oobCode, newPassword });
+  },
+
   login: async ({ email, password }) => {
     const { data } = await api.post(API_ENDPOINTS.LOGIN, { email, password });
     return data;

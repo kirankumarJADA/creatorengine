@@ -216,9 +216,11 @@ public class AuthService {
     }
 
     /**
-     * Uses the Firebase ADMIN SDK to generate the reset link.
-     * This does NOT trigger Firebase's own default email —
-     * it only returns the link, which we then send ourselves via Brevo.
+     * Sends a password reset email with our own Brevo-branded template.
+     * handleCodeInApp=true sends the user straight to our EXISTING
+     * AuthAction.jsx page at /auth/action (which already handles the
+     * whole reset UI and calls Firebase directly) instead of Firebase's
+     * own generic firebaseapp.com page.
      */
     public void sendPasswordResetEmail(ForgotPasswordRequest req) {
         String email = normalize(req.email());
@@ -230,8 +232,8 @@ public class AuthService {
 
         try {
             ActionCodeSettings settings = ActionCodeSettings.builder()
-                    .setUrl(props.getFirebase().getPasswordResetRedirectUrl())
-                    .setHandleCodeInApp(false)
+                    .setUrl(props.getFrontendBaseUrl() + "/auth/action")
+                    .setHandleCodeInApp(true)
                     .build();
 
             String resetLink = firebaseAuth.generatePasswordResetLink(email, settings);

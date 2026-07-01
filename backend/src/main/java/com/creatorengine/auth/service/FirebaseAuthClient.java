@@ -25,6 +25,8 @@ public class FirebaseAuthClient {
             "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode";
     private static final String GET_OOB_CODE_URL =
             "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode";
+    private static final String RESET_PASSWORD_URL =
+            "https://identitytoolkit.googleapis.com/v1/accounts:resetPassword";
 
     private final AppProperties props;
     private final ObjectMapper objectMapper;
@@ -86,7 +88,7 @@ public class FirebaseAuthClient {
 
     /**
      * Generate a password reset link via Firebase and return it.
-     * We then send it ourselves via Resend with a custom template.
+     * We then send it ourselves via Brevo with a custom template.
      */
     public String generatePasswordResetLink(String email, String continueUrl) {
         String apiKey = props.getFirebase().getWebApiKey();
@@ -129,8 +131,45 @@ public class FirebaseAuthClient {
     }
 
     /**
-     * Legacy method — kept for backwards compat but no longer used
-     * (replaced by generatePasswordResetLink + Resend).
+     * Confirms a password reset using the oobCode embedded in the reset
+     * link, together with the new password chosen on our own custom
+     * /reset-password page. This is what actually changes the password.
+     */
+    public void confirmPasswordReset(String oobCode, String newPassword) {
+        String apiKey = props.getFirebase().getWebApiKey();
+
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new BadRequestException(
+                    "Firebase Web API key is not configured (FIREBASE_WEB_API_KEY).");
+        }
+
+        Map<String, Object> body = Map.of(
+                "oobCode", oobCode,
+                "newPassword", newPassword
+        );
+
+        try {
+            RestClient client = RestClient.builder()
+                    .baseUrl(RESET_PASSWORD_URL)
+                    .defaultHeader("Content-Type", "application/json")
+                    .build();
+
+            client.post()
+                    .uri(uri -> uri.queryParam("key", apiKey).build())
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (HttpClientErrorException ex) {
+            String firebaseError = parseErrorMessage(ex.getResponseBodyAsString());
+            log.warn("confirmPasswordReset failed: code='{}', status={}",
+                    firebaseError, ex.getStatusCode().value());
+            throw new BadRequestException(translateResetError(firebaseError));
+        }
+    }
+
+    /**
+     * Legacy method - kept for backwards compat but no longer used
+     * (replaced by generatePasswordResetLink + Brevo).
      */
     public void sendPasswordResetEmail(String email, String continueUrl) {
         String apiKey = props.getFirebase().getWebApiKey();
@@ -193,6 +232,19 @@ public class FirebaseAuthClient {
                     "Email/password sign-in is not enabled in this Firebase project.";
             default ->
                     "Invalid email or password.";
+        };
+    }
+
+    private String translateResetError(String firebaseCode) {
+        return switch (firebaseCode) {
+            case "EXPIRED_OOB_CODE" ->
+                    "This reset link has expired. Please request a new one.";
+            case "INVALID_OOB_CODE" ->
+                    "This reset link is invalid or has already been used.";
+            case "WEAK_PASSWORD" ->
+                    "Password must be at least 6 characters.";
+            default ->
+                    "This reset link is invalid or has expired.";
         };
     }
 

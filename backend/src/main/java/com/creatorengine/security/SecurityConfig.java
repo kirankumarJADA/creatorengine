@@ -26,6 +26,7 @@ public class SecurityConfig {
             "/api/auth/verify-otp",
             "/api/auth/login",
             "/api/auth/forgot-password",
+            "/api/auth/confirm-reset",
             "/api/auth/refresh",
             "/api/instagram/callback",
             "/api/webhook",
