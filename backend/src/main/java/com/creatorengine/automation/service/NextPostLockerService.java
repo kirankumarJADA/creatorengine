@@ -62,7 +62,7 @@ public void lockPendingNextPostAutomations() {
         }
 
         if (pending == null || pending.isEmpty()) {
-            log.debug("NextPostLocker: no pending NEXT_POST automations.");
+            log.info("NextPostLocker: no pending NEXT_POST automations.");
             return;
         }
 
@@ -86,7 +86,7 @@ public void lockPendingNextPostAutomations() {
     private void processOwner(String uid, List<Automation> automations) {
         Optional<InstagramAccount> accountOpt = instagramAccountService.find(uid);
         if (accountOpt.isEmpty() || accountOpt.get().getAccessToken() == null) {
-            log.debug("NextPostLocker: uid={} has no IG account, skipping.", uid);
+           log.info("NextPostLocker: uid={} has no IG account, skipping.", uid);
             return;
         }
 
