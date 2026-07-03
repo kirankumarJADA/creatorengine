@@ -5,76 +5,261 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Privacy Policy — CreatorEngine</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1b23;background:#fff;padding:48px 24px;}
-    .wrap{max-width:720px;margin:0 auto;}
-    h1{font-size:32px;font-weight:600;margin-bottom:8px;}
-    .sub{color:#71727f;font-size:14px;margin-bottom:48px;}
-    h2{font-size:18px;font-weight:600;margin:36px 0 12px;}
-    p,li{font-size:15px;line-height:1.75;color:#3d3e4a;}
-    ul{padding-left:20px;margin-top:8px;}
-    li{margin-bottom:6px;}
-    a{color:#6366f1;text-decoration:none;}
-    a:hover{text-decoration:underline;}
-    .back{display:inline-block;margin-bottom:32px;font-size:14px;color:#6366f1;}
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8f7ff;
+      color: #1a1b23;
+      min-height: 100vh;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background:
+        radial-gradient(circle at 10% 15%, rgba(99,102,241,0.18), transparent 45%),
+        radial-gradient(circle at 90% 80%, rgba(139,92,246,0.15), transparent 45%),
+        #f8f7ff;
+      pointer-events: none;
+    }
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 48px 24px 96px;
+    }
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: #6366f1;
+      text-decoration: none;
+      background: rgba(99,102,241,0.08);
+      border: 1px solid rgba(99,102,241,0.18);
+      padding: 7px 14px;
+      border-radius: 999px;
+      margin-bottom: 44px;
+      transition: background 0.15s;
+    }
+    .back:hover { background: rgba(99,102,241,0.14); }
+    .back svg { width: 14px; height: 14px; }
+    .hero {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      border-radius: 24px;
+      padding: 40px 40px 36px;
+      margin-bottom: 40px;
+      box-shadow: 0 20px 60px rgba(99,102,241,0.25);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 220px; height: 220px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.07);
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+    }
+    .hero h1 {
+      font-family: 'Fraunces', serif;
+      font-size: 36px;
+      font-weight: 500;
+      color: #fff;
+      margin-bottom: 8px;
+      line-height: 1.1;
+    }
+    .hero .meta { font-size: 13.5px; color: rgba(255,255,255,0.75); }
+    .card {
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.9);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 4px 24px rgba(99,102,241,0.08);
+    }
+    .section { margin-bottom: 36px; }
+    .section:last-child { margin-bottom: 0; }
+    h2 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #6366f1;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h2::before {
+      content: '';
+      display: inline-block;
+      width: 3px;
+      height: 16px;
+      background: linear-gradient(180deg, #6366f1, #8b5cf6);
+      border-radius: 2px;
+    }
+    p {
+      font-size: 14.5px;
+      line-height: 1.8;
+      color: #3d3e4a;
+      margin-bottom: 10px;
+    }
+    p:last-child { margin-bottom: 0; }
+    ul { padding-left: 0; list-style: none; margin-top: 8px; }
+    li {
+      font-size: 14.5px;
+      line-height: 1.75;
+      color: #3d3e4a;
+      padding: 6px 0 6px 24px;
+      position: relative;
+      border-bottom: 1px solid rgba(99,102,241,0.06);
+    }
+    li:last-child { border-bottom: none; }
+    li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    }
+    strong { color: #1a1b23; font-weight: 600; }
+    a { color: #6366f1; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(99,102,241,0.15), transparent);
+      margin: 36px 0;
+    }
+    .footer {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 13px;
+      color: #9294a3;
+    }
+    .footer a { color: #6366f1; }
   </style>
 </head>
 <body>
-<div class="wrap">
-  <a class="back" href="https://www.creatorengineapp.com">← Back to CreatorEngine</a>
-  <h1>Privacy Policy</h1>
-  <p class="sub">Last updated: July 3, 2026</p>
+<div class="page">
 
-  <h2>1. Who we are</h2>
-  <p>CreatorEngine ("we", "us", "our") is an Instagram automation platform that helps creators automate comment replies and DMs. Our website is <a href="https://www.creatorengineapp.com">www.creatorengineapp.com</a>. For privacy questions, contact us at <a href="mailto:creatorengine.app@gmail.com">creatorengine.app@gmail.com</a>.</p>
+  <a class="back" href="https://www.creatorengineapp.com">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Back to CreatorEngine
+  </a>
 
-  <h2>2. Information we collect</h2>
-  <ul>
-    <li><strong>Account information:</strong> name, email address, and password when you register.</li>
-    <li><strong>Instagram data:</strong> your Instagram account username, user ID, and access token when you connect your account via Meta's official API.</li>
-    <li><strong>Usage data:</strong> automations you create, comments and messages processed, and activity logs.</li>
-    <li><strong>Technical data:</strong> IP address, browser type, and device information collected automatically when you use the service.</li>
-  </ul>
+  <div class="hero">
+    <div class="hero-badge">Legal</div>
+    <h1>Privacy Policy</h1>
+    <p class="meta">CreatorEngine &nbsp;·&nbsp; Last updated: July 3, 2026</p>
+  </div>
 
-  <h2>3. How we use your information</h2>
-  <ul>
-    <li>To provide and operate the CreatorEngine service.</li>
-    <li>To send transactional emails such as account verification codes and password reset links.</li>
-    <li>To monitor and improve the performance and reliability of the platform.</li>
-    <li>To comply with legal obligations.</li>
-  </ul>
+  <div class="card">
 
-  <h2>4. Instagram and Meta data</h2>
-  <p>We access your Instagram account data strictly through Meta's official Graph API and only with your explicit permission. We use this data solely to power the automations you configure. We do not sell, share, or use your Instagram data for advertising or any purpose beyond operating your chosen automations.</p>
+    <div class="section">
+      <p>CreatorEngine ("we", "us", "our") is an Instagram automation platform that helps creators automate comment replies and DMs. Our website is <a href="https://www.creatorengineapp.com">www.creatorengineapp.com</a>. For privacy questions, contact us at <a href="mailto:creatorengine.app@gmail.com">creatorengine.app@gmail.com</a>.</p>
+    </div>
 
-  <h2>5. Data sharing</h2>
-  <p>We do not sell your personal data. We share data only with:</p>
-  <ul>
-    <li><strong>Firebase (Google):</strong> for authentication and database storage.</li>
-    <li><strong>Brevo:</strong> for sending transactional emails.</li>
-    <li><strong>Render:</strong> for backend hosting.</li>
-    <li><strong>Vercel:</strong> for frontend hosting.</li>
-    <li><strong>Meta:</strong> as required to operate Instagram automations via their API.</li>
-  </ul>
+    <div class="divider"></div>
 
-  <h2>6. Data retention</h2>
-  <p>We retain your account data for as long as your account is active. You can request deletion of your account and all associated data at any time by emailing <a href="mailto:creatorengine.app@gmail.com">creatorengine.app@gmail.com</a>.</p>
+    <div class="section">
+      <h2>1. Information we collect</h2>
+      <ul>
+        <li><strong>Account information:</strong> name, email address, and password when you register</li>
+        <li><strong>Instagram data:</strong> your Instagram account username, user ID, and access token when you connect via Meta's official API</li>
+        <li><strong>Usage data:</strong> automations you create, comments and messages processed, and activity logs</li>
+        <li><strong>Technical data:</strong> IP address, browser type, and device information collected automatically</li>
+      </ul>
+    </div>
 
-  <h2>7. Security</h2>
-  <p>We use industry-standard security measures including encrypted connections (HTTPS), hashed passwords, and JWT-based authentication. No method of transmission over the internet is 100% secure, and we cannot guarantee absolute security.</p>
+    <div class="section">
+      <h2>2. How we use your information</h2>
+      <ul>
+        <li>To provide and operate the CreatorEngine service</li>
+        <li>To send transactional emails such as account verification codes and password reset links</li>
+        <li>To monitor and improve the performance and reliability of the platform</li>
+        <li>To comply with legal obligations</li>
+      </ul>
+    </div>
 
-  <h2>8. Your rights</h2>
-  <p>You have the right to access, correct, or delete your personal data at any time. To exercise these rights, contact us at <a href="mailto:creatorengine.app@gmail.com">creatorengine.app@gmail.com</a>.</p>
+    <div class="section">
+      <h2>3. Instagram and Meta data</h2>
+      <p>We access your Instagram account data strictly through Meta's official Graph API and only with your explicit permission. We use this data solely to power the automations you configure. We do not sell, share, or use your Instagram data for advertising or any purpose beyond operating your chosen automations.</p>
+    </div>
 
-  <h2>9. Cookies</h2>
-  <p>We use only essential cookies and local storage to maintain your login session. We do not use tracking or advertising cookies.</p>
+    <div class="section">
+      <h2>4. Data sharing</h2>
+      <p>We do not sell your personal data. We share data only with:</p>
+      <ul>
+        <li><strong>Firebase (Google)</strong> — authentication and database storage</li>
+        <li><strong>Brevo</strong> — sending transactional emails</li>
+        <li><strong>Render</strong> — backend hosting</li>
+        <li><strong>Vercel</strong> — frontend hosting</li>
+        <li><strong>Meta</strong> — as required to operate Instagram automations via their API</li>
+      </ul>
+    </div>
 
-  <h2>10. Changes to this policy</h2>
-  <p>We may update this policy from time to time. We will notify you of significant changes by email or by posting a notice on the platform.</p>
+    <div class="section">
+      <h2>5. Data retention</h2>
+      <p>We retain your account data for as long as your account is active. You can request deletion of your account and all associated data at any time by emailing <a href="mailto:creatorengine.app@gmail.com">creatorengine.app@gmail.com</a>.</p>
+    </div>
 
-  <h2>11. Contact</h2>
-  <p>For any privacy-related questions, email us at <a href="mailto:creatorengine.app@gmail.com">creatorengine.app@gmail.com</a>.</p>
+    <div class="section">
+      <h2>6. Security</h2>
+      <p>We use industry-standard security measures including encrypted connections (HTTPS), hashed passwords, and JWT-based authentication. No method of transmission over the internet is 100% secure, and we cannot guarantee absolute security.</p>
+    </div>
+
+    <div class="section">
+      <h2>7. Your rights</h2>
+      <p>You have the right to access, correct, or delete your personal data at any time. To exercise these rights, contact us at <a href="mailto:creatorengine.app@gmail.com">creatorengine.app@gmail.com</a>.</p>
+    </div>
+
+    <div class="section">
+      <h2>8. Cookies</h2>
+      <p>We use only essential cookies and local storage to maintain your login session. We do not use tracking or advertising cookies.</p>
+    </div>
+
+    <div class="section">
+      <h2>9. Changes to this policy</h2>
+      <p>We may update this policy from time to time. We will notify you of significant changes by email or by posting a notice on the platform.</p>
+    </div>
+
+    <div class="section">
+      <h2>10. Contact</h2>
+      <p>For any privacy-related questions, email us at <a href="mailto:creatorengine.app@gmail.com">creatorengine.app@gmail.com</a>.</p>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <p>© 2026 CreatorEngine · <a href="/terms.html">Terms of Service</a> · <a href="mailto:creatorengine.app@gmail.com">Contact</a></p>
+  </div>
+
 </div>
 </body>
 </html>
