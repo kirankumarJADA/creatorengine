@@ -123,7 +123,7 @@ public class NextPostLockerService {
                     newPostId, a.getId());
 
             a.setTargetPostId(newPostId);
-            a.setNextPostLockedAt(Instant.now());
+            a.setNextPostLockedAt(new Date());  
             try {
                 automationRepository.save(uid, a);
                 log.info("NextPostLocker: locked uid={} automation={} -> postId={}",

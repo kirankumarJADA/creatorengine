@@ -4,7 +4,6 @@ import java.util.Date;
 import com.google.cloud.firestore.annotation.DocumentId;
 import com.google.cloud.firestore.annotation.Exclude;
 
-import java.time.Instant;
 import java.util.List;
 
 public class Automation {
@@ -14,64 +13,38 @@ public class Automation {
 
     private String name;
     private TriggerType trigger;
-
-    /** Which post(s) this automation targets. Null = legacy data; resolve via getEffectiveTargetPostMode(). */
     private PostTargetMode targetPostMode;
-
-    /** IG media id this automation targets. Null when mode = ALL, or NEXT_POST that hasn't locked yet. */
     private String targetPostId;
-
-    /** Snapshot of IG media ids at NEXT_POST creation time. Anything not in this list is a "new" post. */
     private List<String> baselineMediaIds;
-
-    /** When the NEXT_POST automation locked onto its target reel. Null until locked. */
-    private Instant nextPostLockedAt;
-
+    private Date nextPostLockedAt;
     private Condition condition = new Condition();
     private Action action = new Action();
     private String message;
     private List<Action> actions;
     private boolean enabled = true;
     private int cooldownMinutes = 0;
-
     private boolean publicReplyEnabled = false;
     private List<PublicReply> publicReplies;
-
     private boolean followGateEnabled = false;
     private String followGateMessage;
     private String followGateButtonLabel;
-
     private long runCount;
     private long successCount;
     private Date createdAt;
     private Date updatedAt;
 
-    public Automation() {
-    }
+    public Automation() {}
 
     public Automation(
-            String id,
-            String name,
-            TriggerType trigger,
-            PostTargetMode targetPostMode,
-            String targetPostId,
-            List<String> baselineMediaIds,
-            Instant nextPostLockedAt,
-            Condition condition,
-            Action action,
-            String message,
-            List<Action> actions,
-            boolean enabled,
-            int cooldownMinutes,
-            boolean publicReplyEnabled,
-            List<PublicReply> publicReplies,
-            boolean followGateEnabled,
-            String followGateMessage,
-            String followGateButtonLabel,
-            long runCount,
-            long successCount,
-            Date createdAt,
-            Date updatedAt
+            String id, String name, TriggerType trigger,
+            PostTargetMode targetPostMode, String targetPostId,
+            List<String> baselineMediaIds, Date nextPostLockedAt,
+            Condition condition, Action action, String message,
+            List<Action> actions, boolean enabled, int cooldownMinutes,
+            boolean publicReplyEnabled, List<PublicReply> publicReplies,
+            boolean followGateEnabled, String followGateMessage,
+            String followGateButtonLabel, long runCount, long successCount,
+            Date createdAt, Date updatedAt
     ) {
         this.id = id;
         this.name = name;
@@ -97,77 +70,53 @@ public class Automation {
         this.updatedAt = updatedAt;
     }
 
-    public static AutomationBuilder builder() {
-        return new AutomationBuilder();
-    }
+    public static AutomationBuilder builder() { return new AutomationBuilder(); }
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
-
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
-
     public TriggerType getTrigger() { return trigger; }
     public void setTrigger(TriggerType trigger) { this.trigger = trigger; }
-
     public PostTargetMode getTargetPostMode() { return targetPostMode; }
     public void setTargetPostMode(PostTargetMode targetPostMode) { this.targetPostMode = targetPostMode; }
-
     public String getTargetPostId() { return targetPostId; }
     public void setTargetPostId(String targetPostId) { this.targetPostId = targetPostId; }
-
     public List<String> getBaselineMediaIds() { return baselineMediaIds; }
     public void setBaselineMediaIds(List<String> baselineMediaIds) { this.baselineMediaIds = baselineMediaIds; }
-
-    public Instant getNextPostLockedAt() { return nextPostLockedAt; }
-    public void setNextPostLockedAt(Instant nextPostLockedAt) { this.nextPostLockedAt = nextPostLockedAt; }
-
+    public Date getNextPostLockedAt() { return nextPostLockedAt; }
+    public void setNextPostLockedAt(Date nextPostLockedAt) { this.nextPostLockedAt = nextPostLockedAt; }
     public Condition getCondition() { return condition; }
     public void setCondition(Condition condition) { this.condition = condition; }
-
     public Action getAction() { return action; }
     public void setAction(Action action) { this.action = action; }
-
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
-
     public List<Action> getActions() { return actions; }
     public void setActions(List<Action> actions) { this.actions = actions; }
-
     public boolean getEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
-
     public int getCooldownMinutes() { return cooldownMinutes; }
     public void setCooldownMinutes(int cooldownMinutes) { this.cooldownMinutes = cooldownMinutes; }
-
     public boolean getPublicReplyEnabled() { return publicReplyEnabled; }
     public void setPublicReplyEnabled(boolean publicReplyEnabled) { this.publicReplyEnabled = publicReplyEnabled; }
-
     public List<PublicReply> getPublicReplies() { return publicReplies; }
     public void setPublicReplies(List<PublicReply> publicReplies) { this.publicReplies = publicReplies; }
-
     public boolean getFollowGateEnabled() { return followGateEnabled; }
     public void setFollowGateEnabled(boolean followGateEnabled) { this.followGateEnabled = followGateEnabled; }
-
     public String getFollowGateMessage() { return followGateMessage; }
     public void setFollowGateMessage(String followGateMessage) { this.followGateMessage = followGateMessage; }
-
     public String getFollowGateButtonLabel() { return followGateButtonLabel; }
     public void setFollowGateButtonLabel(String followGateButtonLabel) { this.followGateButtonLabel = followGateButtonLabel; }
-
     public long getRunCount() { return runCount; }
     public void setRunCount(long runCount) { this.runCount = runCount; }
-
     public long getSuccessCount() { return successCount; }
     public void setSuccessCount(long successCount) { this.successCount = successCount; }
-
     public Date getCreatedAt() { return createdAt; }
     public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
-
     public Date getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Date updatedAt) { this.updatedAt = updatedAt; }
 
-    /** Backwards-compat: legacy rows without targetPostMode get derived from targetPostId. */
     @Exclude
     public PostTargetMode getEffectiveTargetPostMode() {
         if (targetPostMode != null) return targetPostMode;
@@ -176,22 +125,9 @@ public class Automation {
                 : PostTargetMode.SPECIFIC;
     }
 
-    /**
-     * Returns the actions to execute. Prefers the new actions[] chain.
-     *
-     * Falls back to the legacy single `action` field ONLY when it has a real
-     * payload (a non-empty message or link). The `action` field is initialized
-     * by default to {type: SEND_DM}, so just checking `action != null` isn't
-     * enough — that would wrap an empty no-op DM and cause "Empty recipient or
-     * message" failures for public-reply-only automations (no DM, just a
-     * public reply on the comment).
-     */
     @Exclude
     public List<Action> getEffectiveActions() {
-        if (actions != null && !actions.isEmpty()) {
-            return actions;
-        }
-
+        if (actions != null && !actions.isEmpty()) return actions;
         if (action != null && hasLegacyPayload()) {
             Action wrapped = Action.builder()
                     .type(action.getType())
@@ -201,7 +137,6 @@ public class Automation {
                     .build();
             return List.of(wrapped);
         }
-
         return List.of();
     }
 
@@ -219,7 +154,7 @@ public class Automation {
         private PostTargetMode targetPostMode;
         private String targetPostId;
         private List<String> baselineMediaIds;
-        private Instant nextPostLockedAt;
+        private Date nextPostLockedAt;
         private Condition condition = new Condition();
         private Action action = new Action();
         private String message;
@@ -233,8 +168,8 @@ public class Automation {
         private String followGateButtonLabel;
         private long runCount;
         private long successCount;
-        private Instant createdAt;
-        private Instant updatedAt;
+        private Date createdAt;
+        private Date updatedAt;
 
         public AutomationBuilder id(String id) { this.id = id; return this; }
         public AutomationBuilder name(String name) { this.name = name; return this; }
@@ -242,7 +177,7 @@ public class Automation {
         public AutomationBuilder targetPostMode(PostTargetMode targetPostMode) { this.targetPostMode = targetPostMode; return this; }
         public AutomationBuilder targetPostId(String targetPostId) { this.targetPostId = targetPostId; return this; }
         public AutomationBuilder baselineMediaIds(List<String> baselineMediaIds) { this.baselineMediaIds = baselineMediaIds; return this; }
-        public AutomationBuilder nextPostLockedAt(Instant nextPostLockedAt) { this.nextPostLockedAt = nextPostLockedAt; return this; }
+        public AutomationBuilder nextPostLockedAt(Date nextPostLockedAt) { this.nextPostLockedAt = nextPostLockedAt; return this; }
         public AutomationBuilder condition(Condition condition) { this.condition = condition; return this; }
         public AutomationBuilder action(Action action) { this.action = action; return this; }
         public AutomationBuilder message(String message) { this.message = message; return this; }
@@ -256,8 +191,8 @@ public class Automation {
         public AutomationBuilder followGateButtonLabel(String followGateButtonLabel) { this.followGateButtonLabel = followGateButtonLabel; return this; }
         public AutomationBuilder runCount(long runCount) { this.runCount = runCount; return this; }
         public AutomationBuilder successCount(long successCount) { this.successCount = successCount; return this; }
-        public AutomationBuilder createdAt(Instant createdAt) { this.createdAt = createdAt; return this; }
-        public AutomationBuilder updatedAt(Instant updatedAt) { this.updatedAt = updatedAt; return this; }
+        public AutomationBuilder createdAt(Date createdAt) { this.createdAt = createdAt; return this; }
+        public AutomationBuilder updatedAt(Date updatedAt) { this.updatedAt = updatedAt; return this; }
 
         public Automation build() {
             return new Automation(
@@ -285,7 +220,6 @@ public class Automation {
         }
 
         public static ConditionBuilder builder() { return new ConditionBuilder(); }
-
         public ConditionType getType() { return type; }
         public void setType(ConditionType type) { this.type = type; }
         public String getKeyword() { return keyword; }
@@ -320,7 +254,6 @@ public class Automation {
         }
 
         public static ActionBuilder builder() { return new ActionBuilder(); }
-
         public ActionType getType() { return type; }
         public void setType(ActionType type) { this.type = type; }
         public String getLink() { return link; }

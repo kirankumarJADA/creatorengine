@@ -12,8 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
-import java.util.Date; 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -72,7 +72,7 @@ public class AutomationRepository {
 
     public Automation save(String uid, Automation automation) {
         try {
-            Instant now = Instant.now();
+            Date now = new Date();
 
             if (automation.getId() == null || automation.getId().isBlank()) {
                 DocumentReference ref = collection(uid).document();
@@ -99,20 +99,6 @@ public class AutomationRepository {
         }
     }
 
-    /**
-     * Cross-user scan for automations waiting on the user's next IG upload.
-     * Used by NextPostLockerService.
-     *
-     * Each Automation is paired with its owner uid (derived from the document
-     * path users/{uid}/automations/{id}), so the locker can save back via
-     * save(uid, a).
-     *
-     * Uses Firestore collectionGroup("automations") to avoid enumerating
-     * users. NOTE: this query may require a collection-group index on the
-     * automations subcollection for the `targetPostMode` field. If you see a
-     * Firestore "needs an index" error in the logs, click the URL Firestore
-     * prints — it builds the index in ~1 minute.
-     */
     public List<OwnedAutomation> findAllPendingNextPost() {
         try {
             List<QueryDocumentSnapshot> docs = firestore
@@ -126,7 +112,6 @@ public class AutomationRepository {
                 Automation a = doc.toObject(Automation.class);
                 if (a == null) continue;
 
-                // Skip already-locked ones.
                 if (a.getTargetPostId() != null && !a.getTargetPostId().isBlank()) {
                     continue;
                 }
@@ -145,7 +130,6 @@ public class AutomationRepository {
         }
     }
 
-    /** Extract the parent user's uid from a doc at users/{uid}/automations/{id}. */
     private String extractOwnerUid(QueryDocumentSnapshot doc) {
         try {
             DocumentReference automationRef = doc.getReference();
@@ -165,6 +149,5 @@ public class AutomationRepository {
         return new RuntimeException("Firestore operation failed: " + op, e);
     }
 
-    /** An automation tied to its owner's uid — needed for cross-user queries. */
     public record OwnedAutomation(String uid, Automation automation) {}
 }

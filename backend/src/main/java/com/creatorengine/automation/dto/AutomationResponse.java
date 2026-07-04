@@ -5,6 +5,7 @@ import com.creatorengine.automation.entity.PostTargetMode;
 import com.creatorengine.automation.entity.TriggerType;
 
 import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 
 public record AutomationResponse(
@@ -39,13 +40,17 @@ public record AutomationResponse(
                 ? List.of()
                 : a.getPublicReplies().stream().map(PublicReplyDto::from).toList();
 
+        Date createdDate = a.getCreatedAt();
+        Date updatedDate = a.getUpdatedAt();
+        Date lockedDate = a.getNextPostLockedAt();
+
         return new AutomationResponse(
                 a.getId(),
                 a.getName(),
                 a.getTrigger(),
                 a.getEffectiveTargetPostMode(),
                 a.getTargetPostId(),
-                a.getNextPostLockedAt(),
+                lockedDate != null ? lockedDate.toInstant() : null,
                 ConditionDto.from(a.getCondition()),
                 ActionDto.from(a.getAction()),
                 a.getMessage(),
@@ -59,8 +64,8 @@ public record AutomationResponse(
                 a.getFollowGateButtonLabel(),
                 a.getRunCount(),
                 a.getSuccessCount(),
-                a.getCreatedAt(),
-                a.getUpdatedAt()
+                createdDate != null ? createdDate.toInstant() : null,
+                updatedDate != null ? updatedDate.toInstant() : null
         );
     }
 }
