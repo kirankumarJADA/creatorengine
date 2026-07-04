@@ -34,7 +34,6 @@ public class AutomationEngine {
 
     private static final Logger log = LoggerFactory.getLogger(AutomationEngine.class);
 
-    /** Prefix on the "I Followed" button payload: fgate:<automationId>. */
     private static final String FOLLOW_GATE_PREFIX = "fgate:";
 
     private final AutomationMatcher matcher;
@@ -175,9 +174,6 @@ public class AutomationEngine {
 
         List<Automation.Action> actions = automation.getEffectiveActions();
 
-        // No actions in the chain but the user enabled "Publicly reply to comments"
-        // → fire just the public reply (no DM). Supports automations that only
-        // want comment-section engagement, no private message.
         if (actions.isEmpty()) {
             if (automation.getPublicReplyEnabled()
                     && job.event().type() == EventType.COMMENT) {
@@ -347,11 +343,6 @@ public class AutomationEngine {
                 "Follow-gate ask failed: " + result.error());
     }
 
-    /**
-     * Public-reply-only path: the automation has no action chain (user left
-     * the message field empty) but DID enable "Publicly reply to comments".
-     * Post the public reply and record cooldown firing on success.
-     */
     private void runPublicReplyOnly(AutomationJob job, Automation automation, InstagramAccount account) {
         if (account == null) {
             log.warn("Public-reply-only: no connected IG account for job {}", job.jobId());

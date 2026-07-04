@@ -55,14 +55,12 @@ public class AutomationService {
             entity.setName(deriveName(entity));
         }
 
-        // NEXT_POST trigger always implies NEXT_POST post-targeting mode.
         if (entity.getTrigger() == TriggerType.NEXT_POST) {
             entity.setTargetPostMode(PostTargetMode.NEXT_POST);
             entity.setTargetPostId(null);
             entity.setNextPostLockedAt(null);
         }
 
-        // Snapshot current posts whenever the automation waits for the next upload.
         if (entity.getEffectiveTargetPostMode() == PostTargetMode.NEXT_POST) {
             entity.setBaselineMediaIds(snapshotMediaIds(uid));
             entity.setTargetPostId(null);
@@ -99,7 +97,6 @@ public class AutomationService {
         existing.setFollowGateMessage(incoming.getFollowGateMessage());
         existing.setFollowGateButtonLabel(incoming.getFollowGateButtonLabel());
 
-        // Resolve final post-targeting mode.
         PostTargetMode newMode = incoming.getTargetPostMode();
         if (req.trigger() == TriggerType.NEXT_POST) {
             newMode = PostTargetMode.NEXT_POST;
@@ -107,7 +104,6 @@ public class AutomationService {
         existing.setTargetPostMode(newMode);
 
         if (newMode == PostTargetMode.NEXT_POST) {
-            // Re-snapshot only if user just switched into NEXT_POST (mode or trigger).
             boolean switchedIntoNextPost =
                     prevMode != PostTargetMode.NEXT_POST
                     && prevTrigger != TriggerType.NEXT_POST;
@@ -120,7 +116,7 @@ public class AutomationService {
             existing.setTargetPostId(incoming.getTargetPostId());
             existing.setBaselineMediaIds(null);
             existing.setNextPostLockedAt(null);
-        } else { // ALL
+        } else {
             existing.setTargetPostId(null);
             existing.setBaselineMediaIds(null);
             existing.setNextPostLockedAt(null);

@@ -4,7 +4,6 @@ import com.creatorengine.automation.entity.Automation;
 import com.creatorengine.automation.entity.PostTargetMode;
 import com.creatorengine.automation.entity.TriggerType;
 
-import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 
@@ -14,7 +13,7 @@ public record AutomationResponse(
         TriggerType trigger,
         PostTargetMode targetPostMode,
         String targetPostId,
-        Instant nextPostLockedAt,
+        Date nextPostLockedAt,
         ConditionDto condition,
         ActionDto action,
         String message,
@@ -28,8 +27,8 @@ public record AutomationResponse(
         String followGateButtonLabel,
         long runCount,
         long successCount,
-        Instant createdAt,
-        Instant updatedAt
+        Date createdAt,
+        Date updatedAt
 ) {
     public static AutomationResponse from(Automation a) {
         List<ActionDto> effective = a.getEffectiveActions().stream()
@@ -40,17 +39,13 @@ public record AutomationResponse(
                 ? List.of()
                 : a.getPublicReplies().stream().map(PublicReplyDto::from).toList();
 
-        Date createdDate = a.getCreatedAt();
-        Date updatedDate = a.getUpdatedAt();
-        Date lockedDate = a.getNextPostLockedAt();
-
         return new AutomationResponse(
                 a.getId(),
                 a.getName(),
                 a.getTrigger(),
                 a.getEffectiveTargetPostMode(),
                 a.getTargetPostId(),
-                lockedDate != null ? lockedDate.toInstant() : null,
+                a.getNextPostLockedAt(),
                 ConditionDto.from(a.getCondition()),
                 ActionDto.from(a.getAction()),
                 a.getMessage(),
@@ -64,8 +59,8 @@ public record AutomationResponse(
                 a.getFollowGateButtonLabel(),
                 a.getRunCount(),
                 a.getSuccessCount(),
-                createdDate != null ? createdDate.toInstant() : null,
-                updatedDate != null ? updatedDate.toInstant() : null
+                a.getCreatedAt(),
+                a.getUpdatedAt()
         );
     }
 }
