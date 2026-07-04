@@ -113,8 +113,7 @@ public class NextPostLockerService {
             Set<String> baseline = a.getBaselineMediaIds() == null
                     ? Set.of()
                     : new HashSet<>(a.getBaselineMediaIds());
-            Instant createdAt = a.getCreatedAt() == null ? Instant.EPOCH : a.getCreatedAt();
-
+            Instant createdAt = a.getCreatedAt() == null ? Instant.EPOCH : a.getCreatedAt().toInstant();
             log.info("NextPostLocker: checking automation={} baselineSize={} createdAt={}",
                     a.getId(), baseline.size(), createdAt);
 

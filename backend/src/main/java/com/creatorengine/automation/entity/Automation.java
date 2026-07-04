@@ -1,5 +1,6 @@
 package com.creatorengine.automation.entity;
 
+import java.util.Date;
 import com.google.cloud.firestore.annotation.DocumentId;
 import com.google.cloud.firestore.annotation.Exclude;
 
@@ -42,8 +43,8 @@ public class Automation {
 
     private long runCount;
     private long successCount;
-    private Instant createdAt;
-    private Instant updatedAt;
+    private Date createdAt;
+    private Date updatedAt;
 
     public Automation() {
     }
@@ -69,8 +70,8 @@ public class Automation {
             String followGateButtonLabel,
             long runCount,
             long successCount,
-            Instant createdAt,
-            Instant updatedAt
+            Date createdAt,
+            Date updatedAt
     ) {
         this.id = id;
         this.name = name;
@@ -160,11 +161,11 @@ public class Automation {
     public long getSuccessCount() { return successCount; }
     public void setSuccessCount(long successCount) { this.successCount = successCount; }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Date getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
 
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public Date getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Date updatedAt) { this.updatedAt = updatedAt; }
 
     /** Backwards-compat: legacy rows without targetPostMode get derived from targetPostId. */
     @Exclude
