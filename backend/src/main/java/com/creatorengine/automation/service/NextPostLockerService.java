@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -105,9 +105,6 @@ public class NextPostLockerService {
             log.info("NextPostLocker: checking automation={} baselineSize={} createdAt={}",
                     a.getId(), baseline.size(), a.getCreatedAt());
 
-            // Find any post NOT in the baseline — simple approach, no timestamp check
-            // The baseline was captured at automation creation time, so anything
-            // not in it is genuinely new
             Optional<MetaMediaResponse.MediaItem> next = media.data().stream()
                     .filter(m -> m.id() != null && !baseline.contains(m.id()))
                     .findFirst();
@@ -123,7 +120,7 @@ public class NextPostLockerService {
                     newPostId, a.getId());
 
             a.setTargetPostId(newPostId);
-            a.setNextPostLockedAt(new Date());  
+            a.setNextPostLockedAt(new Date());
             try {
                 automationRepository.save(uid, a);
                 log.info("NextPostLocker: locked uid={} automation={} -> postId={}",
