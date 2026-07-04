@@ -158,13 +158,15 @@ public class NextPostLockerService {
      * IG returns timestamps like "2025-08-12T14:23:45+0000". Java's
      * OffsetDateTime parser accepts this form natively.
      */
-    private Instant parseTimestamp(String ts) {
-        if (ts == null || ts.isBlank()) return null;
-        try {
-            return OffsetDateTime.parse(ts).toInstant();
-        } catch (Exception e) {
-            log.debug("parseTimestamp failed for '{}': {}", ts, e.getMessage());
-            return null;
-        }
+   private Instant parseTimestamp(String ts) {
+    if (ts == null || ts.isBlank()) return null;
+    try {
+        // Handle both +0000 and +00:00 formats
+        String normalized = ts.replaceAll("([+-])(\\d{2})(\\d{2})$", "$1$2:$3");
+        return OffsetDateTime.parse(normalized).toInstant();
+    } catch (Exception e) {
+        log.debug("parseTimestamp failed for '{}': {}", ts, e.getMessage());
+        return null;
     }
+}
 }
