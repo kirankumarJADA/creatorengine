@@ -12,6 +12,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -102,15 +105,31 @@ public class NextPostLockerService {
                     ? Set.of()
                     : new HashSet<>(a.getBaselineMediaIds());
 
+            Instant createdAt = a.getCreatedAt() != null
+                    ? a.getCreatedAt().toInstant()
+                    : Instant.EPOCH;
+
             log.info("NextPostLocker: checking automation={} baselineSize={} createdAt={}",
-                    a.getId(), baseline.size(), a.getCreatedAt());
+                    a.getId(), baseline.size(), createdAt);
+
+            media.data().forEach(m -> {
+                boolean inBaseline = m.id() != null && baseline.contains(m.id());
+                Instant ts = parseTimestamp(m.timestamp());
+                boolean afterCreated = ts != null && ts.isAfter(createdAt);
+                log.info("NextPostLocker:   candidate id={} timestamp={} inBaseline={} afterCreated={}",
+                        m.id(), m.timestamp(), inBaseline, afterCreated);
+            });
 
             Optional<MetaMediaResponse.MediaItem> next = media.data().stream()
                     .filter(m -> m.id() != null && !baseline.contains(m.id()))
-                    .findFirst();
+                    .filter(m -> {
+                        Instant ts = parseTimestamp(m.timestamp());
+                        return ts != null && ts.isAfter(createdAt);
+                    })
+                    .min(Comparator.comparing(m -> parseTimestamp(m.timestamp())));
 
             if (next.isEmpty()) {
-                log.info("NextPostLocker: uid={} automation={} — no new post (all in baseline).",
+                log.info("NextPostLocker: uid={} automation={} — still no new post.",
                         uid, a.getId());
                 continue;
             }
@@ -129,6 +148,17 @@ public class NextPostLockerService {
                 log.warn("NextPostLocker: save failed uid={} automation={}: {}",
                         uid, a.getId(), e.getMessage());
             }
+        }
+    }
+
+    private Instant parseTimestamp(String ts) {
+        if (ts == null || ts.isBlank()) return null;
+        try {
+            String normalized = ts.replaceAll("([+-])(\\d{2})(\\d{2})$", "$1$2:$3");
+            return OffsetDateTime.parse(normalized).toInstant();
+        } catch (Exception e) {
+            log.debug("NextPostLocker: parseTimestamp failed for '{}': {}", ts, e.getMessage());
+            return null;
         }
     }
 }
