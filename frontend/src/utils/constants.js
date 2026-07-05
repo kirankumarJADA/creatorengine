@@ -1,5 +1,6 @@
 export const ROUTES = Object.freeze({
   LOGIN: '/login',
+  GOOGLE_SIGN_IN: '/auth/google',
   REGISTER: '/register',
   FORGOT_PASSWORD: '/forgot-password',
   RESET_PASSWORD: '/reset-password',

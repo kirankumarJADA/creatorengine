@@ -12,8 +12,9 @@ const authService = {
     return data;
   },
 
-  confirmReset: async ({ oobCode, newPassword }) => {
-    await api.post(API_ENDPOINTS.CONFIRM_RESET, { oobCode, newPassword });
+  googleSignIn: async ({ idToken }) => {
+    const { data } = await api.post(API_ENDPOINTS.GOOGLE_SIGN_IN, { idToken });
+    return data;
   },
 
   login: async ({ email, password }) => {

@@ -3,6 +3,7 @@ package com.creatorengine.auth.service;
 import com.creatorengine.auth.dto.AuthResponse;
 import com.creatorengine.auth.dto.ChangePasswordRequest;
 import com.creatorengine.auth.dto.ForgotPasswordRequest;
+import com.creatorengine.auth.dto.GoogleAuthRequest;
 import com.creatorengine.auth.dto.LoginRequest;
 import com.creatorengine.auth.dto.SendOtpRequest;
 import com.creatorengine.auth.dto.UpdateProfileRequest;
@@ -20,6 +21,7 @@ import com.creatorengine.security.JwtTokenProvider;
 import com.google.firebase.auth.ActionCodeSettings;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
+import com.google.firebase.auth.FirebaseToken;
 import com.google.firebase.auth.UserRecord;
 import io.jsonwebtoken.Claims;
 import org.slf4j.Logger;
@@ -145,6 +147,46 @@ public class AuthService {
         return buildAuthResponse(user);
     }
 
+    public AuthResponse googleSignIn(GoogleAuthRequest req) {
+        try {
+            FirebaseToken decoded = firebaseAuth.verifyIdToken(req.idToken());
+
+            String uid = decoded.getUid();
+            String email = normalize(decoded.getEmail());
+            String name = decoded.getName();
+            if (name == null || name.isBlank()) name = email;
+
+            final String finalName = name;
+
+            User user = userRepository.findById(uid).orElseGet(() -> {
+                User newUser = User.builder()
+                        .uid(uid)
+                        .email(email)
+                        .name(finalName)
+                        .roles(List.of(Role.USER))
+                        .emailVerified(true)
+                        .enabled(true)
+                        .lastLoginAt(Instant.now())
+                        .build();
+                return userRepository.save(newUser);
+            });
+
+            if (!user.getEnabled()) {
+                throw new UnauthorizedException("This account has been disabled.");
+            }
+
+            user.setLastLoginAt(Instant.now());
+            userRepository.save(user);
+
+            log.info("Google sign-in uid={} email={}", uid, email);
+            return buildAuthResponse(user);
+
+        } catch (FirebaseAuthException ex) {
+            log.warn("Google sign-in failed: {}", ex.getMessage());
+            throw new UnauthorizedException("Invalid Google token. Please try again.");
+        }
+    }
+
     public AuthResponse refresh(String refreshToken) {
         if (refreshToken == null || !tokenProvider.isValidRefreshToken(refreshToken)) {
             throw new UnauthorizedException(
@@ -219,14 +261,6 @@ public class AuthService {
         log.info("Password changed for uid={}", uid);
     }
 
-    /**
-     * Generates a reset link via Firebase purely to obtain a valid oobCode,
-     * then builds our OWN link pointing directly at our existing
-     * AuthAction.jsx page (/auth/action). This bypasses Firebase Console's
-     * "Customize action URL" entirely — no Console/Hosting domain
-     * verification needed. AuthAction.jsx only needs mode + oobCode + apiKey
-     * from the URL, which is exactly what we hand it here.
-     */
     public void sendPasswordResetEmail(ForgotPasswordRequest req) {
         String email = normalize(req.email());
 
@@ -279,7 +313,7 @@ public class AuthService {
                 }
             }
         } catch (Exception ex) {
-            log.warn("Failed to parse query param '{}' from url: {}", paramName, ex.getMessage());
+            log.warn("Failed to parse query param '{}': {}", paramName, ex.getMessage());
         }
         return null;
     }

@@ -3,6 +3,7 @@ package com.creatorengine.auth.controller;
 import com.creatorengine.auth.dto.AuthResponse;
 import com.creatorengine.auth.dto.ChangePasswordRequest;
 import com.creatorengine.auth.dto.ForgotPasswordRequest;
+import com.creatorengine.auth.dto.GoogleAuthRequest;
 import com.creatorengine.auth.dto.LoginRequest;
 import com.creatorengine.auth.dto.RefreshRequest;
 import com.creatorengine.auth.dto.SendOtpRequest;
@@ -27,7 +28,6 @@ public class AuthController {
         this.authService = authService;
     }
 
-    /** Step 1 of signup - send OTP to email */
     @PostMapping("/send-otp")
     public ResponseEntity<ApiResponse<Void>> sendOtp(
             @Valid @RequestBody SendOtpRequest req) {
@@ -36,7 +36,6 @@ public class AuthController {
                 "Verification code sent. Check your email."));
     }
 
-    /** Step 2 of signup - verify OTP and create account */
     @PostMapping("/verify-otp")
     public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(
             @Valid @RequestBody VerifyOtpRequest req) {
@@ -50,6 +49,13 @@ public class AuthController {
             @Valid @RequestBody LoginRequest req) {
         return ResponseEntity.ok(ApiResponse.ok("Logged in.",
                 authService.login(req)));
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<ApiResponse<AuthResponse>> googleSignIn(
+            @Valid @RequestBody GoogleAuthRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Signed in with Google.",
+                authService.googleSignIn(req)));
     }
 
     @PostMapping("/refresh")
@@ -93,5 +99,4 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok(
                 "If an account exists for that email, a reset link has been sent."));
     }
-
 }
