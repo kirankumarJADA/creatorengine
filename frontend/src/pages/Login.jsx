@@ -56,11 +56,12 @@ const Login = () => {
       persistSession(data);
       toast.success('Welcome!');
       navigate(from, { replace: true });
-    } catch (err) {
-      if (err?.code !== 'auth/popup-closed-by-user') {
-        toast.error('Google sign-in failed. Please try again.');
-      }
-    } finally {
+   } catch (err) {
+  console.error('GOOGLE SIGNIN ERROR:', err?.code, err?.message, err);
+  if (err?.code !== 'auth/popup-closed-by-user') {
+    toast.error('Google sign-in failed. Please try again.');
+  }
+} finally {
       setGoogleLoading(false);
     }
   };
