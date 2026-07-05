@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { Mail, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
-import { GoogleAuthProvider, signInWithPopup, getAuth } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 import FormField     from '../components/form/FormField.jsx';
 import PasswordField from '../components/form/PasswordField.jsx';
@@ -14,6 +14,7 @@ import { useAuthStore }  from '../store/authStore.js';
 import { ROUTES }        from '../utils/constants.js';
 import { EMAIL_RULES, LOGIN_PASSWORD_RULES } from '../utils/validators.js';
 import authService from '../services/authService.js';
+import { auth } from '../firebase.js';
 
 const Login = () => {
   const navigate        = useNavigate();
@@ -47,7 +48,6 @@ const Login = () => {
   const onGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      const auth     = getAuth();
       const provider = new GoogleAuthProvider();
       const result   = await signInWithPopup(auth, provider);
       const idToken  = await result.user.getIdToken();
@@ -56,12 +56,12 @@ const Login = () => {
       persistSession(data);
       toast.success('Welcome!');
       navigate(from, { replace: true });
-   } catch (err) {
-  console.error('GOOGLE SIGNIN ERROR:', err?.code, err?.message, err);
-  if (err?.code !== 'auth/popup-closed-by-user') {
-    toast.error('Google sign-in failed. Please try again.');
-  }
-} finally {
+    } catch (err) {
+      console.error('GOOGLE SIGNIN ERROR:', err?.code, err?.message, err);
+      if (err?.code !== 'auth/popup-closed-by-user') {
+        toast.error('Google sign-in failed. Please try again.');
+      }
+    } finally {
       setGoogleLoading(false);
     }
   };
