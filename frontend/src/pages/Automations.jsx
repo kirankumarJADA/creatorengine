@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Workflow, Pencil, Trash2,
   MessageSquare, AtSign, Send, Link2, UserCheck,
-  PlayCircle, ChevronLeft, ChevronRight,
+  PlayCircle, ChevronLeft, ChevronRight, ArrowRight,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -221,7 +221,7 @@ const AutomationCard = ({ automation, onToggle, onEdit, onDelete, onTest, index 
   const isActive = !!automation.enabled;
 
   const conditionLabel = automation.condition?.type === CONDITION_TYPE.KEYWORD
-    ? `Keyword ${automation.condition.matchType === MATCH_TYPE.EXACT ? '=' : '~'} "${automation.condition.keyword || ''}"`
+    ? `${automation.condition.matchType === MATCH_TYPE.EXACT ? '=' : '~'} "${automation.condition.keyword || ''}"`
     : 'Any event';
 
   return (
@@ -230,14 +230,24 @@ const AutomationCard = ({ automation, onToggle, onEdit, onDelete, onTest, index 
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
+      whileHover={{ y: -3 }}
       transition={{ duration: 0.25, delay: index * 0.03 }}
     >
-      <Card className="group flex h-full flex-col">
+      <Card
+        className={cn(
+          'group relative flex h-full flex-col overflow-hidden transition-shadow hover:shadow-elevated',
+          isActive && 'ring-1 ring-brand-500/20'
+        )}
+      >
+        {isActive && (
+          <span className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-brand-500/[0.07] blur-2xl" />
+        )}
+
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <span
               className={cn(
-                'grid h-10 w-10 shrink-0 place-items-center rounded-xl',
+                'grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-colors',
                 isActive
                   ? 'bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300'
                   : 'bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-400'
@@ -259,23 +269,19 @@ const AutomationCard = ({ automation, onToggle, onEdit, onDelete, onTest, index 
           </Badge>
         </div>
 
-        <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <dt className="text-xs uppercase tracking-wider text-ink-400 dark:text-ink-500">Condition</dt>
-            <dd className="mt-0.5 truncate font-mono text-xs text-ink-800 dark:text-ink-200">
-              {conditionLabel}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wider text-ink-400 dark:text-ink-500">Action</dt>
-            <dd className="mt-0.5 flex items-center gap-1.5 text-ink-800 dark:text-ink-200">
-              <ActionIcon size={13} className="text-ink-500" />
-              <span className="truncate">{ACTION_LABEL[automation.action?.type]}</span>
-            </dd>
-          </div>
-        </dl>
+        {/* Trigger → Action flow strip */}
+        <div className="mt-4 flex items-center gap-2 rounded-xl border border-ink-100 bg-ink-50/60 px-3 py-2.5 text-xs dark:border-ink-800 dark:bg-ink-800/30">
+          <span className="truncate font-mono text-ink-600 dark:text-ink-300">
+            {conditionLabel}
+          </span>
+          <ArrowRight size={13} className={cn('shrink-0', isActive ? 'text-brand-500' : 'text-ink-400')} />
+          <span className="flex shrink-0 items-center gap-1.5 font-medium text-ink-800 dark:text-ink-200">
+            <ActionIcon size={12} className="text-ink-500 dark:text-ink-400" />
+            {ACTION_LABEL[automation.action?.type]}
+          </span>
+        </div>
 
-        <div className="mt-5 flex items-center justify-between border-t border-ink-100 pt-4 dark:border-ink-800">
+        <div className="mt-auto flex items-center justify-between border-t border-ink-100 pt-4 dark:border-ink-800" style={{ marginTop: 'auto', paddingTop: '1rem' }}>
           <Switch
             checked={isActive}
             onChange={onToggle}
@@ -283,7 +289,7 @@ const AutomationCard = ({ automation, onToggle, onEdit, onDelete, onTest, index 
             label={isActive ? 'On' : 'Off'}
             size="sm"
           />
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 opacity-70 transition-opacity group-hover:opacity-100">
             <IconButton size="sm" aria-label="Test"   onClick={onTest}>
               <PlayCircle size={14} />
             </IconButton>

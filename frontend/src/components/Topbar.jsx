@@ -5,9 +5,7 @@ import { useUiStore } from '../store/uiStore.js';
 
 /**
  * Top navbar that floats above the page content.
- *
- * Sticky + backdrop-blur so it stays legible against any background
- * the page below might render (cards, grids, etc.).
+ * Sticky + backdrop-blur so it stays legible against any background.
  */
 const Topbar = () => {
   const toggleMobileNav  = useUiStore((s) => s.toggleMobileNav);
@@ -37,16 +35,19 @@ const Topbar = () => {
       )}
 
       {/* Search */}
-      <div className="relative flex-1 max-w-md">
+      <div className="group relative max-w-md flex-1">
         <Search
           size={16}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400 transition-colors group-focus-within:text-brand-500"
         />
         <input
           type="search"
           placeholder="Search automations, contacts…"
-          className="input pl-9"
+          className="input pl-9 pr-14 transition-shadow focus:shadow-soft"
         />
+        <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-ink-200 bg-ink-50 px-1.5 py-0.5 font-mono text-[10px] font-medium text-ink-400 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-500 sm:block">
+          ⌘K
+        </kbd>
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">

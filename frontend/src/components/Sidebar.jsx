@@ -93,7 +93,7 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
             className="h-9 w-9 shrink-0 object-contain"
           />
           {!collapsed && (
-            <span className="text-lg font-semibold text-ink-900 dark:text-ink-100">
+            <span className="text-lg font-semibold tracking-tight text-ink-900 dark:text-ink-100">
               {APP_NAME}
             </span>
           )}
@@ -123,7 +123,7 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
             <Link
               to={ROUTES.SETTINGS + '?tab=instagram'}
               onClick={onNavigate}
-              className="group flex w-full items-center justify-between rounded-xl border border-ink-200 bg-ink-50/40 px-3 py-2.5 text-left text-sm transition-colors hover:border-brand-300 hover:bg-brand-50/30 dark:border-ink-800 dark:bg-ink-800/30 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/5"
+              className="group flex w-full items-center justify-between rounded-xl border border-ink-200 bg-ink-50/40 px-3 py-2.5 text-left text-sm transition-all hover:-translate-y-px hover:border-brand-300 hover:bg-brand-50/30 hover:shadow-soft dark:border-ink-800 dark:bg-ink-800/30 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/5"
             >
               <span className="flex min-w-0 items-center gap-2.5">
                 {igStatus.profilePictureUrl ? (
@@ -147,14 +147,17 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
                   </span>
                 </span>
               </span>
-              <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" title="Connected" />
+              <span className="relative flex h-2 w-2 shrink-0" title="Connected">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
             </Link>
           ) : (
             <button
               type="button"
               onClick={handleConnect}
               disabled={connecting}
-              className="group flex w-full items-center justify-between rounded-xl border border-dashed border-ink-200 bg-ink-50/40 px-3 py-2.5 text-left text-sm transition-colors hover:border-brand-300 hover:bg-brand-50/30 disabled:opacity-60 dark:border-ink-800 dark:bg-ink-800/30 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/5"
+              className="group flex w-full items-center justify-between rounded-xl border border-dashed border-ink-200 bg-ink-50/40 px-3 py-2.5 text-left text-sm transition-all hover:-translate-y-px hover:border-brand-300 hover:bg-brand-50/30 hover:shadow-soft disabled:opacity-60 dark:border-ink-800 dark:bg-ink-800/30 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/5"
             >
               <span className="flex min-w-0 items-center gap-2.5">
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-pink-500 via-fuchsia-500 to-amber-400 text-white">
@@ -169,7 +172,7 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
                   </span>
                 </span>
               </span>
-              <span className="text-xs font-medium text-ink-400 group-hover:text-brand-600 dark:group-hover:text-brand-400">
+              <span className="text-xs font-medium text-ink-400 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-600 dark:group-hover:text-brand-400">
                 →
               </span>
             </button>
@@ -195,16 +198,19 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
                     end={to === ROUTES.DASHBOARD}
                     className={({ isActive }) =>
                       cn(
-                        'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                        'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150',
                         collapsed && 'justify-center px-2',
                         isActive
-                          ? 'bg-brand-600 text-white shadow-sm'
-                          : 'text-ink-700 hover:bg-ink-100 hover:text-ink-950 dark:text-ink-300 dark:hover:bg-ink-800 dark:hover:text-ink-100'
+                          ? 'bg-brand-600 text-white shadow-soft'
+                          : 'text-ink-700 hover:translate-x-0.5 hover:bg-ink-100 hover:text-ink-950 dark:text-ink-300 dark:hover:bg-ink-800 dark:hover:text-ink-100'
                       )
                     }
                   >
                     {({ isActive }) => (
                       <>
+                        {isActive && !collapsed && (
+                          <span className="absolute -left-3 h-5 w-[3px] rounded-r-full bg-brand-400" />
+                        )}
                         <Icon size={18} strokeWidth={isActive ? 2.25 : 2} className="shrink-0" />
                         {!collapsed && <span>{label}</span>}
                       </>
@@ -221,11 +227,11 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
       <div className="border-t border-ink-100 p-3 dark:border-ink-800">
         <div
           className={cn(
-            'flex items-center gap-3 rounded-xl px-3 py-2',
+            'flex items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-ink-50 dark:hover:bg-ink-800/50',
             collapsed && 'justify-center px-2'
           )}
         >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-100 to-brand-200 text-sm font-semibold text-brand-700 ring-1 ring-brand-200/60 dark:from-brand-500/20 dark:to-brand-500/10 dark:text-brand-300 dark:ring-brand-500/20">
             {user?.name ? getInitials(user.name) : 'U'}
           </span>
           {!collapsed && (

@@ -109,3 +109,26 @@
   );
   background-size: 200% 100%;
 }
+/* ── Premium polish additions ─────────────────────── */
+
+/* Cards lift smoothly */
+.card {
+  transition: box-shadow 200ms ease, transform 200ms ease,
+              background-color 200ms ease, border-color 200ms ease;
+}
+
+/* Table row hover — add `row-hover` class to <tr> elements */
+.row-hover {
+  transition: background-color 150ms ease;
+}
+.row-hover:hover {
+  @apply bg-ink-50 dark:bg-ink-800/40;
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -4,17 +4,19 @@ import { cn } from '../../utils/helpers.js';
 
 /**
  * Form-friendly button with loading state.
- *
  * Variants: primary | secondary | ghost
  * Sizes:    sm | md | lg
  */
 const VARIANTS = {
   primary:
-    'bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800 disabled:bg-brand-300',
+    'bg-brand-600 text-white shadow-soft hover:bg-brand-700 hover:shadow-elevated hover:-translate-y-px ' +
+    'active:translate-y-0 active:bg-brand-800 active:shadow-soft disabled:bg-brand-300 disabled:shadow-none disabled:translate-y-0',
   secondary:
-    'bg-white text-ink-900 border border-ink-200 hover:bg-ink-50 disabled:opacity-60',
+    'bg-white text-ink-900 border border-ink-200 shadow-soft hover:bg-ink-50 hover:-translate-y-px hover:shadow-elevated ' +
+    'active:translate-y-0 disabled:opacity-60 disabled:translate-y-0 ' +
+    'dark:bg-ink-900 dark:text-ink-100 dark:border-ink-800 dark:hover:bg-ink-800',
   ghost:
-    'text-ink-700 hover:bg-ink-100 disabled:opacity-60',
+    'text-ink-700 hover:bg-ink-100 disabled:opacity-60 dark:text-ink-300 dark:hover:bg-ink-800',
 };
 
 const SIZES = {
@@ -45,8 +47,10 @@ const Button = forwardRef(
         type={type}
         disabled={disabled || isLoading}
         className={cn(
-          'inline-flex items-center justify-center gap-2 font-semibold transition-all duration-150',
+          'inline-flex items-center justify-center gap-2 font-semibold transition-all duration-150 will-change-transform',
           'disabled:cursor-not-allowed',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2',
+          'focus-visible:ring-offset-white dark:focus-visible:ring-offset-ink-950',
           VARIANTS[variant],
           SIZES[size],
           className
