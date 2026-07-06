@@ -34,6 +34,7 @@ export const API_ENDPOINTS = Object.freeze({
   SEND_OTP:        '/auth/send-otp',
   VERIFY_OTP:      '/auth/verify-otp',
   CONFIRM_RESET:   '/auth/confirm-reset',
+  GOOGLE_SIGN_IN:  '/auth/google',
   LOGIN:           '/auth/login',
   LOGOUT:          '/auth/logout',
   ME:              '/auth/me',
