@@ -100,9 +100,12 @@ public class AuthService {
                     .setDisabled(false);
             record = firebaseAuth.createUser(createReq);
         } catch (FirebaseAuthException ex) {
-    log.error("GOOGLE_SIGNIN_DEBUG code={} message={}", ex.getAuthErrorCode(), ex.getMessage(), ex);
-    throw new UnauthorizedException("Invalid Google token. Please try again.");
-}
+            log.warn("Firebase createUser failed: code={}, msg={}",
+                    ex.getAuthErrorCode(), ex.getMessage());
+            throw new ConflictException(
+                    "Unable to create account. The email may already be in use.");
+        }
+
         User user = User.builder()
                 .uid(record.getUid())
                 .email(email)
@@ -179,7 +182,7 @@ public class AuthService {
             return buildAuthResponse(user);
 
         } catch (FirebaseAuthException ex) {
-            log.warn("Google sign-in failed: {}", ex.getMessage());
+            log.error("GOOGLE_SIGNIN_DEBUG code={} message={}", ex.getAuthErrorCode(), ex.getMessage(), ex);
             throw new UnauthorizedException("Invalid Google token. Please try again.");
         }
     }
