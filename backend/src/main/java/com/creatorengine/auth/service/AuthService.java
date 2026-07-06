@@ -147,45 +147,47 @@ public class AuthService {
         return buildAuthResponse(user);
     }
 
-    public AuthResponse googleSignIn(GoogleAuthRequest req) {
-        try {
-            FirebaseToken decoded = firebaseAuth.verifyIdToken(req.idToken());
+   public AuthResponse googleSignIn(GoogleAuthRequest req) {
+    try {
+        FirebaseToken decoded = firebaseAuth.verifyIdToken(req.idToken());
 
-            String uid = decoded.getUid();
-            String email = normalize(decoded.getEmail());
-            String name = decoded.getName();
-            if (name == null || name.isBlank()) name = email;
+        String uid = decoded.getUid();
+        String email = normalize(decoded.getEmail());
+        String name = decoded.getName();
+        if (name == null || name.isBlank()) name = email;
 
+        // Try to find existing account by email first (handles email/password users signing in with Google)
+        User user = userRepository.findByEmail(email).orElse(null);
+
+        if (user == null) {
+            // No existing account — create fresh
             final String finalName = name;
-
-            User user = userRepository.findById(uid).orElseGet(() -> {
-                User newUser = User.builder()
-                        .uid(uid)
-                        .email(email)
-                        .name(finalName)
-                        .roles(List.of(Role.USER))
-                        .emailVerified(true)
-                        .enabled(true)
-                        .lastLoginAt(Instant.now())
-                        .build();
-                return userRepository.save(newUser);
-            });
-
-            if (!user.getEnabled()) {
-                throw new UnauthorizedException("This account has been disabled.");
-            }
-
-            user.setLastLoginAt(Instant.now());
-            userRepository.save(user);
-
-            log.info("Google sign-in uid={} email={}", uid, email);
-            return buildAuthResponse(user);
-
-        } catch (FirebaseAuthException ex) {
-            log.error("GOOGLE_SIGNIN_DEBUG code={} message={}", ex.getAuthErrorCode(), ex.getMessage(), ex);
-            throw new UnauthorizedException("Invalid Google token. Please try again.");
+            user = userRepository.save(User.builder()
+                    .uid(uid)
+                    .email(email)
+                    .name(finalName)
+                    .roles(List.of(Role.USER))
+                    .emailVerified(true)
+                    .enabled(true)
+                    .lastLoginAt(Instant.now())
+                    .build());
         }
+
+        if (!user.getEnabled()) {
+            throw new UnauthorizedException("This account has been disabled.");
+        }
+
+        user.setLastLoginAt(Instant.now());
+        userRepository.save(user);
+
+        log.info("Google sign-in uid={} email={}", user.getUid(), email);
+        return buildAuthResponse(user);
+
+    } catch (FirebaseAuthException ex) {
+        log.error("GOOGLE_SIGNIN_DEBUG code={} message={}", ex.getAuthErrorCode(), ex.getMessage(), ex);
+        throw new UnauthorizedException("Invalid Google token. Please try again.");
     }
+}
 
     public AuthResponse refresh(String refreshToken) {
         if (refreshToken == null || !tokenProvider.isValidRefreshToken(refreshToken)) {
