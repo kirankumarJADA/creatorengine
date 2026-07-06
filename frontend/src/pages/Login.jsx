@@ -1,47 +1,93 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { Mail, ArrowRight } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { Mail, User, ArrowRight, ShieldCheck } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 import FormField     from '../components/form/FormField.jsx';
 import PasswordField from '../components/form/PasswordField.jsx';
 import Button        from '../components/form/Button.jsx';
-import Checkbox      from '../components/form/Checkbox.jsx';
 
-import { useAuthStore }  from '../store/authStore.js';
-import { ROUTES }        from '../utils/constants.js';
-import { EMAIL_RULES, LOGIN_PASSWORD_RULES } from '../utils/validators.js';
+import { useAuthStore } from '../store/authStore.js';
+import { ROUTES }       from '../utils/constants.js';
+import { EMAIL_RULES, PASSWORD_RULES, NAME_RULES } from '../utils/validators.js';
 import authService from '../services/authService.js';
 import { auth } from '../firebase.js';
 
-const Login = () => {
-  const navigate        = useNavigate();
-  const location        = useLocation();
-  const login           = useAuthStore((s) => s.login);
-  const persistSession  = useAuthStore((s) => s._persistSession);
-  const isLoading       = useAuthStore((s) => s.isLoading);
-  const [googleLoading, setGoogleLoading] = useState(false);
+const ALLOWED_EMAIL_DOMAINS = [
+  'gmail.com', 'googlemail.com',
+  'outlook.com', 'hotmail.com', 'live.com',
+];
 
-  const from = location.state?.from || ROUTES.DASHBOARD;
+const isAllowedEmailDomain = (email) => {
+  const domain = String(email || '').split('@')[1]?.toLowerCase().trim();
+  return !!domain && ALLOWED_EMAIL_DOMAINS.includes(domain);
+};
+
+const Register = () => {
+  const navigate = useNavigate();
+  const persistSession = useAuthStore((s) => s._persistSession);
+  const [step, setStep] = useState('form'); // 'form' | 'otp'
+  const [submitting, setSubmitting] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [pendingValues, setPendingValues] = useState(null);
+  const [otp, setOtp] = useState('');
 
   const {
     register,
     handleSubmit,
     formState: { errors },
+    getValues,
   } = useForm({
-    defaultValues: { email: '', password: '', remember: true },
+    defaultValues: { name: '', email: '', password: '', confirmPassword: '' },
     mode: 'onTouched',
   });
 
   const onSubmit = async (values) => {
+    if (!isAllowedEmailDomain(values.email)) {
+      toast.error('Please use a Gmail, Outlook, or Hotmail address.');
+      return;
+    }
+    if (values.password !== values.confirmPassword) {
+      toast.error('Passwords do not match.');
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      await login({ email: values.email, password: values.password });
-      toast.success('Welcome back!');
-      navigate(from, { replace: true });
-    } catch {
-      // interceptor already toasted
+      await authService.sendOtp({ email: values.email });
+      setPendingValues(values);
+      setStep('otp');
+      toast.success('Verification code sent to your email.');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Could not send code. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onVerifyOtp = async () => {
+    if (!otp || otp.length < 4) {
+      toast.error('Enter the verification code.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const data = await authService.verifyOtp({
+        email: pendingValues.email,
+        otp,
+        name: pendingValues.name,
+        password: pendingValues.password,
+      });
+      persistSession(data);
+      toast.success('Account created!');
+      navigate(ROUTES.DASHBOARD, { replace: true });
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Invalid or expired code.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -55,9 +101,8 @@ const Login = () => {
       const data = await authService.googleSignIn({ idToken });
       persistSession(data);
       toast.success('Welcome!');
-      navigate(from, { replace: true });
+      navigate(ROUTES.DASHBOARD, { replace: true });
     } catch (err) {
-      console.error('GOOGLE SIGNIN ERROR:', err?.code, err?.message, err);
       if (err?.code !== 'auth/popup-closed-by-user') {
         toast.error('Google sign-in failed. Please try again.');
       }
@@ -66,11 +111,42 @@ const Login = () => {
     }
   };
 
+  if (step === 'otp') {
+    return (
+      <div>
+        <h2 className="font-display text-3xl text-ink-900">Verify your email</h2>
+        <p className="mt-2 text-sm text-ink-500">
+          Enter the code we sent to {pendingValues?.email}.
+        </p>
+
+        <div className="mt-8 space-y-4">
+          <input
+            type="text"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
+            placeholder="Enter code"
+            className="w-full rounded-lg border border-ink-200 px-4 py-3 text-sm"
+          />
+          <Button
+            type="button"
+            size="lg"
+            isLoading={submitting}
+            rightIcon={ShieldCheck}
+            className="w-full"
+            onClick={onVerifyOtp}
+          >
+            Verify & Create Account
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <h2 className="font-display text-3xl text-ink-900">Welcome back</h2>
+      <h2 className="font-display text-3xl text-ink-900">Create your account</h2>
       <p className="mt-2 text-sm text-ink-500">
-        Sign in to your CreatorEngine account.
+        Start building with CreatorEngine — no credit card required.
       </p>
 
       <form
@@ -79,10 +155,18 @@ const Login = () => {
         noValidate
       >
         <FormField
+          label="Full name"
+          type="text"
+          placeholder="Your name"
+          leftIcon={User}
+          error={errors.name?.message}
+          {...register('name', NAME_RULES)}
+        />
+
+        <FormField
           label="Email"
           type="email"
           placeholder="you@company.com"
-          autoComplete="email"
           leftIcon={Mail}
           error={errors.email?.message}
           {...register('email', EMAIL_RULES)}
@@ -91,29 +175,28 @@ const Login = () => {
         <PasswordField
           label="Password"
           placeholder="••••••••"
-          autoComplete="current-password"
           error={errors.password?.message}
-          {...register('password', LOGIN_PASSWORD_RULES)}
+          {...register('password', PASSWORD_RULES)}
         />
 
-        <div className="flex items-center justify-between">
-          <Checkbox label="Remember me" {...register('remember')} />
-          <Link
-            to={ROUTES.FORGOT_PASSWORD}
-            className="text-sm font-medium text-brand-700 hover:text-brand-800"
-          >
-            Forgot password?
-          </Link>
-        </div>
+        <PasswordField
+          label="Confirm password"
+          placeholder="••••••••"
+          error={errors.confirmPassword?.message}
+          {...register('confirmPassword', {
+            validate: (value) =>
+              value === getValues('password') || 'Passwords do not match',
+          })}
+        />
 
         <Button
           type="submit"
           size="lg"
-          isLoading={isLoading}
+          isLoading={submitting}
           rightIcon={ArrowRight}
           className="w-full"
         >
-          Sign in
+          Continue
         </Button>
       </form>
 
@@ -150,16 +233,16 @@ const Login = () => {
       </button>
 
       <p className="mt-8 text-center text-sm text-ink-500">
-        Don&apos;t have an account?{' '}
+        Already have an account?{' '}
         <Link
-          to={ROUTES.REGISTER}
+          to={ROUTES.LOGIN}
           className="font-medium text-ink-900 hover:underline"
         >
-          Create one
+          Sign in
         </Link>
       </p>
     </div>
   );
 };
 
-export default Login;
+export default Register;
