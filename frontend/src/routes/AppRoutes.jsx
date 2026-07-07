@@ -22,10 +22,12 @@ const ActivityLogs   = lazy(() => import('../pages/ActivityLogs.jsx'));
 const FailedJobs     = lazy(() => import('../pages/FailedJobs.jsx'));
 const InstagramCallback = lazy(() => import('../pages/InstagramCallback.jsx'));
 const NotFound       = lazy(() => import('../pages/NotFound.jsx'));
+const Home = lazy(() => import('../pages/Home.jsx'));
 
 const AppRoutes = () => {
   return (
     <Suspense fallback={<PageLoader />}>
+      <Route path="/" element={<Home />} />
       <Routes>
         {/* Password-reset / email-action handler — public, works whether or
             not the user is signed in (they arrive from an email link). */}
