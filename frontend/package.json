@@ -10,6 +10,7 @@
     "lint": "eslint . --ext js,jsx --max-warnings 0"
   },
   "dependencies": {
+    "@sentry/react": "^10.64.0",
     "axios": "^1.7.7",
     "firebase": "^12.15.0",
     "framer-motion": "^11.11.9",

@@ -71,3 +71,12 @@ logging:
     root: INFO
     com.creatorengine: DEBUG
     org.springframework.security: INFO
+
+sentry:
+  dsn: ${SENTRY_DSN:}
+  traces-sample-rate: 0.1
+  environment: prod
+  logging:
+    minimum-event-level: error
+    minimum-breadcrumb-level: warn
+  
