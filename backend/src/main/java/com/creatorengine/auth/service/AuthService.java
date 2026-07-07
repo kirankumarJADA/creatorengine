@@ -18,6 +18,7 @@ import com.creatorengine.exception.ConflictException;
 import com.creatorengine.exception.ResourceNotFoundException;
 import com.creatorengine.exception.UnauthorizedException;
 import com.creatorengine.security.JwtTokenProvider;
+import com.creatorengine.security.LoginAttemptService;
 import com.google.firebase.auth.ActionCodeSettings;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
@@ -40,31 +41,36 @@ public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
-    private final UserRepository userRepository;
-    private final FirebaseAuth firebaseAuth;
-    private final FirebaseAuthClient firebaseAuthClient;
-    private final JwtTokenProvider tokenProvider;
-    private final AppProperties props;
-    private final OtpService otpService;
-    private final ResendEmailService resendEmailService;
+    private final UserRepository       userRepository;
+    private final FirebaseAuth         firebaseAuth;
+    private final FirebaseAuthClient   firebaseAuthClient;
+    private final JwtTokenProvider     tokenProvider;
+    private final AppProperties        props;
+    private final OtpService           otpService;
+    private final ResendEmailService   resendEmailService;
+    private final LoginAttemptService  loginAttemptService;
 
     public AuthService(
-            UserRepository userRepository,
-            FirebaseAuth firebaseAuth,
-            FirebaseAuthClient firebaseAuthClient,
-            JwtTokenProvider tokenProvider,
-            AppProperties props,
-            OtpService otpService,
-            ResendEmailService resendEmailService
+            UserRepository      userRepository,
+            FirebaseAuth        firebaseAuth,
+            FirebaseAuthClient  firebaseAuthClient,
+            JwtTokenProvider    tokenProvider,
+            AppProperties       props,
+            OtpService          otpService,
+            ResendEmailService  resendEmailService,
+            LoginAttemptService loginAttemptService
     ) {
-        this.userRepository = userRepository;
-        this.firebaseAuth = firebaseAuth;
-        this.firebaseAuthClient = firebaseAuthClient;
-        this.tokenProvider = tokenProvider;
-        this.props = props;
-        this.otpService = otpService;
-        this.resendEmailService = resendEmailService;
+        this.userRepository      = userRepository;
+        this.firebaseAuth        = firebaseAuth;
+        this.firebaseAuthClient  = firebaseAuthClient;
+        this.tokenProvider       = tokenProvider;
+        this.props               = props;
+        this.otpService          = otpService;
+        this.resendEmailService  = resendEmailService;
+        this.loginAttemptService = loginAttemptService;
     }
+
+    // ── OTP signup ───────────────────────────────────────────────────────────
 
     public void sendOtp(SendOtpRequest req) {
         String email = normalize(req.email());
@@ -121,10 +127,28 @@ public class AuthService {
         return buildAuthResponse(user);
     }
 
+    // ── Login ────────────────────────────────────────────────────────────────
+
     public AuthResponse login(LoginRequest req) {
         String email = normalize(req.email());
-        String uid = firebaseAuthClient.verifyPassword(email, req.password());
 
+        // 1. Check lockout before doing anything
+        if (loginAttemptService.isLocked(email)) {
+            long mins = loginAttemptService.minutesRemaining(email);
+            throw new UnauthorizedException(
+                    "Account temporarily locked. Try again in " + mins + " minute(s).");
+        }
+
+        // 2. Verify password — generic message regardless of what went wrong
+        String uid;
+        try {
+            uid = firebaseAuthClient.verifyPassword(email, req.password());
+        } catch (Exception ex) {
+            loginAttemptService.recordFailure(email);
+            throw new UnauthorizedException("Invalid credentials.");
+        }
+
+        // 3. Load or re-hydrate user profile
         User user = userRepository.findById(uid).orElseGet(() -> {
             log.info("Re-hydrating missing Firestore profile for uid={}", uid);
             return userRepository.save(User.builder()
@@ -136,10 +160,14 @@ public class AuthService {
                     .build());
         });
 
+        // 4. Disabled account — same generic message
         if (!user.getEnabled()) {
-            throw new UnauthorizedException("This account has been disabled.");
+            loginAttemptService.recordFailure(email);
+            throw new UnauthorizedException("Invalid credentials.");
         }
 
+        // 5. Success
+        loginAttemptService.recordSuccess(email);
         user.setLastLoginAt(Instant.now());
         userRepository.save(user);
 
@@ -147,47 +175,52 @@ public class AuthService {
         return buildAuthResponse(user);
     }
 
-   public AuthResponse googleSignIn(GoogleAuthRequest req) {
-    try {
-        FirebaseToken decoded = firebaseAuth.verifyIdToken(req.idToken());
+    // ── Google sign-in ───────────────────────────────────────────────────────
 
-        String uid = decoded.getUid();
-        String email = normalize(decoded.getEmail());
-        String name = decoded.getName();
-        if (name == null || name.isBlank()) name = email;
+    public AuthResponse googleSignIn(GoogleAuthRequest req) {
+        try {
+            FirebaseToken decoded = firebaseAuth.verifyIdToken(req.idToken());
 
-        // Try to find existing account by email first (handles email/password users signing in with Google)
-        User user = userRepository.findByEmail(email).orElse(null);
+            String uid   = decoded.getUid();
+            String email = normalize(decoded.getEmail());
+            String name  = decoded.getName();
+            if (name == null || name.isBlank()) name = email;
 
-        if (user == null) {
-            // No existing account — create fresh
             final String finalName = name;
-            user = userRepository.save(User.builder()
-                    .uid(uid)
-                    .email(email)
-                    .name(finalName)
-                    .roles(List.of(Role.USER))
-                    .emailVerified(true)
-                    .enabled(true)
-                    .lastLoginAt(Instant.now())
-                    .build());
+
+            // Merge by email — find existing account first
+            User user = userRepository.findByEmail(email).orElse(null);
+
+            if (user == null) {
+                user = userRepository.save(User.builder()
+                        .uid(uid)
+                        .email(email)
+                        .name(finalName)
+                        .roles(List.of(Role.USER))
+                        .emailVerified(true)
+                        .enabled(true)
+                        .lastLoginAt(Instant.now())
+                        .build());
+            }
+
+            if (!user.getEnabled()) {
+                throw new UnauthorizedException("Invalid credentials.");
+            }
+
+            user.setLastLoginAt(Instant.now());
+            userRepository.save(user);
+
+            log.info("Google sign-in uid={} email={}", user.getUid(), email);
+            return buildAuthResponse(user);
+
+        } catch (FirebaseAuthException ex) {
+            log.error("Google sign-in failed: code={} message={}",
+                    ex.getAuthErrorCode(), ex.getMessage());
+            throw new UnauthorizedException("Invalid credentials.");
         }
-
-        if (!user.getEnabled()) {
-            throw new UnauthorizedException("This account has been disabled.");
-        }
-
-        user.setLastLoginAt(Instant.now());
-        userRepository.save(user);
-
-        log.info("Google sign-in uid={} email={}", user.getUid(), email);
-        return buildAuthResponse(user);
-
-    } catch (FirebaseAuthException ex) {
-        log.error("GOOGLE_SIGNIN_DEBUG code={} message={}", ex.getAuthErrorCode(), ex.getMessage(), ex);
-        throw new UnauthorizedException("Invalid Google token. Please try again.");
     }
-}
+
+    // ── Token refresh ────────────────────────────────────────────────────────
 
     public AuthResponse refresh(String refreshToken) {
         if (refreshToken == null || !tokenProvider.isValidRefreshToken(refreshToken)) {
@@ -196,18 +229,20 @@ public class AuthService {
         }
 
         Claims claims = tokenProvider.parse(refreshToken);
-        String uid = claims.getSubject();
+        String uid    = claims.getSubject();
 
         User user = userRepository.findById(uid)
                 .orElseThrow(() -> new UnauthorizedException("Account no longer exists."));
 
         if (!user.getEnabled()) {
-            throw new UnauthorizedException("This account has been disabled.");
+            throw new UnauthorizedException("Invalid credentials.");
         }
 
         log.debug("Refreshed tokens for uid={}", uid);
         return buildAuthResponse(user);
     }
+
+    // ── Current user ─────────────────────────────────────────────────────────
 
     public UserResponse getCurrentUser(String uid) {
         User user = userRepository.findById(uid)
@@ -215,9 +250,13 @@ public class AuthService {
         return UserResponse.from(user);
     }
 
+    // ── Logout ───────────────────────────────────────────────────────────────
+
     public void logout() {
         log.debug("Logout called (no-op for stateless JWT).");
     }
+
+    // ── Profile ──────────────────────────────────────────────────────────────
 
     public UserResponse updateProfile(String uid, UpdateProfileRequest req) {
         User user = userRepository.findById(uid)
@@ -242,6 +281,8 @@ public class AuthService {
         return UserResponse.from(user);
     }
 
+    // ── Password change ──────────────────────────────────────────────────────
+
     public void changePassword(String uid, ChangePasswordRequest req) {
         User user = userRepository.findById(uid)
                 .orElseThrow(() -> new ResourceNotFoundException("User", uid));
@@ -263,10 +304,13 @@ public class AuthService {
         log.info("Password changed for uid={}", uid);
     }
 
+    // ── Password reset ───────────────────────────────────────────────────────
+
     public void sendPasswordResetEmail(ForgotPasswordRequest req) {
         String email = normalize(req.email());
 
         if (!userRepository.existsByEmail(email)) {
+            // Never reveal whether the email exists
             log.debug("Password reset for non-existent email (silenced): {}", email);
             return;
         }
@@ -278,14 +322,14 @@ public class AuthService {
                     .build();
 
             String firebaseLink = firebaseAuth.generatePasswordResetLink(email, settings);
-            String oobCode = extractQueryParam(firebaseLink, "oobCode");
+            String oobCode      = extractQueryParam(firebaseLink, "oobCode");
 
             if (oobCode == null || oobCode.isBlank()) {
                 log.warn("Could not extract oobCode from Firebase link for {}", email);
                 return;
             }
 
-            String apiKey = props.getFirebase().getWebApiKey();
+            String apiKey     = props.getFirebase().getWebApiKey();
             String customLink = props.getFrontendBaseUrl()
                     + "/auth/action?mode=resetPassword&oobCode="
                     + URLEncoder.encode(oobCode, StandardCharsets.UTF_8)
@@ -299,16 +343,18 @@ public class AuthService {
         }
     }
 
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
     private static String extractQueryParam(String url, String paramName) {
         try {
-            URI uri = URI.create(url);
+            URI    uri   = URI.create(url);
             String query = uri.getQuery();
             if (query == null) return null;
 
             for (String pair : query.split("&")) {
                 int idx = pair.indexOf('=');
                 if (idx < 0) continue;
-                String key = pair.substring(0, idx);
+                String key   = pair.substring(0, idx);
                 String value = pair.substring(idx + 1);
                 if (key.equals(paramName)) {
                     return URLDecoder.decode(value, StandardCharsets.UTF_8);
@@ -321,7 +367,7 @@ public class AuthService {
     }
 
     private AuthResponse buildAuthResponse(User user) {
-        String access = tokenProvider.generateAccessToken(
+        String access  = tokenProvider.generateAccessToken(
                 user.getUid(), user.getEmail(), user.getRoles());
         String refresh = tokenProvider.generateRefreshToken(
                 user.getUid(), user.getEmail());
