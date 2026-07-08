@@ -64,25 +64,27 @@ public class ActionExecutor {
         );
 
         // ---------------------------------------------------------------
-        // FIX: Reject send actions with an empty message template.
-        // This prevents "Empty recipient or message" errors from reaching
-        // MetaMessagingService when a user saves an automation without
-        // filling in the message field.
+        // FIX: Reject send actions with an empty message template AND no
+        // image attached. An image-only DM (message blank, imageUrl set)
+        // is valid and should NOT be rejected here.
         // ---------------------------------------------------------------
+        boolean hasImage = action.getImageUrl() != null && !action.getImageUrl().isBlank();
+
         if ((action.getType() == ActionType.SEND_DM
                 || action.getType() == ActionType.SEND_MESSAGE
                 || action.getType() == ActionType.SEND_LINK)
-                && (rendered == null || rendered.isBlank())) {
-            log.warn("Automation action {} has an empty message template - failing early.",
+                && (rendered == null || rendered.isBlank())
+                && !hasImage) {
+            log.warn("Automation action {} has an empty message template and no image - failing early.",
                     action.getType());
             return ExecutionResult.failed(null,
-                    "Empty recipient or message. Edit your automation and add a message.");
+                    "Empty recipient or message. Edit your automation and add a message or image.");
         }
 
         return switch (action.getType()) {
-            case SEND_DM -> sendDirect(ctx, rendered);
-            case SEND_MESSAGE -> sendDirect(ctx, rendered);
-            case SEND_LINK -> sendDirect(ctx, appendLink(rendered, action.getLink()));
+            case SEND_DM -> sendDirect(ctx, rendered, action.getImageUrl());
+            case SEND_MESSAGE -> sendDirect(ctx, rendered, action.getImageUrl());
+            case SEND_LINK -> sendDirect(ctx, appendLink(rendered, action.getLink()), action.getImageUrl());
             case SAVE_CONTACT -> saveContactOnly(ctx, rendered);
             case DELAY -> ExecutionResult.failed(null,
                     "DELAY must be handled by the engine, not executed inline.");
@@ -226,6 +228,10 @@ public class ActionExecutor {
     }
 
     private ExecutionResult sendDirect(ExecutionContext ctx, String message) {
+        return sendDirect(ctx, message, null);
+    }
+
+    private ExecutionResult sendDirect(ExecutionContext ctx, String message, String imageUrl) {
         InstagramAccount acct = ctx.connectedAccount();
         if (acct == null) {
             return ExecutionResult.failed(message, "Instagram account not connected.");
@@ -241,6 +247,36 @@ public class ActionExecutor {
                 .instagramBusinessAccountId(acct.getInstagramUserId())
                 .pageAccessToken(acct.getAccessToken())
                 .build();
+
+        boolean hasImage = imageUrl != null && !imageUrl.isBlank();
+        boolean hasText = message != null && !message.isBlank();
+
+        // ---------------------------------------------------------------
+        // SEND IMAGE (if configured)
+        // Image and text are sent as two separate Instagram API calls -
+        // there's no combined "text + image in one message" payload on the
+        // Send API. We send the image first, then the text (if any).
+        // An image-only DM (no text) is valid - we simply skip the text
+        // call in that case instead of failing on "empty message".
+        // ---------------------------------------------------------------
+        SendResult imageResult = null;
+        if (hasImage) {
+            imageResult = metaMessaging.sendImage(recipient, imageUrl, tokenCtx);
+            if (!imageResult.success()) {
+                log.warn("DM image send failed: {}", imageResult.error());
+            }
+        }
+
+        if (!hasText) {
+            if (imageResult != null && imageResult.success()) {
+                contactService.recordFromEvent(ctx.uid(), ctx.event(), "[image]");
+                maybePostPublicReply(ctx, tokenCtx);
+                return ExecutionResult.sent("[image]", imageResult.messageId());
+            }
+            return ExecutionResult.failed(null,
+                    imageResult != null ? imageResult.error() : "Nothing to send.",
+                    imageResult != null ? imageResult.httpStatus() : 0);
+        }
 
         SendResult result = metaMessaging.sendText(recipient, message, tokenCtx);
 

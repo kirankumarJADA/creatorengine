@@ -135,6 +135,7 @@ public class Automation {
                     .message(message)
                     .delaySeconds(action.getDelaySeconds())
                     .variations(action.getVariations())
+                    .imageUrl(action.getImageUrl())
                     .build();
             return List.of(wrapped);
         }
@@ -246,18 +247,16 @@ public class Automation {
         private String link;
         private String message;
         private Integer delaySeconds;
+        private List<String> variations;
 
         // ---------------------------------------------------------------
-        // NEW: Message Variations
-        // Optional list of alternate message texts. When present (2+ items),
-        // ActionExecutor randomly picks ONE of these instead of the single
-        // `message` field each time the action runs. This avoids sending the
-        // exact same text on every send, which helps reduce the chance of
-        // Instagram flagging the account for repetitive/bot-like behavior.
-        // If `variations` is null/empty, behavior is unchanged - `message` is
-        // used as before. Fully backward compatible.
+        // NEW: Send Image in DM
+        // Public Firebase Storage URL for an image attachment. Instagram's
+        // Send API fetches images by URL server-side, so this must be a
+        // publicly-readable URL (see MediaUploadController). Optional -
+        // null/blank means no image is attached, unchanged behavior.
         // ---------------------------------------------------------------
-        private List<String> variations;
+        private String imageUrl;
 
         public Action() {}
         public Action(ActionType type, String link, String message, Integer delaySeconds) {
@@ -275,6 +274,15 @@ public class Automation {
             this.variations = variations;
         }
 
+        public Action(ActionType type, String link, String message, Integer delaySeconds, List<String> variations, String imageUrl) {
+            this.type = type;
+            this.link = link;
+            this.message = message;
+            this.delaySeconds = delaySeconds;
+            this.variations = variations;
+            this.imageUrl = imageUrl;
+        }
+
         public static ActionBuilder builder() { return new ActionBuilder(); }
         public ActionType getType() { return type; }
         public void setType(ActionType type) { this.type = type; }
@@ -286,6 +294,8 @@ public class Automation {
         public void setDelaySeconds(Integer delaySeconds) { this.delaySeconds = delaySeconds; }
         public List<String> getVariations() { return variations; }
         public void setVariations(List<String> variations) { this.variations = variations; }
+        public String getImageUrl() { return imageUrl; }
+        public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 
         public static class ActionBuilder {
             private ActionType type = ActionType.SEND_DM;
@@ -293,13 +303,15 @@ public class Automation {
             private String message;
             private Integer delaySeconds;
             private List<String> variations;
+            private String imageUrl;
 
             public ActionBuilder type(ActionType type) { this.type = type; return this; }
             public ActionBuilder link(String link) { this.link = link; return this; }
             public ActionBuilder message(String message) { this.message = message; return this; }
             public ActionBuilder delaySeconds(Integer delaySeconds) { this.delaySeconds = delaySeconds; return this; }
             public ActionBuilder variations(List<String> variations) { this.variations = variations; return this; }
-            public Action build() { return new Action(type, link, message, delaySeconds, variations); }
+            public ActionBuilder imageUrl(String imageUrl) { this.imageUrl = imageUrl; return this; }
+            public Action build() { return new Action(type, link, message, delaySeconds, variations, imageUrl); }
         }
     }
 

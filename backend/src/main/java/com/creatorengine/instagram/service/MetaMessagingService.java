@@ -66,6 +66,34 @@ public class MetaMessagingService {
     }
 
     /**
+     * Send an image attachment as a DM. Instagram fetches the image from
+     * `imageUrl` server-side, so it must be a publicly-readable URL (see
+     * MediaUploadController, which uploads to Firebase Storage and grants
+     * public read access).
+     */
+    public SendResult sendImage(Recipient recipient, String imageUrl, AccessTokenContext ctx) {
+        if (recipient == null || imageUrl == null || imageUrl.isBlank()) {
+            return SendResult.failure("Empty recipient or image URL.", 0);
+        }
+
+        if (ctx == null
+                || ctx.instagramBusinessAccountId() == null
+                || ctx.pageAccessToken() == null) {
+            return SendResult.failure("Instagram account not connected.", 0);
+        }
+
+        Map<String, Object> attachment = new LinkedHashMap<>();
+        attachment.put("type", "image");
+        attachment.put("payload", Map.of("url", imageUrl));
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("recipient", recipient.toJsonShape());
+        body.put("message", Map.of("attachment", attachment));
+
+        return post(ctx.instagramBusinessAccountId(), ctx.pageAccessToken(), body);
+    }
+
+    /**
      * Send a text DM with quick-reply buttons (e.g. "I Followed ✅"). Each button
      * carries a hidden payload that comes back to our webhook when tapped.
      */

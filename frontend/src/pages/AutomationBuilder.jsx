@@ -145,14 +145,17 @@ const AutomationBuilder = () => {
     }
 
     // Strip empty/no-op actions: SEND_DM/SEND_MESSAGE with no message body
-    // is a "no-op" the user left behind — drop it so the backend isn't asked
-    // to send blank DMs. SEND_LINK still needs a link to count as real.
+    // AND no image is a "no-op" the user left behind — drop it so the
+    // backend isn't asked to send blank DMs. An image-only action (message
+    // blank, imageUrl set) is valid and must survive this filter.
+    // SEND_LINK still needs a link to count as real.
     const cleanedActions = (draft.actions || []).filter((a) => {
       if (!a || !a.type) return false;
+      const hasImage = a.imageUrl && a.imageUrl.trim().length > 0;
       switch (a.type) {
         case ACTION_TYPE.SEND_DM:
         case ACTION_TYPE.SEND_MESSAGE:
-          return a.message && a.message.trim().length > 0;
+          return (a.message && a.message.trim().length > 0) || hasImage;
         case ACTION_TYPE.SEND_LINK:
           return a.link && a.link.trim().length > 0;
         default:

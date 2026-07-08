@@ -38,7 +38,15 @@ public record ActionDto(
          * text isn't sent every time. Null/empty behaves exactly as before.
          */
         @Size(max = 10, message = "At most 10 message variations")
-        List<@Size(max = 2000, message = "Variation is too long (max 2000 characters)") String> variations
+        List<@Size(max = 2000, message = "Variation is too long (max 2000 characters)") String> variations,
+
+        /**
+         * SEND_MESSAGE / SEND_DM / SEND_LINK: optional public image URL to
+         * attach to the DM (uploaded via /api/media/dm-image). Null/blank
+         * means no image - unchanged behavior.
+         */
+        @Size(max = 1000, message = "Image URL is too long")
+        String imageUrl
 ) {
     public Automation.Action toEntity() {
         return Automation.Action.builder()
@@ -47,17 +55,19 @@ public record ActionDto(
                 .message(message)
                 .delaySeconds(delaySeconds)
                 .variations(variations)
+                .imageUrl(imageUrl == null || imageUrl.isBlank() ? null : imageUrl.trim())
                 .build();
     }
 
     public static ActionDto from(Automation.Action a) {
-        if (a == null) return new ActionDto(ActionType.SEND_DM, null, null, null, null);
+        if (a == null) return new ActionDto(ActionType.SEND_DM, null, null, null, null, null);
         return new ActionDto(
                 a.getType(),
                 a.getMessage(),
                 a.getLink(),
                 a.getDelaySeconds(),
-                a.getVariations()
+                a.getVariations(),
+                a.getImageUrl()
         );
     }
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Send, MessageCircle, Link2, UserCheck, Hourglass,
   Plus, Trash2, Copy, ChevronUp, ChevronDown, Sparkles, Shuffle, X,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 import Field from '../form/Field.jsx';
@@ -9,6 +10,7 @@ import TextArea from '../ui/TextArea.jsx';
 import IconButton from '../ui/IconButton.jsx';
 import Button from '../form/Button.jsx';
 import AiAssistantModal from './AiAssistantModal.jsx';
+import mediaService from '../../services/mediaService.js';
 import { useBuilderStore } from '../../store/builderStore.js';
 import {
   ACTION_TYPE,
@@ -221,6 +223,111 @@ const ActionCard = ({
   );
 };
 
+// ─── Image picker for Send Image in DM ─────────────
+const ImagePicker = ({ action, onPatch }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+
+  const imageUrl = action.imageUrl || '';
+
+  const handleFile = async (file) => {
+    if (!file) return;
+
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowed.includes(file.type)) {
+      setUploadError('Only JPEG, PNG, WEBP, or GIF images are allowed.');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setUploadError('Image must be smaller than 8MB.');
+      return;
+    }
+
+    setUploadError(null);
+    setIsUploading(true);
+    try {
+      const { imageUrl: uploadedUrl } = await mediaService.uploadDmImage(file);
+      onPatch({ imageUrl: uploadedUrl });
+    } catch (err) {
+      setUploadError(err?.response?.data?.message || 'Upload failed. Try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFile(e.dataTransfer.files?.[0]);
+  };
+
+  const handleInputChange = (e) => {
+    handleFile(e.target.files?.[0]);
+  };
+
+  if (imageUrl) {
+    return (
+      <div className="mb-4">
+        <div className="flex items-center gap-3 rounded-xl border border-ink-200 bg-ink-50 p-2.5 dark:border-ink-800 dark:bg-ink-800/40">
+          <img
+            src={imageUrl}
+            alt="DM attachment preview"
+            className="h-14 w-14 rounded-lg object-cover"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-ink-800 dark:text-ink-200">
+              Image attached
+            </p>
+            <p className="text-xs text-ink-500 dark:text-ink-400">
+              Sent as a separate DM before your message
+            </p>
+          </div>
+          <IconButton
+            aria-label="Remove image"
+            title="Remove image"
+            onClick={() => onPatch({ imageUrl: '' })}
+          >
+            <X size={16} />
+          </IconButton>
+        </div>
+        {uploadError && (
+          <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{uploadError}</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-4">
+      <label
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+        className={cn(
+          'flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-4 text-sm font-medium transition-colors',
+          isDragging
+            ? 'border-brand-400 bg-brand-50 text-brand-700 dark:border-brand-500/50 dark:bg-brand-500/10 dark:text-brand-300'
+            : 'border-ink-200 text-ink-500 hover:bg-ink-50 dark:border-ink-800 dark:text-ink-400 dark:hover:bg-ink-800/40'
+        )}
+      >
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={handleInputChange}
+          disabled={isUploading}
+        />
+        <ImageIcon size={16} />
+        {isUploading ? 'Uploading…' : 'Select / Drop an Image'}
+      </label>
+      {uploadError && (
+        <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{uploadError}</p>
+      )}
+    </div>
+  );
+};
+
 // ─── Message + Variations + Link reusable bits ─────
 const MessageField = ({ action, onPatch }) => {
   // Each MessageField owns its own modal-open state. Multi-action
@@ -254,6 +361,8 @@ const MessageField = ({ action, onPatch }) => {
 
   return (
     <>
+      <ImagePicker action={action} onPatch={onPatch} />
+
       <Field label="Message" required>
         <div className="relative">
           <TextArea

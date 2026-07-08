@@ -20,6 +20,7 @@ export const blankAction = (type = ACTION_TYPE.SEND_MESSAGE) => ({
   message: '',
   link: '',
   variations: [],
+  imageUrl: '',
   delaySeconds: type === ACTION_TYPE.DELAY ? 5 : null,
 });
 
@@ -54,6 +55,7 @@ const normalizeActionsFromBackend = (automation) => {
       // saved to the backend disappeared the moment you reopened the
       // automation to edit it. Now preserved as an array of strings.
       variations:   Array.isArray(a.variations) ? a.variations : [],
+      imageUrl:     a.imageUrl ?? '',
       delaySeconds: a.delaySeconds ?? null,
     }));
   }
@@ -63,6 +65,7 @@ const normalizeActionsFromBackend = (automation) => {
       message:      automation.message ?? '',
       link:         automation.action.link ?? '',
       variations:   Array.isArray(automation.action.variations) ? automation.action.variations : [],
+      imageUrl:     automation.action.imageUrl ?? '',
       delaySeconds: null,
     }];
   }
