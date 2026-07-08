@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Mail, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 import FormField     from '../components/form/FormField.jsx';
@@ -17,6 +17,8 @@ import { EMAIL_RULES, LOGIN_PASSWORD_RULES } from '../utils/validators.js';
 import authService from '../services/authService.js';
 import { auth } from '../firebase.js';
 
+const TURNSTILE_SITE_KEY = '0x4AAAAAADxnYBmqvIMausHp';
+
 const Login = () => {
   const navigate        = useNavigate();
   const location        = useLocation();
@@ -24,6 +26,9 @@ const Login = () => {
   const persistSession  = useAuthStore((s) => s._persistSession);
   const isLoading       = useAuthStore((s) => s.isLoading);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const turnstileRef = useRef(null);
+  const widgetIdRef = useRef(null);
 
   const from = location.state?.from || ROUTES.DASHBOARD;
 
@@ -36,13 +41,50 @@ const Login = () => {
     mode: 'onTouched',
   });
 
+  useEffect(() => {
+    // Load Turnstile script
+    const script = document.createElement('script');
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+
+    script.onload = () => {
+      if (window.turnstile && turnstileRef.current) {
+        widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (token) => setTurnstileToken(token),
+          'expired-callback': () => setTurnstileToken(''),
+          'error-callback': () => setTurnstileToken(''),
+          theme: 'light',
+        });
+      }
+    };
+
+    return () => {
+      document.head.removeChild(script);
+      if (window.turnstile && widgetIdRef.current) {
+        window.turnstile.remove(widgetIdRef.current);
+      }
+    };
+  }, []);
+
   const onSubmit = async (values) => {
+    if (!turnstileToken) {
+      toast.error('Please complete the security check.');
+      return;
+    }
     try {
       await login({ email: values.email, password: values.password });
       toast.success('Welcome back!');
       navigate(from, { replace: true });
     } catch {
       // interceptor already toasted
+      // reset turnstile after failed login
+      if (window.turnstile && widgetIdRef.current) {
+        window.turnstile.reset(widgetIdRef.current);
+        setTurnstileToken('');
+      }
     }
   };
 
@@ -106,6 +148,9 @@ const Login = () => {
             Forgot password?
           </Link>
         </div>
+
+        {/* Turnstile widget */}
+        <div ref={turnstileRef} className="mt-2" />
 
         <Button
           type="submit"
