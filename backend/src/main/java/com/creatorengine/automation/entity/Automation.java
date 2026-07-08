@@ -134,6 +134,7 @@ public class Automation {
                     .link(action.getLink())
                     .message(message)
                     .delaySeconds(action.getDelaySeconds())
+                    .variations(action.getVariations())
                     .build();
             return List.of(wrapped);
         }
@@ -144,7 +145,8 @@ public class Automation {
     private boolean hasLegacyPayload() {
         boolean hasMessage = message != null && !message.isBlank();
         boolean hasLink = action != null && action.getLink() != null && !action.getLink().isBlank();
-        return hasMessage || hasLink;
+        boolean hasVariations = action != null && action.getVariations() != null && !action.getVariations().isEmpty();
+        return hasMessage || hasLink || hasVariations;
     }
 
     public static class AutomationBuilder {
@@ -245,12 +247,32 @@ public class Automation {
         private String message;
         private Integer delaySeconds;
 
+        // ---------------------------------------------------------------
+        // NEW: Message Variations
+        // Optional list of alternate message texts. When present (2+ items),
+        // ActionExecutor randomly picks ONE of these instead of the single
+        // `message` field each time the action runs. This avoids sending the
+        // exact same text on every send, which helps reduce the chance of
+        // Instagram flagging the account for repetitive/bot-like behavior.
+        // If `variations` is null/empty, behavior is unchanged - `message` is
+        // used as before. Fully backward compatible.
+        // ---------------------------------------------------------------
+        private List<String> variations;
+
         public Action() {}
         public Action(ActionType type, String link, String message, Integer delaySeconds) {
             this.type = type;
             this.link = link;
             this.message = message;
             this.delaySeconds = delaySeconds;
+        }
+
+        public Action(ActionType type, String link, String message, Integer delaySeconds, List<String> variations) {
+            this.type = type;
+            this.link = link;
+            this.message = message;
+            this.delaySeconds = delaySeconds;
+            this.variations = variations;
         }
 
         public static ActionBuilder builder() { return new ActionBuilder(); }
@@ -262,18 +284,22 @@ public class Automation {
         public void setMessage(String message) { this.message = message; }
         public Integer getDelaySeconds() { return delaySeconds; }
         public void setDelaySeconds(Integer delaySeconds) { this.delaySeconds = delaySeconds; }
+        public List<String> getVariations() { return variations; }
+        public void setVariations(List<String> variations) { this.variations = variations; }
 
         public static class ActionBuilder {
             private ActionType type = ActionType.SEND_DM;
             private String link;
             private String message;
             private Integer delaySeconds;
+            private List<String> variations;
 
             public ActionBuilder type(ActionType type) { this.type = type; return this; }
             public ActionBuilder link(String link) { this.link = link; return this; }
             public ActionBuilder message(String message) { this.message = message; return this; }
             public ActionBuilder delaySeconds(Integer delaySeconds) { this.delaySeconds = delaySeconds; return this; }
-            public Action build() { return new Action(type, link, message, delaySeconds); }
+            public ActionBuilder variations(List<String> variations) { this.variations = variations; return this; }
+            public Action build() { return new Action(type, link, message, delaySeconds, variations); }
         }
     }
 

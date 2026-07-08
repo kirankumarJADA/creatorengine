@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Send, MessageCircle, Link2, UserCheck, Hourglass,
-  Plus, Trash2, Copy, ChevronUp, ChevronDown, Sparkles,
+  Plus, Trash2, Copy, ChevronUp, ChevronDown, Sparkles, Shuffle, X,
 } from 'lucide-react';
 
 import Field from '../form/Field.jsx';
@@ -221,7 +221,7 @@ const ActionCard = ({
   );
 };
 
-// ─── Message + Link reusable bits ──────────────────
+// ─── Message + Variations + Link reusable bits ─────
 const MessageField = ({ action, onPatch }) => {
   // Each MessageField owns its own modal-open state. Multi-action
   // chains can have several SEND_* cards on screen at once; per-card
@@ -229,36 +229,131 @@ const MessageField = ({ action, onPatch }) => {
   // store (the modal is purely transient UI, not draft state).
   const [aiOpen, setAiOpen] = useState(false);
 
+  // Variations are optional alternate texts. When present, the backend
+  // randomly rotates between the primary message and each variation on
+  // every send — this reduces repetitive-message patterns Instagram may
+  // flag as bot-like. Stored on action.variations (array of strings).
+  const variations = Array.isArray(action.variations) ? action.variations : [];
+  const [variationsOpen, setVariationsOpen] = useState(variations.length > 0);
+
+  const addVariation = () => {
+    onPatch({ variations: [...variations, ''] });
+    setVariationsOpen(true);
+  };
+
+  const updateVariation = (i, text) => {
+    const next = [...variations];
+    next[i] = text;
+    onPatch({ variations: next });
+  };
+
+  const removeVariation = (i) => {
+    const next = variations.filter((_, idx) => idx !== i);
+    onPatch({ variations: next });
+  };
+
   return (
     <>
       <Field label="Message" required>
-        <TextArea
-          value={action.message || ''}
-          onChange={(e) => onPatch({ message: e.target.value })}
-          placeholder="Hey {{username}} 👋"
-          rows={3}
-        />
+        <div className="relative">
+          <TextArea
+            value={action.message || ''}
+            onChange={(e) => onPatch({ message: e.target.value })}
+            placeholder="Hey {{username}} 👋"
+            rows={3}
+          />
+        </div>
         <div className="mt-1.5 flex items-start justify-between gap-3">
           <p className="text-xs text-ink-500 dark:text-ink-400">
             Use{' '}
             <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] dark:bg-ink-800">{`{{username}}`}</code>
             {' '}to personalise with the recipient handle.
           </p>
-          <button
-            type="button"
-            onClick={() => setAiOpen(true)}
-            className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium',
-              'text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-500/10',
-              'transition-colors'
-            )}
-            title="Generate suggestions with AI"
-          >
-            <Sparkles size={14} />
-            Generate with AI
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setVariationsOpen((v) => !v)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors',
+                variationsOpen || variations.length > 0
+                  ? 'bg-ink-900 text-white dark:bg-ink-100 dark:text-ink-900'
+                  : 'text-ink-600 hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800'
+              )}
+              title="Rotate between multiple message variants"
+            >
+              <Shuffle size={14} />
+              Variations{variations.length > 0 ? ` (${variations.length})` : ''}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAiOpen(true)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium',
+                'text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-500/10',
+                'transition-colors'
+              )}
+              title="Generate suggestions with AI"
+            >
+              <Sparkles size={14} />
+              Generate with AI
+            </button>
+          </div>
         </div>
       </Field>
+
+      {variationsOpen && (
+        <div className="mb-4 rounded-xl border border-ink-100 bg-ink-50/60 p-3 dark:border-ink-800 dark:bg-ink-800/30">
+          <p className="mb-2 text-xs text-ink-500 dark:text-ink-400">
+            We'll rotate randomly between your main message above and each
+            variation below, so the same wording isn't sent every time.
+          </p>
+
+          <div className="space-y-2">
+            {variations.map((text, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="mt-2.5 grid h-5 w-5 shrink-0 place-items-center rounded-md bg-ink-100 text-[10px] font-semibold text-ink-500 dark:bg-ink-800 dark:text-ink-400">
+                  {i + 2}
+                </span>
+                <TextArea
+                  value={text}
+                  onChange={(e) => updateVariation(i, e.target.value)}
+                  placeholder={`Alternate message ${i + 1}...`}
+                  rows={2}
+                  className="flex-1"
+                />
+                <IconButton
+                  aria-label="Remove variation"
+                  title="Remove variation"
+                  onClick={() => removeVariation(i)}
+                  className="mt-1"
+                >
+                  <X size={14} />
+                </IconButton>
+              </div>
+            ))}
+          </div>
+
+          <Button
+            type="button"
+            variant="secondary"
+            leftIcon={Plus}
+            onClick={addVariation}
+            className="mt-3"
+          >
+            Add variation
+          </Button>
+        </div>
+      )}
+
+      {!variationsOpen && (
+        <button
+          type="button"
+          onClick={addVariation}
+          className="mb-4 text-xs font-medium text-brand-700 hover:underline dark:text-brand-300"
+        >
+          + Add a variation to rotate between messages
+        </button>
+      )}
 
       <AiAssistantModal
         open={aiOpen}

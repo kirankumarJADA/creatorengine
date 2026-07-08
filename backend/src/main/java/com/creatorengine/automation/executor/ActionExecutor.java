@@ -56,8 +56,10 @@ public class ActionExecutor {
             return ExecutionResult.failed(null, "Action is missing or has no type.");
         }
 
+        String messageTemplate = pickMessageTemplate(action);
+
         String rendered = templateRenderer.renderWithUsername(
-                action.getMessage(),
+                messageTemplate,
                 ctx.event() != null ? ctx.event().username() : null
         );
 
@@ -359,6 +361,39 @@ public class ActionExecutor {
         }
 
         return new ByUserId(senderId);
+    }
+
+    /**
+     * MESSAGE VARIATIONS
+     * Combines the primary `message` with any extra `variations` into one
+     * pool of candidate texts, then picks one at random each time the action
+     * runs. This helps avoid Instagram flagging the account for sending the
+     * exact same message repeatedly. If no variations are configured, the
+     * pool is just the single `message` - behavior is unchanged for existing
+     * automations.
+     */
+    private static String pickMessageTemplate(Automation.Action action) {
+        List<String> pool = new java.util.ArrayList<>();
+
+        if (action.getMessage() != null && !action.getMessage().isBlank()) {
+            pool.add(action.getMessage());
+        }
+
+        if (action.getVariations() != null) {
+            action.getVariations().stream()
+                    .filter(v -> v != null && !v.isBlank())
+                    .forEach(pool::add);
+        }
+
+        if (pool.isEmpty()) {
+            return action.getMessage();
+        }
+
+        if (pool.size() == 1) {
+            return pool.get(0);
+        }
+
+        return pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
     }
 
     private static String appendLink(String message, String link) {
