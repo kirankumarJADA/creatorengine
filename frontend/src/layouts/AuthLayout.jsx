@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Rocket, Zap, Users, ShieldCheck, Send, MessageSquare } from 'lucide-react';
-import { Zap, Users, ShieldCheck } from 'lucide-react';
+
 /**
  * Premium split-panel auth layout.
  * Left: brand narrative with layered depth (gradient mesh, dot grid,
