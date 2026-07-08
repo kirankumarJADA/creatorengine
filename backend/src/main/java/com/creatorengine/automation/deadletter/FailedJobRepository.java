@@ -44,6 +44,32 @@ public class FailedJobRepository {
         }
     }
 
+    public List<OwnedFailedJob> listAllAcrossUsers(int limit) {
+    try {
+        return firestore.collectionGroup(FAILED_JOBS)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .limit(Math.max(1, Math.min(limit, 500)))
+                .get().get()
+                .getDocuments().stream()
+                .map(d -> {
+                    FailedJob job = d.toObject(FailedJob.class);
+                    String uid = d.getReference().getParent().getParent() != null
+                            ? d.getReference().getParent().getParent().getId()
+                            : null;
+                    return new OwnedFailedJob(uid, job);
+                })
+                .toList();
+    } catch (InterruptedException | ExecutionException e) {
+        if (e instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        log.error("FailedJobRepository.listAllAcrossUsers failed", e);
+        throw new RuntimeException("Firestore listAllAcrossUsers failed", e);
+    }
+}
+
+public record OwnedFailedJob(String uid, FailedJob job) {}
+
     public List<FailedJob> listForUser(String uid, int limit) {
         try {
             return collection(uid)

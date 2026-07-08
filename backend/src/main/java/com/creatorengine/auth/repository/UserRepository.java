@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -38,6 +39,16 @@ public class UserRepository {
             throw wrap("findById", e);
         }
     }
+    public List<User> findAll() {
+    try {
+        return collection().get().get()
+                .getDocuments().stream()
+                .map(d -> d.toObject(User.class))
+                .toList();
+    } catch (InterruptedException | ExecutionException e) {
+        throw wrap("findAll", e);
+    }
+}
 
     public Optional<User> findByEmail(String email) {
         if (email == null || email.isBlank()) {

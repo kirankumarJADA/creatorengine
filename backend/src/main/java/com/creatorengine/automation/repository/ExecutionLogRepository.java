@@ -47,6 +47,33 @@ public class ExecutionLogRepository {
         }
     }
 
+    public List<OwnedLog> listAllAcrossUsers(int limit) {
+    try {
+        return firestore.collectionGroup(SUBCOLLECTION)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .limit(Math.max(1, Math.min(limit, 500)))
+                .get().get()
+                .getDocuments().stream()
+                .map(d -> {
+                    ExecutionLog log = d.toObject(ExecutionLog.class);
+                    String uid = d.getReference().getParent().getParent() != null
+                            ? d.getReference().getParent().getParent().getId()
+                            : null;
+                    return new OwnedLog(uid, log);
+                })
+                .toList();
+    } catch (InterruptedException | ExecutionException e) {
+        if (e instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        log.error("ExecutionLogRepository.listAllAcrossUsers failed", e);
+        throw new RuntimeException("Firestore operation failed: listAllAcrossUsers", e);
+    }
+}
+
+public record OwnedLog(String uid, ExecutionLog log) {}
+
+
     public List<ExecutionLog> listForUser(String uid, int limit) {
         try {
             return logsFor(uid)

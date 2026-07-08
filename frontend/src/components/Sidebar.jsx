@@ -10,6 +10,7 @@ import {
   LogOut,
   ChevronLeft,
   Instagram,
+  ShieldCheck,
 } from 'lucide-react';
 
 import { useAuthStore } from '../store/authStore.js';
@@ -42,6 +43,8 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
+
+  const isAdmin = Array.isArray(user?.roles) && user.roles.includes('ADMIN');
 
   const [igStatus, setIgStatus] = useState(null);   // null = loading
   const [connecting, setConnecting] = useState(false);
@@ -221,6 +224,40 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
             </ul>
           </div>
         ))}
+
+        {/* Admin — only rendered when the logged-in user's roles include ADMIN.
+            This is a UX nicety, not the security boundary: even if this block
+            somehow rendered for a non-admin, every /api/admin/** call would
+            still be rejected by the backend's @PreAuthorize("hasRole('ADMIN')"). */}
+        {isAdmin && (
+          <div className="mb-6 last:mb-0">
+            {!collapsed && (
+              <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-amber-500">
+                Admin
+              </p>
+            )}
+            <ul className="space-y-0.5">
+              <li>
+                <NavLink
+                  to={ROUTES.ADMIN}
+                  onClick={onNavigate}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                      collapsed && 'justify-center px-2',
+                      isActive
+                        ? 'bg-amber-500 text-white shadow-soft'
+                        : 'text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10'
+                    )
+                  }
+                >
+                  <ShieldCheck size={18} className="shrink-0" />
+                  {!collapsed && <span>Admin</span>}
+                </NavLink>
+              </li>
+            </ul>
+          </div>
+        )}
       </nav>
 
       {/* User footer */}

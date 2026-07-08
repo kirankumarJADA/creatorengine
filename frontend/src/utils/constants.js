@@ -14,6 +14,13 @@ export const ROUTES = Object.freeze({
   LOGS:     '/logs',
   FAILED_JOBS: '/failed-jobs',
 
+  ADMIN:              '/admin',
+  ADMIN_USERS:        '/admin/users',
+  ADMIN_AUTOMATIONS:  '/admin/automations',
+  ADMIN_LOGS:         '/admin/logs',
+  ADMIN_FAILED_JOBS:  '/admin/failed-jobs',
+  ADMIN_SYSTEM:       '/admin/system',
+
   INSTAGRAM_CALLBACK: '/instagram/callback',
 });
 
@@ -53,6 +60,23 @@ export const API_ENDPOINTS = Object.freeze({
   FAILED_JOBS:           '/failed-jobs',
   FAILED_JOB_BY_ID:      (id) => `/failed-jobs/${id}`,
   FAILED_JOB_RETRY:      (id) => `/failed-jobs/${id}/retry`,
+  ADMIN_DASHBOARD:        '/admin/dashboard',
+  ADMIN_USERS:            '/admin/users',
+  ADMIN_USER_BY_ID:       (uid) => `/admin/users/${uid}`,
+  ADMIN_USER_ENABLE:      (uid) => `/admin/users/${uid}/enable`,
+  ADMIN_USER_DISABLE:     (uid) => `/admin/users/${uid}/disable`,
+
+  ADMIN_AUTOMATIONS:        '/admin/automations',
+  ADMIN_AUTOMATION_BY_ID:   (uid, id) => `/admin/automations/${uid}/${id}`,
+  ADMIN_AUTOMATION_TOGGLE:  (uid, id) => `/admin/automations/${uid}/${id}/toggle`,
+
+  ADMIN_LOGS: '/admin/logs',
+
+  ADMIN_FAILED_JOBS:       '/admin/failed-jobs',
+  ADMIN_FAILED_JOB_BY_ID:  (uid, id) => `/admin/failed-jobs/${uid}/${id}`,
+  ADMIN_FAILED_JOB_RETRY:  (uid, id) => `/admin/failed-jobs/${uid}/${id}/retry`,
+
+  ADMIN_SYSTEM: '/admin/system',
 
   AI_GENERATE_MESSAGE: '/ai/generate-message',
 });

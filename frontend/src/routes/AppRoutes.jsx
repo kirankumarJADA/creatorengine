@@ -3,8 +3,10 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 
 import AuthLayout from '../layouts/AuthLayout.jsx';
 import AppLayout from '../layouts/AppLayout.jsx';
+import AdminLayout from '../layouts/AdminLayout.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
 import PublicOnlyRoute from '../components/PublicOnlyRoute.jsx';
+import AdminRoute from '../components/AdminRoute.jsx';
 import PageLoader from '../components/PageLoader.jsx';
 import { ROUTES } from '../utils/constants.js';
 
@@ -23,6 +25,14 @@ const ActivityLogs = lazy(() => import('../pages/ActivityLogs.jsx'));
 const FailedJobs = lazy(() => import('../pages/FailedJobs.jsx'));
 const InstagramCallback = lazy(() => import('../pages/InstagramCallback.jsx'));
 const NotFound = lazy(() => import('../pages/NotFound.jsx'));
+
+// Admin pages
+const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard.jsx'));
+const AdminUsers = lazy(() => import('../pages/admin/AdminUsers.jsx'));
+const AdminAutomations = lazy(() => import('../pages/admin/AdminAutomations.jsx'));
+const AdminActivityLogs = lazy(() => import('../pages/admin/AdminActivityLogs.jsx'));
+const AdminFailedJobs = lazy(() => import('../pages/admin/AdminFailedJobs.jsx'));
+const AdminSystemStatus = lazy(() => import('../pages/admin/AdminSystemStatus.jsx'));
 
 const AppRoutes = () => {
   return (
@@ -71,6 +81,18 @@ const AppRoutes = () => {
             <Route path={ROUTES.LOGS} element={<ActivityLogs />} />
             <Route path={ROUTES.FAILED_JOBS} element={<FailedJobs />} />
             <Route path={ROUTES.SETTINGS} element={<Settings />} />
+          </Route>
+
+          {/* Admin — protected AND role-gated */}
+          <Route element={<AdminRoute />}>
+            <Route element={<AdminLayout />}>
+              <Route path={ROUTES.ADMIN} element={<AdminDashboard />} />
+              <Route path={ROUTES.ADMIN_USERS} element={<AdminUsers />} />
+              <Route path={ROUTES.ADMIN_AUTOMATIONS} element={<AdminAutomations />} />
+              <Route path={ROUTES.ADMIN_LOGS} element={<AdminActivityLogs />} />
+              <Route path={ROUTES.ADMIN_FAILED_JOBS} element={<AdminFailedJobs />} />
+              <Route path={ROUTES.ADMIN_SYSTEM} element={<AdminSystemStatus />} />
+            </Route>
           </Route>
         </Route>
 

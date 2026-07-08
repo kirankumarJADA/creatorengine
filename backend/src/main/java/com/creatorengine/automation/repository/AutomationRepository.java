@@ -31,6 +31,29 @@ public class AutomationRepository {
     public AutomationRepository(Firestore firestore) {
         this.firestore = firestore;
     }
+    
+    /** Every automation across every user — admin-only, uses collectionGroup like findAllPendingNextPost. */
+public List<OwnedAutomation> findAllAcrossUsers() {
+    try {
+        List<QueryDocumentSnapshot> docs = firestore
+                .collectionGroup(AUTOMATIONS_SUBCOLLECTION)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .get().get()
+                .getDocuments();
+
+        List<OwnedAutomation> out = new ArrayList<>();
+        for (QueryDocumentSnapshot doc : docs) {
+            Automation a = doc.toObject(Automation.class);
+            if (a == null) continue;
+            String uid = extractOwnerUid(doc);
+            if (uid == null) continue;
+            out.add(new OwnedAutomation(uid, a));
+        }
+        return out;
+    } catch (InterruptedException | ExecutionException e) {
+        throw wrap("findAllAcrossUsers", e);
+    }
+}
 
     private CollectionReference collection(String uid) {
         return firestore.collection(USERS_COLLECTION)
