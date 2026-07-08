@@ -1,12 +1,13 @@
 package com.creatorengine.media.controller;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.creatorengine.common.ApiResponse;
 import com.creatorengine.exception.BadRequestException;
 import com.creatorengine.security.SecurityUtils;
-import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.Bucket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,16 +16,14 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 /**
  * Handles image uploads for automation DM steps (Send Image action).
- * Images are stored in Firebase Storage and made public, since Instagram's
- * Send API fetches attachment images by URL server-side - it cannot accept
- * raw bytes or authenticated/private URLs.
+ * Images are stored in Cloudinary and served over its CDN, since
+ * Instagram's Send API fetches attachment images by URL server-side -
+ * it cannot accept raw bytes or authenticated/private URLs.
  */
 @RestController
 @RequestMapping("/api/media")
@@ -37,16 +36,22 @@ public class MediaUploadController {
             "image/jpeg", "image/png", "image/webp", "image/gif"
     );
 
-    private final Bucket bucket;
+    private final Cloudinary cloudinary;
 
-    public MediaUploadController(Bucket bucket) {
-        this.bucket = bucket;
+    public MediaUploadController(Cloudinary cloudinary) {
+        this.cloudinary = cloudinary;
     }
 
     @PostMapping("/dm-image")
     public ResponseEntity<ApiResponse<Map<String, String>>> uploadDmImage(
             @RequestParam("file") MultipartFile file
     ) throws IOException {
+        if (cloudinary == null) {
+            log.warn("Image upload attempted but Cloudinary is not configured.");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
+                    ApiResponse.error("Image upload isn't set up yet. Add Cloudinary credentials first."));
+        }
+
         String uid = SecurityUtils.getCurrentUserId();
 
         if (file == null || file.isEmpty()) {
@@ -62,34 +67,23 @@ public class MediaUploadController {
             throw new BadRequestException("Only JPEG, PNG, WEBP, or GIF images are allowed.");
         }
 
-        String extension = extensionFor(contentType);
-        String objectPath = "dm-images/%s/%s%s".formatted(uid, UUID.randomUUID(), extension);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> result = cloudinary.uploader().upload(
+                file.getBytes(),
+                ObjectUtils.asMap(
+                        "folder", "creatorengine/dm-images/" + uid,
+                        "resource_type", "image"
+                )
+        );
 
-        Blob blob = bucket.create(objectPath, file.getBytes(), contentType);
-        blob.createAcl(com.google.cloud.storage.Acl.of(
-                com.google.cloud.storage.Acl.User.ofAllUsers(),
-                com.google.cloud.storage.Acl.Role.READER
-        ));
+        String publicUrl = String.valueOf(result.get("secure_url"));
 
-        String publicUrl = "https://storage.googleapis.com/%s/%s"
-                .formatted(bucket.getName(), objectPath);
-
-        log.info("Uploaded DM image for uid={} path={} size={}bytes",
-                uid, objectPath, file.getSize());
+        log.info("Uploaded DM image for uid={} size={}bytes url={}",
+                uid, file.getSize(), publicUrl);
 
         return ResponseEntity.ok(ApiResponse.ok(
                 "Image uploaded.",
                 Map.of("imageUrl", publicUrl)
         ));
-    }
-
-    private static String extensionFor(String contentType) {
-        return switch (contentType) {
-            case "image/jpeg" -> ".jpg";
-            case "image/png" -> ".png";
-            case "image/webp" -> ".webp";
-            case "image/gif" -> ".gif";
-            default -> "";
-        };
     }
 }

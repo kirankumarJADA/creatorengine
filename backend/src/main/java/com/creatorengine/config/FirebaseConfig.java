@@ -2,16 +2,13 @@ package com.creatorengine.config;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.Firestore;
-import com.google.cloud.storage.Bucket;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.cloud.FirestoreClient;
-import com.google.firebase.cloud.StorageClient;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -31,15 +28,6 @@ public class FirebaseConfig {
 
     private final AppProperties props;
 
-    /**
-     * Storage bucket name. Defaults to the project's default bucket (visible
-     * in your frontend Firebase config as `storageBucket`). Override via the
-     * FIREBASE_STORAGE_BUCKET env var / firebase.storage-bucket property if
-     * you ever need a different bucket.
-     */
-    @Value("${firebase.storage-bucket:creatorengine-4eeed.firebasestorage.app}")
-    private String storageBucketName;
-
     public FirebaseConfig(AppProperties props) {
         this.props = props;
     }
@@ -54,8 +42,7 @@ public class FirebaseConfig {
         GoogleCredentials credentials = loadCredentials();
 
         FirebaseOptions.Builder builder = FirebaseOptions.builder()
-                .setCredentials(credentials)
-                .setStorageBucket(storageBucketName);
+                .setCredentials(credentials);
 
         if (StringUtils.hasText(props.getFirebase().getProjectId())) {
             builder.setProjectId(props.getFirebase().getProjectId());
@@ -63,8 +50,8 @@ public class FirebaseConfig {
 
         FirebaseApp.initializeApp(builder.build());
 
-        log.info("Firebase initialised for project '{}' with storage bucket '{}'.",
-                props.getFirebase().getProjectId(), storageBucketName);
+        log.info("Firebase initialised for project '{}'.",
+                props.getFirebase().getProjectId());
     }
 
     @Bean
@@ -75,17 +62,6 @@ public class FirebaseConfig {
     @Bean
     public Firestore firestore() {
         return FirestoreClient.getFirestore();
-    }
-
-    /**
-     * Bean for uploading files (automation DM images, etc.) to Firebase
-     * Storage from the backend. Files uploaded here can be made public and
-     * referenced by URL, which is what Instagram's Send API requires for
-     * image attachments (it fetches the URL server-side - no raw bytes).
-     */
-    @Bean
-    public Bucket firebaseStorageBucket() {
-        return StorageClient.getInstance().bucket();
     }
 
     private GoogleCredentials loadCredentials() throws IOException {
