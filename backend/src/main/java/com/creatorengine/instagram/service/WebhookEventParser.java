@@ -81,6 +81,18 @@ public class WebhookEventParser {
             String fromId = text(value.path("from").path("id"));
 
             // ---------------------------------------------------------------
+            // FIX: Reject comment events where Instagram did not include the
+            // commenter's user id. This happens for private/restricted accounts
+            // and certain ad comments. Without a fromId we cannot send a
+            // Private Reply, so there is no point dispatching the event — it
+            // would only produce "Empty recipient" failures downstream.
+            // ---------------------------------------------------------------
+            if (fromId == null || fromId.isBlank()) {
+                log.warn("Comment webhook missing from.id - skipping (private/restricted account or ad comment).");
+                return null;
+            }
+
+            // ---------------------------------------------------------------
             // CRITICAL SAFETY FILTER (mirror of the DM "is_echo" guard below)
             // Instagram also notifies us about comments the OWNER's own
             // account posted (including this app's public replies to other
@@ -89,7 +101,7 @@ public class WebhookEventParser {
             // to our own reply forever — an infinite spam loop.
             // NEVER react to comments authored by the owning IG account.
             // ---------------------------------------------------------------
-            if (fromId != null && accountId != null && fromId.equals(accountId)) {
+            if (accountId != null && fromId.equals(accountId)) {
                 log.debug("Skipping comment authored by the owning account (self-comment / our own reply).");
                 return null;
             }

@@ -61,6 +61,22 @@ public class ActionExecutor {
                 ctx.event() != null ? ctx.event().username() : null
         );
 
+        // ---------------------------------------------------------------
+        // FIX: Reject send actions with an empty message template.
+        // This prevents "Empty recipient or message" errors from reaching
+        // MetaMessagingService when a user saves an automation without
+        // filling in the message field.
+        // ---------------------------------------------------------------
+        if ((action.getType() == ActionType.SEND_DM
+                || action.getType() == ActionType.SEND_MESSAGE
+                || action.getType() == ActionType.SEND_LINK)
+                && (rendered == null || rendered.isBlank())) {
+            log.warn("Automation action {} has an empty message template - failing early.",
+                    action.getType());
+            return ExecutionResult.failed(null,
+                    "Empty recipient or message. Edit your automation and add a message.");
+        }
+
         return switch (action.getType()) {
             case SEND_DM -> sendDirect(ctx, rendered);
             case SEND_MESSAGE -> sendDirect(ctx, rendered);
