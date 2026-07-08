@@ -6,6 +6,8 @@ import Badge from '../../components/ui/Badge.jsx';
 import Skeleton from '../../components/ui/Skeleton.jsx';
 import adminService from '../../services/adminService.js';
 
+const RENDER_LOGS_URL = 'https://dashboard.render.com/web/srv-d88sup99rddc738ptrv0/logs';
+
 const StatusRow = ({ icon: Icon, label, value, tone }) => (
   <div className="flex items-center justify-between border-b border-ink-100 py-4 last:border-0 dark:border-ink-800">
     <div className="flex items-center gap-3">
@@ -79,15 +81,14 @@ const AdminSystemStatus = () => {
           </>
         )}
 
-        {/* Added '<a' below to fix the syntax error */}
         <a
-          href={status?.renderDashboardUrl || 'https://dashboard.render.com'}
+          href={RENDER_LOGS_URL}
           target="_blank"
           rel="noreferrer"
           className="mt-5 flex items-center justify-center gap-2 rounded-xl border border-ink-200 px-4 py-3 text-sm font-medium text-ink-700 transition-colors hover:bg-ink-50 dark:border-ink-800 dark:text-ink-200 dark:hover:bg-ink-800"
         >
           <ExternalLink size={15} />
-          View Render service status
+          View Render Logs & Deployments
         </a>
       </Card>
     </div>
