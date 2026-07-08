@@ -5,6 +5,8 @@ import com.creatorengine.automation.entity.ActionType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
+
 /**
  * Wire shape for a single action in an automation's chain.
  *
@@ -27,7 +29,16 @@ public record ActionDto(
         String link,
 
         /** DELAY: wait duration in seconds. 1 to 86400 (24h). */
-        Integer delaySeconds
+        Integer delaySeconds,
+
+        /**
+         * SEND_MESSAGE / SEND_DM / SEND_LINK: optional alternate message
+         * texts. When present, the executor randomly rotates between
+         * `message` and each entry here on every send, so the exact same
+         * text isn't sent every time. Null/empty behaves exactly as before.
+         */
+        @Size(max = 10, message = "At most 10 message variations")
+        List<@Size(max = 2000, message = "Variation is too long (max 2000 characters)") String> variations
 ) {
     public Automation.Action toEntity() {
         return Automation.Action.builder()
@@ -35,16 +46,18 @@ public record ActionDto(
                 .link(link == null ? null : link.trim())
                 .message(message)
                 .delaySeconds(delaySeconds)
+                .variations(variations)
                 .build();
     }
 
     public static ActionDto from(Automation.Action a) {
-        if (a == null) return new ActionDto(ActionType.SEND_DM, null, null, null);
+        if (a == null) return new ActionDto(ActionType.SEND_DM, null, null, null, null);
         return new ActionDto(
                 a.getType(),
                 a.getMessage(),
                 a.getLink(),
-                a.getDelaySeconds()
+                a.getDelaySeconds(),
+                a.getVariations()
         );
     }
 }

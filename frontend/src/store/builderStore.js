@@ -19,6 +19,7 @@ export const blankAction = (type = ACTION_TYPE.SEND_MESSAGE) => ({
   type,
   message: '',
   link: '',
+  variations: [],
   delaySeconds: type === ACTION_TYPE.DELAY ? 5 : null,
 });
 
@@ -49,6 +50,10 @@ const normalizeActionsFromBackend = (automation) => {
       type:         a.type ?? ACTION_TYPE.SEND_MESSAGE,
       message:      a.message ?? '',
       link:         a.link ?? '',
+      // FIX: variations was previously dropped here, so any variations
+      // saved to the backend disappeared the moment you reopened the
+      // automation to edit it. Now preserved as an array of strings.
+      variations:   Array.isArray(a.variations) ? a.variations : [],
       delaySeconds: a.delaySeconds ?? null,
     }));
   }
@@ -57,6 +62,7 @@ const normalizeActionsFromBackend = (automation) => {
       type:         automation.action.type ?? ACTION_TYPE.SEND_DM,
       message:      automation.message ?? '',
       link:         automation.action.link ?? '',
+      variations:   Array.isArray(automation.action.variations) ? automation.action.variations : [],
       delaySeconds: null,
     }];
   }
