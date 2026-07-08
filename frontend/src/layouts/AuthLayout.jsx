@@ -10,17 +10,17 @@ import { Rocket, Zap, Users, ShieldCheck, Send, MessageSquare } from 'lucide-rea
  */
 
 const FEATURES = [
-  { icon: Rocket,      label: 'Launch campaigns in minutes' },
   { icon: Users,       label: 'Grow your audience on autopilot' },
   { icon: ShieldCheck, label: 'Enterprise-grade security' },
 ];
 
 const LogoMark = () => (
   <div className="flex items-center gap-3">
-    {/* Swap this span for your existing <img src=... /> logo */}
-    <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-elevated">
-      <Rocket size={20} className="text-white" />
-    </span>
+    <img
+      src="/logo-mark.png"
+      alt="CreatorEngine"
+      className="h-10 w-10 object-contain"
+    />
     <span className="text-lg font-semibold tracking-tight text-white">
       CreatorEngine
     </span>
