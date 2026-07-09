@@ -25,15 +25,6 @@ public class ActionExecutor {
 
     private static final Logger log = LoggerFactory.getLogger(ActionExecutor.class);
 
-    /**
-     * Tracks which (automationId + commentId) pairs have already had a public
-     * reply posted in this process's lifetime. Prevents the chain from posting
-     * the same public reply once per action (we now post at most ONE public
-     * reply per comment per automation, ever, for this process).
-     *
-     * In-memory: capped at 5,000 entries to avoid unbounded growth. Eviction is
-     * a simple oldest-first when full.
-     */
     private static final int MAX_REPLIED_KEYS = 5_000;
     private final ConcurrentHashMap<String, Boolean> publicReplyDone = new ConcurrentHashMap<>();
 
@@ -56,18 +47,20 @@ public class ActionExecutor {
             return ExecutionResult.failed(null, "Action is missing or has no type.");
         }
 
-        String messageTemplate = pickMessageTemplate(action);
+        // ---------------------------------------------------------------
+        // BOT PROTECTION: per-action random jitter delay
+        // Applied before every send action when bot protection is enabled.
+        // Randomizing timing between sends avoids predictable patterns
+        // that Instagram may flag as automated/bot-like behavior.
+        // ---------------------------------------------------------------
+        applyBotProtectionJitter(ctx.automation());
 
+        String messageTemplate = pickMessageTemplate(action);
         String rendered = templateRenderer.renderWithUsername(
                 messageTemplate,
                 ctx.event() != null ? ctx.event().username() : null
         );
 
-        // ---------------------------------------------------------------
-        // FIX: Reject send actions with an empty message template AND no
-        // image attached. An image-only DM (message blank, imageUrl set)
-        // is valid and should NOT be rejected here.
-        // ---------------------------------------------------------------
         boolean hasImage = action.getImageUrl() != null && !action.getImageUrl().isBlank();
 
         if ((action.getType() == ActionType.SEND_DM
@@ -105,12 +98,6 @@ public class ActionExecutor {
         return execute(ctx, actions.get(0));
     }
 
-    /**
-     * Follow-gate ASK: post the public reply (if enabled), then send the
-     * "please follow" DM with an "I Followed ✅" button as a private reply to
-     * the comment. The button's payload carries the automation id so the tap
-     * later delivers this automation's content.
-     */
     public ExecutionResult executeFollowGateAsk(ExecutionContext ctx) {
         InstagramAccount acct = ctx.connectedAccount();
         if (acct == null) {
@@ -123,6 +110,9 @@ public class ActionExecutor {
         }
 
         Automation automation = ctx.automation();
+
+        // BOT PROTECTION jitter before follow-gate ask
+        applyBotProtectionJitter(automation);
 
         String askText = templateRenderer.renderWithUsername(
                 automation.getFollowGateMessage(),
@@ -160,13 +150,6 @@ public class ActionExecutor {
         return ExecutionResult.failed(askText, result.error(), result.httpStatus());
     }
 
-    /**
-     * Public-reply-only path: post a public reply to the triggering comment
-     * without sending any DM and without using the follow gate. Used when the
-     * automation has no action chain but the user enabled "Publicly reply to
-     * comments". Returns a successful result if the reply was posted, failed
-     * otherwise.
-     */
     public ExecutionResult executePublicReplyOnly(ExecutionContext ctx) {
         InstagramAccount acct = ctx.connectedAccount();
         if (acct == null) {
@@ -193,7 +176,6 @@ public class ActionExecutor {
             return ExecutionResult.failed(null, "No active public reply templates.");
         }
 
-        // De-duplication: only one public reply per (automation, comment).
         String dedupKey = automation.getId() + ":" + commentId;
         if (publicReplyDone.putIfAbsent(dedupKey, Boolean.TRUE) != null) {
             log.debug("Public reply already posted for {}, skipping.", dedupKey);
@@ -214,7 +196,6 @@ public class ActionExecutor {
             if (result.success()) {
                 log.info("Public-reply-only posted on comment_id={} (automation={})",
                         commentId, automation.getId());
-                // Save the contact too, so the commenter shows up in your contacts list.
                 contactService.recordFromEvent(ctx.uid(), event, reply);
                 return ExecutionResult.sent(reply, result.messageId());
             }
@@ -224,6 +205,37 @@ public class ActionExecutor {
             publicReplyDone.remove(dedupKey);
             log.warn("Public-reply-only threw for comment_id={}: {}", commentId, ex.getMessage());
             return ExecutionResult.failed(reply, "Public reply exception: " + ex.getMessage(), null);
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // BOT PROTECTION: random jitter sleep
+    // Sleeps for a random duration between min and max delay seconds
+    // configured on the automation. Only applied when bot protection
+    // is enabled. Safe to call from any thread - uses Thread.sleep
+    // which is fine inside the QueueWorker thread pool.
+    // ---------------------------------------------------------------
+    private static void applyBotProtectionJitter(Automation automation) {
+        if (automation == null || !automation.getBotProtectionEnabled()) {
+            return;
+        }
+
+        int minMs = Math.max(0, automation.getBotProtectionMinDelaySeconds()) * 1000;
+        int maxMs = Math.max(minMs, automation.getBotProtectionMaxDelaySeconds() * 1000);
+
+        if (minMs == maxMs) {
+            return; // No range, no jitter
+        }
+
+        int jitterMs = ThreadLocalRandom.current().nextInt(minMs, maxMs + 1);
+
+        try {
+            log.debug("Bot protection jitter: sleeping {}ms (range {}-{}ms)",
+                    jitterMs, minMs, maxMs);
+            Thread.sleep(jitterMs);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            log.debug("Bot protection jitter interrupted.");
         }
     }
 
@@ -251,14 +263,6 @@ public class ActionExecutor {
         boolean hasImage = imageUrl != null && !imageUrl.isBlank();
         boolean hasText = message != null && !message.isBlank();
 
-        // ---------------------------------------------------------------
-        // SEND IMAGE (if configured)
-        // Image and text are sent as two separate Instagram API calls -
-        // there's no combined "text + image in one message" payload on the
-        // Send API. We send the image first, then the text (if any).
-        // An image-only DM (no text) is valid - we simply skip the text
-        // call in that case instead of failing on "empty message".
-        // ---------------------------------------------------------------
         SendResult imageResult = null;
         if (hasImage) {
             imageResult = metaMessaging.sendImage(recipient, imageUrl, tokenCtx);
@@ -289,28 +293,16 @@ public class ActionExecutor {
         return ExecutionResult.failed(message, result.error(), result.httpStatus());
     }
 
-    /**
-     * Post the public reply at most ONCE per (automation, comment) pair.
-     * Earlier the method was called once per action in the chain, which is why
-     * a 3-action automation produced 3 public replies on a single comment.
-     */
     private void maybePostPublicReply(ExecutionContext ctx, AccessTokenContext tokenCtx) {
         var event = ctx.event();
-        if (event == null || event.type() != EventType.COMMENT) {
-            return;
-        }
+        if (event == null || event.type() != EventType.COMMENT) return;
 
         Automation automation = ctx.automation();
-        if (automation == null || !automation.getPublicReplyEnabled()) {
-            return;
-        }
+        if (automation == null || !automation.getPublicReplyEnabled()) return;
 
         String commentId = event.commentId();
-        if (commentId == null || commentId.isBlank()) {
-            return;
-        }
+        if (commentId == null || commentId.isBlank()) return;
 
-        // De-duplication: only one public reply per (automation, comment) pair.
         String dedupKey = automation.getId() + ":" + commentId;
         if (publicReplyDone.putIfAbsent(dedupKey, Boolean.TRUE) != null) {
             log.debug("Public reply already posted for {}, skipping.", dedupKey);
@@ -319,9 +311,7 @@ public class ActionExecutor {
         evictIfFull();
 
         List<String> active = activeReplyTexts(automation);
-        if (active.isEmpty()) {
-            return;
-        }
+        if (active.isEmpty()) return;
 
         String template = active.get(ThreadLocalRandom.current().nextInt(active.size()));
         String reply = templateRenderer.renderWithUsername(template, event.username());
@@ -341,9 +331,6 @@ public class ActionExecutor {
         }
     }
 
-    /**
-     * Cheap bound on memory: clear half the map if it grows too large.
-     */
     private void evictIfFull() {
         if (publicReplyDone.size() > MAX_REPLIED_KEYS) {
             int target = MAX_REPLIED_KEYS / 2;
@@ -356,10 +343,7 @@ public class ActionExecutor {
 
     private static List<String> activeReplyTexts(Automation automation) {
         var replies = automation.getPublicReplies();
-        if (replies == null || replies.isEmpty()) {
-            return List.of();
-        }
-
+        if (replies == null || replies.isEmpty()) return List.of();
         return replies.stream()
                 .filter(r -> r != null && r.getEnabled())
                 .map(Automation.PublicReply::getText)
@@ -371,16 +355,13 @@ public class ActionExecutor {
         String lastMessage = renderedMessage != null && !renderedMessage.isBlank()
                 ? renderedMessage
                 : (ctx.event() != null ? ctx.event().message() : null);
-
         contactService.recordFromEvent(ctx.uid(), ctx.event(), lastMessage);
         return ExecutionResult.savedOnly(lastMessage);
     }
 
     private Recipient recipientFor(ExecutionContext ctx) {
         var event = ctx.event();
-        if (event == null) {
-            return null;
-        }
+        if (event == null) return null;
 
         if (event.type() == EventType.COMMENT) {
             String commentId = event.commentId();
@@ -392,22 +373,10 @@ public class ActionExecutor {
         }
 
         String senderId = event.instagramUserId();
-        if (senderId == null || senderId.isBlank()) {
-            return null;
-        }
-
+        if (senderId == null || senderId.isBlank()) return null;
         return new ByUserId(senderId);
     }
 
-    /**
-     * MESSAGE VARIATIONS
-     * Combines the primary `message` with any extra `variations` into one
-     * pool of candidate texts, then picks one at random each time the action
-     * runs. This helps avoid Instagram flagging the account for sending the
-     * exact same message repeatedly. If no variations are configured, the
-     * pool is just the single `message` - behavior is unchanged for existing
-     * automations.
-     */
     private static String pickMessageTemplate(Automation.Action action) {
         List<String> pool = new java.util.ArrayList<>();
 
@@ -421,26 +390,14 @@ public class ActionExecutor {
                     .forEach(pool::add);
         }
 
-        if (pool.isEmpty()) {
-            return action.getMessage();
-        }
-
-        if (pool.size() == 1) {
-            return pool.get(0);
-        }
-
+        if (pool.isEmpty()) return action.getMessage();
+        if (pool.size() == 1) return pool.get(0);
         return pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
     }
 
     private static String appendLink(String message, String link) {
-        if (link == null || link.isBlank()) {
-            return message;
-        }
-
-        if (message == null || message.isBlank()) {
-            return link;
-        }
-
+        if (link == null || link.isBlank()) return message;
+        if (message == null || message.isBlank()) return link;
         return message.contains(link) ? message : message + "\n" + link;
     }
 }

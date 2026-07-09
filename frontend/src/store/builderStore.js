@@ -42,6 +42,9 @@ const emptyDraft = () => ({
   followGateEnabled: false,
   followGateMessage: '',
   followGateButtonLabel: '',
+  botProtectionEnabled: false,
+  botProtectionMinDelaySeconds: 2,
+  botProtectionMaxDelaySeconds: 8,
   enabled: true,
 });
 
@@ -120,6 +123,9 @@ export const useBuilderStore = create((set, get) => ({
       followGateEnabled: automation.followGateEnabled === true,
       followGateMessage: automation.followGateMessage ?? '',
       followGateButtonLabel: automation.followGateButtonLabel ?? '',
+      botProtectionEnabled: automation.botProtectionEnabled === true,
+      botProtectionMinDelaySeconds: automation.botProtectionMinDelaySeconds ?? 2,
+      botProtectionMaxDelaySeconds: automation.botProtectionMaxDelaySeconds ?? 8,
       enabled: automation.enabled !== false,
     },
   }),
@@ -216,6 +222,15 @@ export const useBuilderStore = create((set, get) => ({
 
   setFollowGateButtonLabel: (followGateButtonLabel) =>
     set((s) => ({ draft: { ...s.draft, followGateButtonLabel } })),
+
+  setBotProtectionEnabled: (botProtectionEnabled) =>
+    set((s) => ({ draft: { ...s.draft, botProtectionEnabled } })),
+
+  setBotProtectionMinDelay: (botProtectionMinDelaySeconds) =>
+    set((s) => ({ draft: { ...s.draft, botProtectionMinDelaySeconds } })),
+
+  setBotProtectionMaxDelay: (botProtectionMaxDelaySeconds) =>
+    set((s) => ({ draft: { ...s.draft, botProtectionMaxDelaySeconds } })),
 
   setActionType: (type) =>
     set((s) => ({ draft: { ...s.draft, action: { ...s.draft.action, type } } })),

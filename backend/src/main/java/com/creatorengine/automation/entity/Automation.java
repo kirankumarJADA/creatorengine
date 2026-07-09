@@ -28,6 +28,19 @@ public class Automation {
     private boolean followGateEnabled = false;
     private String followGateMessage;
     private String followGateButtonLabel;
+
+    // ---------------------------------------------------------------
+    // BOT PROTECTION
+    // When enabled, the engine adds a random jitter delay before each
+    // send action and before processing each job (per-user) to avoid
+    // predictable timing patterns that Instagram may flag as bot-like.
+    // Message Variations (on each Action) are also part of bot protection
+    // and prevent identical text being sent on every trigger.
+    // ---------------------------------------------------------------
+    private boolean botProtectionEnabled = false;
+    private int botProtectionMinDelaySeconds = 2;
+    private int botProtectionMaxDelaySeconds = 8;
+
     private long runCount;
     private long successCount;
     private Date createdAt;
@@ -43,7 +56,9 @@ public class Automation {
             List<Action> actions, boolean enabled, int cooldownMinutes,
             boolean publicReplyEnabled, List<PublicReply> publicReplies,
             boolean followGateEnabled, String followGateMessage,
-            String followGateButtonLabel, long runCount, long successCount,
+            String followGateButtonLabel,
+            boolean botProtectionEnabled, int botProtectionMinDelaySeconds, int botProtectionMaxDelaySeconds,
+            long runCount, long successCount,
             Date createdAt, Date updatedAt
     ) {
         this.id = id;
@@ -64,6 +79,9 @@ public class Automation {
         this.followGateEnabled = followGateEnabled;
         this.followGateMessage = followGateMessage;
         this.followGateButtonLabel = followGateButtonLabel;
+        this.botProtectionEnabled = botProtectionEnabled;
+        this.botProtectionMinDelaySeconds = botProtectionMinDelaySeconds;
+        this.botProtectionMaxDelaySeconds = botProtectionMaxDelaySeconds;
         this.runCount = runCount;
         this.successCount = successCount;
         this.createdAt = createdAt;
@@ -108,6 +126,12 @@ public class Automation {
     public void setFollowGateMessage(String followGateMessage) { this.followGateMessage = followGateMessage; }
     public String getFollowGateButtonLabel() { return followGateButtonLabel; }
     public void setFollowGateButtonLabel(String followGateButtonLabel) { this.followGateButtonLabel = followGateButtonLabel; }
+    public boolean getBotProtectionEnabled() { return botProtectionEnabled; }
+    public void setBotProtectionEnabled(boolean botProtectionEnabled) { this.botProtectionEnabled = botProtectionEnabled; }
+    public int getBotProtectionMinDelaySeconds() { return botProtectionMinDelaySeconds; }
+    public void setBotProtectionMinDelaySeconds(int v) { this.botProtectionMinDelaySeconds = v; }
+    public int getBotProtectionMaxDelaySeconds() { return botProtectionMaxDelaySeconds; }
+    public void setBotProtectionMaxDelaySeconds(int v) { this.botProtectionMaxDelaySeconds = v; }
     public long getRunCount() { return runCount; }
     public void setRunCount(long runCount) { this.runCount = runCount; }
     public long getSuccessCount() { return successCount; }
@@ -169,6 +193,9 @@ public class Automation {
         private boolean followGateEnabled = false;
         private String followGateMessage;
         private String followGateButtonLabel;
+        private boolean botProtectionEnabled = false;
+        private int botProtectionMinDelaySeconds = 2;
+        private int botProtectionMaxDelaySeconds = 8;
         private long runCount;
         private long successCount;
         private Date createdAt;
@@ -192,6 +219,9 @@ public class Automation {
         public AutomationBuilder followGateEnabled(boolean followGateEnabled) { this.followGateEnabled = followGateEnabled; return this; }
         public AutomationBuilder followGateMessage(String followGateMessage) { this.followGateMessage = followGateMessage; return this; }
         public AutomationBuilder followGateButtonLabel(String followGateButtonLabel) { this.followGateButtonLabel = followGateButtonLabel; return this; }
+        public AutomationBuilder botProtectionEnabled(boolean botProtectionEnabled) { this.botProtectionEnabled = botProtectionEnabled; return this; }
+        public AutomationBuilder botProtectionMinDelaySeconds(int v) { this.botProtectionMinDelaySeconds = v; return this; }
+        public AutomationBuilder botProtectionMaxDelaySeconds(int v) { this.botProtectionMaxDelaySeconds = v; return this; }
         public AutomationBuilder runCount(long runCount) { this.runCount = runCount; return this; }
         public AutomationBuilder successCount(long successCount) { this.successCount = successCount; return this; }
         public AutomationBuilder createdAt(Date createdAt) { this.createdAt = createdAt; return this; }
@@ -205,6 +235,7 @@ public class Automation {
                     enabled, cooldownMinutes,
                     publicReplyEnabled, publicReplies,
                     followGateEnabled, followGateMessage, followGateButtonLabel,
+                    botProtectionEnabled, botProtectionMinDelaySeconds, botProtectionMaxDelaySeconds,
                     runCount, successCount, createdAt, updatedAt
             );
         }
@@ -248,32 +279,9 @@ public class Automation {
         private String message;
         private Integer delaySeconds;
         private List<String> variations;
-
-        // ---------------------------------------------------------------
-        // NEW: Send Image in DM
-        // Public Firebase Storage URL for an image attachment. Instagram's
-        // Send API fetches images by URL server-side, so this must be a
-        // publicly-readable URL (see MediaUploadController). Optional -
-        // null/blank means no image is attached, unchanged behavior.
-        // ---------------------------------------------------------------
         private String imageUrl;
 
         public Action() {}
-        public Action(ActionType type, String link, String message, Integer delaySeconds) {
-            this.type = type;
-            this.link = link;
-            this.message = message;
-            this.delaySeconds = delaySeconds;
-        }
-
-        public Action(ActionType type, String link, String message, Integer delaySeconds, List<String> variations) {
-            this.type = type;
-            this.link = link;
-            this.message = message;
-            this.delaySeconds = delaySeconds;
-            this.variations = variations;
-        }
-
         public Action(ActionType type, String link, String message, Integer delaySeconds, List<String> variations, String imageUrl) {
             this.type = type;
             this.link = link;

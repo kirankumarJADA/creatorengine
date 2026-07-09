@@ -200,6 +200,9 @@ const AutomationBuilder = () => {
       followGateEnabled,
       followGateMessage,
       followGateButtonLabel,
+      botProtectionEnabled: draft.botProtectionEnabled === true,
+      botProtectionMinDelaySeconds: draft.botProtectionMinDelaySeconds ?? 2,
+      botProtectionMaxDelaySeconds: draft.botProtectionMaxDelaySeconds ?? 8,
       enabled: draft.enabled,
     };
 

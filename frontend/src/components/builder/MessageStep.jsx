@@ -3,16 +3,12 @@ import { Hourglass, UserCheck, MessageCircle, Link2, ArrowDown } from 'lucide-re
 import DmPreview from './DmPreview.jsx';
 import PublicReplyEditor from './PublicReplyEditor.jsx';
 import FollowGateEditor from './FollowGateEditor.jsx';
+import BotProtectionEditor from './BotProtectionEditor.jsx';
 import { useBuilderStore } from '../../store/builderStore.js';
 import { renderTemplate } from '../../utils/automationEngine.js';
 import { ACTION_TYPE } from '../../utils/constants.js';
 import { cn } from '../../utils/helpers.js';
 
-/**
- * Preview step — renders the multi-action chain with {{username}}
- * substituted, then hosts the comment-only engagement settings:
- * public replies and the follow gate.
- */
 const MessageStep = () => {
   const actions = useBuilderStore((s) => s.draft.actions);
   const [previewName, setPreviewName] = useState('aria.patel');
@@ -64,6 +60,9 @@ const MessageStep = () => {
       {/* Comment-only engagement settings */}
       <PublicReplyEditor />
       <FollowGateEditor />
+
+      {/* Bot Protection — always shown, applies to all trigger types */}
+      <BotProtectionEditor />
     </div>
   );
 };
@@ -75,6 +74,13 @@ const StepPreview = ({ index, action, previewName }) => {
   if (action.type === ACTION_TYPE.SEND_MESSAGE || action.type === ACTION_TYPE.SEND_DM) {
     return (
       <PreviewShell index={index} icon={MessageCircle} label="Send message">
+        {action.imageUrl && (
+          <img
+            src={action.imageUrl}
+            alt="DM image"
+            className="mb-2 h-24 w-24 rounded-lg object-cover"
+          />
+        )}
         <DmPreview message={renderTemplate(action.message, variables)} />
       </PreviewShell>
     );
@@ -87,6 +93,13 @@ const StepPreview = ({ index, action, previewName }) => {
       : rendered;
     return (
       <PreviewShell index={index} icon={Link2} label="Send link">
+        {action.imageUrl && (
+          <img
+            src={action.imageUrl}
+            alt="DM image"
+            className="mb-2 h-24 w-24 rounded-lg object-cover"
+          />
+        )}
         <DmPreview message={withLink} />
       </PreviewShell>
     );
