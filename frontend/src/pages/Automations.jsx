@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Workflow, Pencil, Trash2,
   MessageSquare, AtSign, Send, Link2, UserCheck,
-  PlayCircle, ChevronLeft, ChevronRight, ArrowRight,
+  PlayCircle, ChevronLeft, ChevronRight, ArrowRight, Clock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -18,7 +18,6 @@ import EmptyState from '../components/ui/EmptyState.jsx';
 import Modal from '../components/ui/Modal.jsx';
 import Button from '../components/form/Button.jsx';
 import SimulatorModal from '../components/builder/SimulatorModal.jsx';
-import TemplatePickerModal from '../components/builder/TemplatePickerModal.jsx';
 
 import { useAutomationStore } from '../store/automationStore.js';
 import {
@@ -33,6 +32,7 @@ const TRIGGER_ICON = {
   [TRIGGER_TYPE.COMMENT]:     MessageSquare,
   [TRIGGER_TYPE.DM]:          Send,
   [TRIGGER_TYPE.STORY_REPLY]: AtSign,
+  [TRIGGER_TYPE.NEXT_POST]:   Clock,
 };
 const ACTION_ICON = {
   [ACTION_TYPE.SEND_DM]:      Send,
@@ -64,7 +64,6 @@ const Automations = () => {
   const [page, setPage]                   = useState(1);
   const [deletingId, setDeletingId]       = useState(null);
   const [testingAutomation, setTesting]   = useState(null);
-  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   useEffect(() => { fetchAutomations(); }, [fetchAutomations]);
 
@@ -91,8 +90,7 @@ const Automations = () => {
     return filtered.slice(start, start + PAGE_SIZE);
   }, [filtered, page]);
 
-  // Opens the template picker instead of going straight to builder
-  const handleCreate = () => setShowTemplatePicker(true);
+  const handleCreate = () => navigate(ROUTES.AUTOMATION_NEW);
   const handleEdit   = (id) => navigate(buildRoute.automationEdit(id));
   const handleToggle = (id) => toggleAutomation(id);
 
@@ -182,13 +180,6 @@ const Automations = () => {
         </>
       )}
 
-      {/* Template picker modal */}
-      <TemplatePickerModal
-        open={showTemplatePicker}
-        onClose={() => setShowTemplatePicker(false)}
-      />
-
-      {/* Delete confirmation modal */}
       <Modal
         open={Boolean(deletingId)}
         onClose={() => setDeletingId(null)}
@@ -297,10 +288,10 @@ const AutomationCard = ({ automation, onToggle, onEdit, onDelete, onTest, index 
             size="sm"
           />
           <div className="flex items-center gap-1 opacity-70 transition-opacity group-hover:opacity-100">
-            <IconButton size="sm" aria-label="Test"   onClick={onTest}>
+            <IconButton size="sm" aria-label="Test" onClick={onTest}>
               <PlayCircle size={14} />
             </IconButton>
-            <IconButton size="sm" aria-label="Edit"   onClick={onEdit}>
+            <IconButton size="sm" aria-label="Edit" onClick={onEdit}>
               <Pencil size={14} />
             </IconButton>
             <IconButton size="sm" tone="danger" aria-label="Delete" onClick={onDelete}>

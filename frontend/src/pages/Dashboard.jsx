@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   Workflow, Zap, Users, MessageSquare,
   Plus, Send, UserPlus, Play, Inbox,
@@ -14,7 +14,6 @@ import Skeleton from '../components/ui/Skeleton.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import Button from '../components/form/Button.jsx';
 import OnboardingChecklist from '../components/dashboard/OnboardingChecklist.jsx';
-import TemplatePickerModal from '../components/builder/TemplatePickerModal.jsx';
 
 import { useAuthStore } from '../store/authStore.js';
 import { useAutomationStore } from '../store/automationStore.js';
@@ -24,18 +23,16 @@ import { ROUTES, TRIGGER_LABEL } from '../utils/constants.js';
 import { cn } from '../utils/helpers.js';
 
 const Dashboard = () => {
-  const navigate  = useNavigate();
-  const user      = useAuthStore((s) => s.user);
+  const user = useAuthStore((s) => s.user);
   const firstName = user?.name?.split(' ')[0] || 'there';
 
-  const automations      = useAutomationStore((s) => s.automations);
+  const automations    = useAutomationStore((s) => s.automations);
   const fetchAutomations = useAutomationStore((s) => s.fetchAutomations);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [logs, setLogs]           = useState([]);
-  const [contacts, setContacts]   = useState([]);
-  const [igStatus, setIgStatus]   = useState(null);
-  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [isLoading, setIsLoading]   = useState(true);
+  const [logs, setLogs]             = useState([]);
+  const [contacts, setContacts]     = useState([]);
+  const [igStatus, setIgStatus]     = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,13 +52,13 @@ const Dashboard = () => {
     return () => { cancelled = true; };
   }, [fetchAutomations]);
 
-  const igConnected    = Boolean(igStatus?.username) || logs.length > 0;
-  const hasAutomations = automations.length > 0;
-  const hasActivity    = logs.length > 0;
+  const igConnected     = Boolean(igStatus?.username) || logs.length > 0;
+  const hasAutomations  = automations.length > 0;
+  const hasActivity     = logs.length > 0;
 
-  const activeCount   = automations.filter((a) => a.enabled).length;
-  const contactsCount = contacts.length;
-  const sentLast7d    = useMemo(() => countSentLast7d(logs), [logs]);
+  const activeCount     = automations.filter((a) => a.enabled).length;
+  const contactsCount   = contacts.length;
+  const sentLast7d      = useMemo(() => countSentLast7d(logs), [logs]);
 
   const stats = [
     { label: 'Total automations',  value: automations.length, icon: Workflow,      tone: 'brand'   },
@@ -79,9 +76,9 @@ const Dashboard = () => {
         title={`Welcome back, ${firstName}`}
         description="Here's what's happening across your workspace."
         actions={
-          <Button leftIcon={Plus} onClick={() => setShowTemplatePicker(true)}>
-            New automation
-          </Button>
+          <Link to={ROUTES.AUTOMATION_NEW}>
+            <Button leftIcon={Plus}>New automation</Button>
+          </Link>
         }
       />
 
@@ -105,19 +102,13 @@ const Dashboard = () => {
                 <Skeleton className="h-3 w-2/3" />
               </Card>
             ))
-          : stats.map((s) => <StatCard key={s.label} {...s} />)}
+          : stats.map((s, i) => <StatCard key={s.label} index={i} {...s} />)}
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3 lg:mt-8">
         <RecentActivity isLoading={isLoading} items={recentActivity} />
         <ActiveAutomationsPreview isLoading={isLoading} automations={activeAutomations} />
       </div>
-
-      {/* Template picker modal */}
-      <TemplatePickerModal
-        open={showTemplatePicker}
-        onClose={() => setShowTemplatePicker(false)}
-      />
     </div>
   );
 };
@@ -175,7 +166,7 @@ const RecentActivity = ({ isLoading, items }) => (
         <h3 className="text-lg font-semibold text-ink-900 dark:text-ink-100">Recent activity</h3>
         <p className="text-sm text-ink-500 dark:text-ink-400">Live events from your workspace.</p>
       </div>
-      <Link to="/activity" className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300">
+      <Link to="/activity" className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
         View all
       </Link>
     </div>
@@ -230,7 +221,7 @@ const ActiveAutomationsPreview = ({ isLoading, automations }) => (
         <h3 className="text-lg font-semibold text-ink-900 dark:text-ink-100">Active automations</h3>
         <p className="text-sm text-ink-500 dark:text-ink-400">Running right now.</p>
       </div>
-      <Link to={ROUTES.AUTOMATIONS} className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300">
+      <Link to={ROUTES.AUTOMATIONS} className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
         See all
       </Link>
     </div>
