@@ -34,8 +34,7 @@ const BotProtectionEditor = () => {
           <div>
             <p className="font-semibold text-ink-900 dark:text-ink-100">Bot Protection</p>
             <p className="text-sm text-ink-500 dark:text-ink-400">
-              Randomise timing to avoid Instagram flagging this automation
-            </p>
+                 Premium Bot Protection uses intelligent message rotation and natural timing to create authentic conversations while preserving your automation flow.i changed it         </p>
           </div>
         </div>
 
