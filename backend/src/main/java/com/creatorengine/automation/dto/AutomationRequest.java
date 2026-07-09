@@ -48,11 +48,18 @@ public record AutomationRequest(
         String followGateMessage,
 
         @Size(max = 20, message = "Button label is too long (max 20 characters)")
-        String followGateButtonLabel
+        String followGateButtonLabel,
+
+        // BOT PROTECTION fields — all optional, safe defaults applied in toEntity()
+        Boolean botProtectionEnabled,
+        Integer botProtectionMinDelaySeconds,
+        Integer botProtectionMaxDelaySeconds
 ) {
 
     private static final int MIN_DELAY_SECONDS = 1;
     private static final int MAX_DELAY_SECONDS = 24 * 60 * 60;
+    private static final int BOT_MIN_JITTER = 0;
+    private static final int BOT_MAX_JITTER = 60;
 
     public void validate() {
         if (condition.type() == ConditionType.KEYWORD) {
@@ -79,9 +86,6 @@ public record AutomationRequest(
         boolean hasPublicReply = Boolean.TRUE.equals(publicReplyEnabled);
         boolean hasFollowGate = Boolean.TRUE.equals(followGateEnabled);
 
-        // The automation must DO something: at least one action chain,
-        // OR a public reply, OR a follow gate. An automation with none
-        // of these is a no-op and should be rejected.
         if (!hasActions && !hasLegacyAction && !hasPublicReply && !hasFollowGate) {
             throw new BadRequestException(
                     "Add a DM, a public reply, or a follow gate — the automation has to do something.");
@@ -109,6 +113,18 @@ public record AutomationRequest(
             throw new BadRequestException(
                     "Add a follow message, or turn off 'Ask to follow first'.");
         }
+
+        // Validate bot protection delay range if provided
+        if (Boolean.TRUE.equals(botProtectionEnabled)) {
+            int min = botProtectionMinDelaySeconds != null ? botProtectionMinDelaySeconds : 2;
+            int max = botProtectionMaxDelaySeconds != null ? botProtectionMaxDelaySeconds : 8;
+            if (min < BOT_MIN_JITTER || min > BOT_MAX_JITTER) {
+                throw new BadRequestException("Bot protection min delay must be between 0 and 60 seconds.");
+            }
+            if (max < min || max > BOT_MAX_JITTER) {
+                throw new BadRequestException("Bot protection max delay must be >= min and <= 60 seconds.");
+            }
+        }
     }
 
     private PostTargetMode resolveTargetPostMode() {
@@ -134,13 +150,9 @@ public record AutomationRequest(
                     if (a.link() == null || a.link().isBlank()) {
                         throw new BadRequestException("Action " + human + ": link is required for SEND_LINK.");
                     }
-                    // Message is now optional for SEND_LINK as well — the link alone is meaningful.
                     break;
                 case SEND_MESSAGE:
                 case SEND_DM:
-                    // Message no longer required — public-reply-only automations need this.
-                    // (The frontend already drops empty SEND_DM/SEND_MESSAGE actions before save,
-                    //  so in practice these shouldn't be empty when they reach here.)
                     break;
                 case DELAY:
                     Integer secs = a.delaySeconds();
@@ -160,9 +172,7 @@ public record AutomationRequest(
     }
 
     private void validateLegacyAction() {
-        if (action == null || action.type() == null) {
-            return;
-        }
+        if (action == null || action.type() == null) return;
         if (action.type() == ActionType.SEND_LINK
                 && (action.link() == null || action.link().isBlank())) {
             throw new BadRequestException("Link is required when action type is SEND_LINK.");
@@ -189,7 +199,16 @@ public record AutomationRequest(
                 .followGateButtonLabel(
                         followGateButtonLabel == null || followGateButtonLabel.isBlank()
                                 ? "I Followed ✅"
-                                : followGateButtonLabel.trim());
+                                : followGateButtonLabel.trim())
+                .botProtectionEnabled(Boolean.TRUE.equals(botProtectionEnabled))
+                .botProtectionMinDelaySeconds(
+                        botProtectionMinDelaySeconds != null
+                                ? Math.max(BOT_MIN_JITTER, Math.min(botProtectionMinDelaySeconds, BOT_MAX_JITTER))
+                                : 2)
+                .botProtectionMaxDelaySeconds(
+                        botProtectionMaxDelaySeconds != null
+                                ? Math.max(BOT_MIN_JITTER, Math.min(botProtectionMaxDelaySeconds, BOT_MAX_JITTER))
+                                : 8);
 
         if (publicReplies != null) {
             builder.publicReplies(publicReplies.stream()
