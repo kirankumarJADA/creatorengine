@@ -1,15 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
-  Workflow,
-  Zap,
-  Users,
-  MessageSquare,
-  Plus,
-  Send,
-  UserPlus,
-  Play,
-  Inbox,
+  Workflow, Zap, Users, MessageSquare,
+  Plus, Send, UserPlus, Play, Inbox,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -21,6 +14,7 @@ import Skeleton from '../components/ui/Skeleton.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import Button from '../components/form/Button.jsx';
 import OnboardingChecklist from '../components/dashboard/OnboardingChecklist.jsx';
+import TemplatePickerModal from '../components/builder/TemplatePickerModal.jsx';
 
 import { useAuthStore } from '../store/authStore.js';
 import { useAutomationStore } from '../store/automationStore.js';
@@ -29,33 +23,22 @@ import SystemStatus from '../components/dashboard/SystemStatus.jsx';
 import { ROUTES, TRIGGER_LABEL } from '../utils/constants.js';
 import { cn } from '../utils/helpers.js';
 
-/**
- * Real-data dashboard.
- *
- *   [onboarding checklist (until all 3 steps done)]
- *   [4 stat cards across the top]
- *   [Recent activity (2/3)] [Active automations preview (1/3)]
- *
- * All counts and feed items come from the live backend — automations
- * via {@link useAutomationStore}, logs/contacts/IG status via
- * {@link dashboardService}. Empty states are honest: a brand-new
- * account sees zeros, not someone else's stats.
- */
 const Dashboard = () => {
-  const user = useAuthStore((s) => s.user);
+  const navigate  = useNavigate();
+  const user      = useAuthStore((s) => s.user);
   const firstName = user?.name?.split(' ')[0] || 'there';
 
-  const automations    = useAutomationStore((s) => s.automations);
+  const automations      = useAutomationStore((s) => s.automations);
   const fetchAutomations = useAutomationStore((s) => s.fetchAutomations);
 
-  const [isLoading, setIsLoading]   = useState(true);
-  const [logs, setLogs]             = useState([]);
-  const [contacts, setContacts]     = useState([]);
-  const [igStatus, setIgStatus]     = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [logs, setLogs]           = useState([]);
+  const [contacts, setContacts]   = useState([]);
+  const [igStatus, setIgStatus]   = useState(null);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-
     const load = async () => {
       setIsLoading(true);
       const [, snapshot] = await Promise.all([
@@ -68,19 +51,17 @@ const Dashboard = () => {
       setIgStatus(snapshot.igStatus);
       setIsLoading(false);
     };
-
     load();
     return () => { cancelled = true; };
   }, [fetchAutomations]);
 
-  // ─── Derived values (real, never mock) ──────────
-  const igConnected     = Boolean(igStatus?.username) || logs.length > 0;
-  const hasAutomations  = automations.length > 0;
-  const hasActivity     = logs.length > 0;
+  const igConnected    = Boolean(igStatus?.username) || logs.length > 0;
+  const hasAutomations = automations.length > 0;
+  const hasActivity    = logs.length > 0;
 
-  const activeCount     = automations.filter((a) => a.enabled).length;
-  const contactsCount   = contacts.length;
-  const sentLast7d      = useMemo(() => countSentLast7d(logs), [logs]);
+  const activeCount   = automations.filter((a) => a.enabled).length;
+  const contactsCount = contacts.length;
+  const sentLast7d    = useMemo(() => countSentLast7d(logs), [logs]);
 
   const stats = [
     { label: 'Total automations',  value: automations.length, icon: Workflow,      tone: 'brand'   },
@@ -98,13 +79,12 @@ const Dashboard = () => {
         title={`Welcome back, ${firstName}`}
         description="Here's what's happening across your workspace."
         actions={
-          <Link to={ROUTES.AUTOMATION_NEW}>
-            <Button leftIcon={Plus}>New automation</Button>
-          </Link>
+          <Button leftIcon={Plus} onClick={() => setShowTemplatePicker(true)}>
+            New automation
+          </Button>
         }
       />
 
-      {/* Onboarding (auto-hides once all 3 steps done) */}
       {!isLoading && (
         <OnboardingChecklist
           igConnected={igConnected}
@@ -112,12 +92,10 @@ const Dashboard = () => {
           hasActivity={hasActivity}
         />
       )}
-      {/* System status strip */}
       {!isLoading && (
         <SystemStatus igStatus={igStatus} logs={logs} automations={automations} />
       )}
 
-      {/* ─── Stats ──────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {isLoading
           ? Array.from({ length: 4 }).map((_, i) => (
@@ -127,22 +105,22 @@ const Dashboard = () => {
                 <Skeleton className="h-3 w-2/3" />
               </Card>
             ))
-          : stats.map((s, i) => <StatCard key={s.label} index={i} {...s} />)}
+          : stats.map((s) => <StatCard key={s.label} {...s} />)}
       </div>
 
-      {/* ─── Activity + automations ─────────────────── */}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3 lg:mt-8">
         <RecentActivity isLoading={isLoading} items={recentActivity} />
-        <ActiveAutomationsPreview
-          isLoading={isLoading}
-          automations={activeAutomations}
-        />
+        <ActiveAutomationsPreview isLoading={isLoading} automations={activeAutomations} />
       </div>
+
+      {/* Template picker modal */}
+      <TemplatePickerModal
+        open={showTemplatePicker}
+        onClose={() => setShowTemplatePicker(false)}
+      />
     </div>
   );
 };
-
-// ─── Derivations ─────────────────────────────────────
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -158,9 +136,7 @@ const countSentLast7d = (logs) => {
 const toActivityItem = (log) => {
   const username = log.username ? `@${log.username}` : 'someone';
   const auto = log.automationName ? `"${log.automationName}"` : 'an automation';
-
-  let type;
-  let message;
+  let type, message;
   if (log.messageSent) {
     type = 'message_sent';
     message = `DM sent to ${username} from ${auto}`;
@@ -171,7 +147,6 @@ const toActivityItem = (log) => {
     type = 'automation_triggered';
     message = `Event from ${username} (no match)`;
   }
-
   return { id: log.id, type, message, timeAgo: timeAgo(log.timestamp) };
 };
 
@@ -184,11 +159,8 @@ const timeAgo = (iso) => {
   if (min < 60) return `${min}m ago`;
   const hr = Math.floor(min / 60);
   if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  return `${day}d ago`;
+  return `${Math.floor(hr / 24)}d ago`;
 };
-
-// ─── Recent activity feed ────────────────────────────
 
 const ACTIVITY_ICON = {
   message_sent:         { icon: Send,     tone: 'bg-brand-100 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300' },
@@ -200,21 +172,13 @@ const RecentActivity = ({ isLoading, items }) => (
   <Card className="lg:col-span-2">
     <div className="mb-4 flex items-center justify-between">
       <div>
-        <h3 className="text-lg font-semibold text-ink-900 dark:text-ink-100">
-          Recent activity
-        </h3>
-        <p className="text-sm text-ink-500 dark:text-ink-400">
-          Live events from your workspace.
-        </p>
+        <h3 className="text-lg font-semibold text-ink-900 dark:text-ink-100">Recent activity</h3>
+        <p className="text-sm text-ink-500 dark:text-ink-400">Live events from your workspace.</p>
       </div>
-      <Link
-        to="/activity"
-        className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200"
-      >
+      <Link to="/activity" className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300">
         View all
       </Link>
     </div>
-
     {isLoading ? (
       <ul className="space-y-3">
         {Array.from({ length: 5 }).map((_, i) => (
@@ -228,19 +192,11 @@ const RecentActivity = ({ isLoading, items }) => (
         ))}
       </ul>
     ) : items.length === 0 ? (
-      <EmptyState
-        icon={Inbox}
-        title="No activity yet"
-        description="Once your automations start running, events will show up here."
-      />
+      <EmptyState icon={Inbox} title="No activity yet" description="Once your automations start running, events will show up here." />
     ) : (
       <motion.ul
-        initial="hidden"
-        animate="visible"
-        variants={{
-          hidden:  {},
-          visible: { transition: { staggerChildren: 0.04 } },
-        }}
+        initial="hidden" animate="visible"
+        variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.04 } } }}
         className="divide-y divide-ink-100 dark:divide-ink-800"
       >
         {items.map((evt) => {
@@ -267,25 +223,17 @@ const RecentActivity = ({ isLoading, items }) => (
   </Card>
 );
 
-// ─── Active automations preview ──────────────────────
-
 const ActiveAutomationsPreview = ({ isLoading, automations }) => (
   <Card>
     <div className="mb-4 flex items-center justify-between">
       <div>
-        <h3 className="text-lg font-semibold text-ink-900 dark:text-ink-100">
-          Active automations
-        </h3>
+        <h3 className="text-lg font-semibold text-ink-900 dark:text-ink-100">Active automations</h3>
         <p className="text-sm text-ink-500 dark:text-ink-400">Running right now.</p>
       </div>
-      <Link
-        to={ROUTES.AUTOMATIONS}
-        className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200"
-      >
+      <Link to={ROUTES.AUTOMATIONS} className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300">
         See all
       </Link>
     </div>
-
     {isLoading ? (
       <ul className="space-y-3">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -296,24 +244,14 @@ const ActiveAutomationsPreview = ({ isLoading, automations }) => (
         ))}
       </ul>
     ) : automations.length === 0 ? (
-      <EmptyState
-        icon={Zap}
-        title="Nothing running"
-        description="Activate an automation to see it here."
-        className="py-10"
-      />
+      <EmptyState icon={Zap} title="Nothing running" description="Activate an automation to see it here." className="py-10" />
     ) : (
       <ul className="space-y-2">
         {automations.map((a) => (
-          <li
-            key={a.id}
-            className="group rounded-xl border border-ink-100 p-3 transition-colors hover:border-ink-200 dark:border-ink-800 dark:hover:border-ink-700"
-          >
+          <li key={a.id} className="group rounded-xl border border-ink-100 p-3 transition-colors hover:border-ink-200 dark:border-ink-800 dark:hover:border-ink-700">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-ink-900 dark:text-ink-100">
-                  {a.name}
-                </p>
+                <p className="truncate text-sm font-semibold text-ink-900 dark:text-ink-100">{a.name}</p>
                 <p className="mt-0.5 truncate text-xs text-ink-500 dark:text-ink-400">
                   {TRIGGER_LABEL[a.trigger] || a.trigger}
                   {a.condition?.keyword ? ` · "${a.condition.keyword}"` : ''}

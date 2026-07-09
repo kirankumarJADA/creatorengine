@@ -18,6 +18,7 @@ import EmptyState from '../components/ui/EmptyState.jsx';
 import Modal from '../components/ui/Modal.jsx';
 import Button from '../components/form/Button.jsx';
 import SimulatorModal from '../components/builder/SimulatorModal.jsx';
+import TemplatePickerModal from '../components/builder/TemplatePickerModal.jsx';
 
 import { useAutomationStore } from '../store/automationStore.js';
 import {
@@ -63,6 +64,7 @@ const Automations = () => {
   const [page, setPage]                   = useState(1);
   const [deletingId, setDeletingId]       = useState(null);
   const [testingAutomation, setTesting]   = useState(null);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   useEffect(() => { fetchAutomations(); }, [fetchAutomations]);
 
@@ -89,7 +91,8 @@ const Automations = () => {
     return filtered.slice(start, start + PAGE_SIZE);
   }, [filtered, page]);
 
-  const handleCreate = () => navigate(ROUTES.AUTOMATION_NEW);
+  // Opens the template picker instead of going straight to builder
+  const handleCreate = () => setShowTemplatePicker(true);
   const handleEdit   = (id) => navigate(buildRoute.automationEdit(id));
   const handleToggle = (id) => toggleAutomation(id);
 
@@ -179,12 +182,19 @@ const Automations = () => {
         </>
       )}
 
+      {/* Template picker modal */}
+      <TemplatePickerModal
+        open={showTemplatePicker}
+        onClose={() => setShowTemplatePicker(false)}
+      />
+
+      {/* Delete confirmation modal */}
       <Modal
         open={Boolean(deletingId)}
         onClose={() => setDeletingId(null)}
         title="Delete automation?"
         description={target?.name
-          ? `“${target.name}” will be removed permanently.`
+          ? `"${target.name}" will be removed permanently.`
           : 'This automation will be removed permanently.'}
         size="sm"
         footer={
@@ -245,14 +255,12 @@ const AutomationCard = ({ automation, onToggle, onEdit, onDelete, onTest, index 
 
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <span
-              className={cn(
-                'grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-colors',
-                isActive
-                  ? 'bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300'
-                  : 'bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-400'
-              )}
-            >
+            <span className={cn(
+              'grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-colors',
+              isActive
+                ? 'bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300'
+                : 'bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-400'
+            )}>
               <Icon size={18} />
             </span>
             <div className="min-w-0">
@@ -269,7 +277,6 @@ const AutomationCard = ({ automation, onToggle, onEdit, onDelete, onTest, index 
           </Badge>
         </div>
 
-        {/* Trigger → Action flow strip */}
         <div className="mt-4 flex items-center gap-2 rounded-xl border border-ink-100 bg-ink-50/60 px-3 py-2.5 text-xs dark:border-ink-800 dark:bg-ink-800/30">
           <span className="truncate font-mono text-ink-600 dark:text-ink-300">
             {conditionLabel}
