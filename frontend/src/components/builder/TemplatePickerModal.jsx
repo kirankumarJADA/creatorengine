@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare, Send, AtSign, Zap, X,
-  MessageCircle, Bot, ArrowRight,
+  ArrowRight,
 } from 'lucide-react';
 import Modal from '../ui/Modal.jsx';
 import { useBuilderStore } from '../../store/builderStore.js';
@@ -72,26 +72,6 @@ const TEMPLATES = [
       condition: { type: CONDITION_TYPE.ANY, keyword: '', matchType: MATCH_TYPE.CONTAINS },
       actions: [{ type: ACTION_TYPE.SEND_MESSAGE, message: 'Hey {{username}}! 🎉 Thanks for commenting on my latest post!', link: '', variations: [], imageUrl: '', delaySeconds: null }],
     },
-  },
-  {
-    id: 'ice_breakers',
-    title: 'Ice Breakers',
-    badge: 'soon',
-    badgeTone: 'neutral',
-    description: 'Help users start conversations with pre-set frequently asked questions.',
-    icon: MessageCircle,
-    iconTone: 'bg-ink-100 text-ink-500 dark:bg-ink-800 dark:text-ink-400',
-    comingSoon: true,
-  },
-  {
-    id: 'ai_autopilot',
-    title: 'AI Autopilot',
-    badge: 'soon',
-    badgeTone: 'neutral',
-    description: 'Automatically answer customer questions, pricing queries, and greetings using AI.',
-    icon: Bot,
-    iconTone: 'bg-ink-100 text-ink-500 dark:bg-ink-800 dark:text-ink-400',
-    comingSoon: true,
   },
 ];
 
