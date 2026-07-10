@@ -2,6 +2,7 @@ package com.creatorengine.automation.executor;
 
 import com.creatorengine.automation.entity.ActionType;
 import com.creatorengine.automation.entity.Automation;
+import com.creatorengine.automation.followup.FollowUpService;
 import com.creatorengine.contacts.service.ContactService;
 import com.creatorengine.instagram.entity.EventType;
 import com.creatorengine.instagram.entity.InstagramAccount;
@@ -31,15 +32,18 @@ public class ActionExecutor {
     private final TemplateRenderer templateRenderer;
     private final MetaMessagingService metaMessaging;
     private final ContactService contactService;
+    private final FollowUpService followUpService;
 
     public ActionExecutor(
             TemplateRenderer templateRenderer,
             MetaMessagingService metaMessaging,
-            ContactService contactService
+            ContactService contactService,
+            FollowUpService followUpService
     ) {
         this.templateRenderer = templateRenderer;
         this.metaMessaging = metaMessaging;
         this.contactService = contactService;
+        this.followUpService = followUpService;
     }
 
     public ExecutionResult execute(ExecutionContext ctx, Automation.Action action) {
@@ -275,6 +279,7 @@ public class ActionExecutor {
             if (imageResult != null && imageResult.success()) {
                 contactService.recordFromEvent(ctx.uid(), ctx.event(), "[image]");
                 maybePostPublicReply(ctx, tokenCtx);
+                maybeScheduleFollowUp(ctx);
                 return ExecutionResult.sent("[image]", imageResult.messageId());
             }
             return ExecutionResult.failed(null,
@@ -287,10 +292,29 @@ public class ActionExecutor {
         if (result.success()) {
             contactService.recordFromEvent(ctx.uid(), ctx.event(), message);
             maybePostPublicReply(ctx, tokenCtx);
+            maybeScheduleFollowUp(ctx);
             return ExecutionResult.sent(message, result.messageId());
         }
 
         return ExecutionResult.failed(message, result.error(), result.httpStatus());
+    }
+
+    /**
+     * FOLLOW-UP MESSAGE (single no-reply follow-up)
+     * Called after every successful DM send. If the automation has
+     * followUpEnabled, (re)schedules the single follow-up timer keyed to
+     * this contact - each successful send in a multi-step chain simply
+     * resets the timer to start from the most recent message, per spec.
+     */
+    private void maybeScheduleFollowUp(ExecutionContext ctx) {
+        Automation automation = ctx.automation();
+        var event = ctx.event();
+        if (automation == null || event == null) return;
+
+        String instagramUserId = event.instagramUserId();
+        if (instagramUserId == null || instagramUserId.isBlank()) return;
+
+        followUpService.scheduleOrReset(ctx.uid(), automation, instagramUserId);
     }
 
     private void maybePostPublicReply(ExecutionContext ctx, AccessTokenContext tokenCtx) {

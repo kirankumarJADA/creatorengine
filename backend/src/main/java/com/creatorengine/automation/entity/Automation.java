@@ -29,17 +29,23 @@ public class Automation {
     private String followGateMessage;
     private String followGateButtonLabel;
 
-    // ---------------------------------------------------------------
     // BOT PROTECTION
-    // When enabled, the engine adds a random jitter delay before each
-    // send action and before processing each job (per-user) to avoid
-    // predictable timing patterns that Instagram may flag as bot-like.
-    // Message Variations (on each Action) are also part of bot protection
-    // and prevent identical text being sent on every trigger.
-    // ---------------------------------------------------------------
     private boolean botProtectionEnabled = false;
     private int botProtectionMinDelaySeconds = 2;
     private int botProtectionMaxDelaySeconds = 8;
+
+    // ---------------------------------------------------------------
+    // FOLLOW-UP MESSAGE (single no-reply follow-up)
+    // When enabled, a timer starts the moment the automation's last
+    // message is sent. If the contact replies before the timer expires,
+    // the follow-up is cancelled automatically. If no reply arrives in
+    // time, the single follow-up message is sent and the automation is
+    // considered complete - no further follow-ups are scheduled.
+    // ---------------------------------------------------------------
+    private boolean followUpEnabled = false;
+    private int followUpDelayAmount = 1;
+    private FollowUpDelayUnit followUpDelayUnit = FollowUpDelayUnit.HOURS;
+    private String followUpMessage;
 
     private long runCount;
     private long successCount;
@@ -58,6 +64,7 @@ public class Automation {
             boolean followGateEnabled, String followGateMessage,
             String followGateButtonLabel,
             boolean botProtectionEnabled, int botProtectionMinDelaySeconds, int botProtectionMaxDelaySeconds,
+            boolean followUpEnabled, int followUpDelayAmount, FollowUpDelayUnit followUpDelayUnit, String followUpMessage,
             long runCount, long successCount,
             Date createdAt, Date updatedAt
     ) {
@@ -82,6 +89,10 @@ public class Automation {
         this.botProtectionEnabled = botProtectionEnabled;
         this.botProtectionMinDelaySeconds = botProtectionMinDelaySeconds;
         this.botProtectionMaxDelaySeconds = botProtectionMaxDelaySeconds;
+        this.followUpEnabled = followUpEnabled;
+        this.followUpDelayAmount = followUpDelayAmount;
+        this.followUpDelayUnit = followUpDelayUnit;
+        this.followUpMessage = followUpMessage;
         this.runCount = runCount;
         this.successCount = successCount;
         this.createdAt = createdAt;
@@ -132,6 +143,14 @@ public class Automation {
     public void setBotProtectionMinDelaySeconds(int v) { this.botProtectionMinDelaySeconds = v; }
     public int getBotProtectionMaxDelaySeconds() { return botProtectionMaxDelaySeconds; }
     public void setBotProtectionMaxDelaySeconds(int v) { this.botProtectionMaxDelaySeconds = v; }
+    public boolean getFollowUpEnabled() { return followUpEnabled; }
+    public void setFollowUpEnabled(boolean followUpEnabled) { this.followUpEnabled = followUpEnabled; }
+    public int getFollowUpDelayAmount() { return followUpDelayAmount; }
+    public void setFollowUpDelayAmount(int followUpDelayAmount) { this.followUpDelayAmount = followUpDelayAmount; }
+    public FollowUpDelayUnit getFollowUpDelayUnit() { return followUpDelayUnit; }
+    public void setFollowUpDelayUnit(FollowUpDelayUnit followUpDelayUnit) { this.followUpDelayUnit = followUpDelayUnit; }
+    public String getFollowUpMessage() { return followUpMessage; }
+    public void setFollowUpMessage(String followUpMessage) { this.followUpMessage = followUpMessage; }
     public long getRunCount() { return runCount; }
     public void setRunCount(long runCount) { this.runCount = runCount; }
     public long getSuccessCount() { return successCount; }
@@ -196,6 +215,10 @@ public class Automation {
         private boolean botProtectionEnabled = false;
         private int botProtectionMinDelaySeconds = 2;
         private int botProtectionMaxDelaySeconds = 8;
+        private boolean followUpEnabled = false;
+        private int followUpDelayAmount = 1;
+        private FollowUpDelayUnit followUpDelayUnit = FollowUpDelayUnit.HOURS;
+        private String followUpMessage;
         private long runCount;
         private long successCount;
         private Date createdAt;
@@ -222,6 +245,10 @@ public class Automation {
         public AutomationBuilder botProtectionEnabled(boolean botProtectionEnabled) { this.botProtectionEnabled = botProtectionEnabled; return this; }
         public AutomationBuilder botProtectionMinDelaySeconds(int v) { this.botProtectionMinDelaySeconds = v; return this; }
         public AutomationBuilder botProtectionMaxDelaySeconds(int v) { this.botProtectionMaxDelaySeconds = v; return this; }
+        public AutomationBuilder followUpEnabled(boolean followUpEnabled) { this.followUpEnabled = followUpEnabled; return this; }
+        public AutomationBuilder followUpDelayAmount(int followUpDelayAmount) { this.followUpDelayAmount = followUpDelayAmount; return this; }
+        public AutomationBuilder followUpDelayUnit(FollowUpDelayUnit followUpDelayUnit) { this.followUpDelayUnit = followUpDelayUnit; return this; }
+        public AutomationBuilder followUpMessage(String followUpMessage) { this.followUpMessage = followUpMessage; return this; }
         public AutomationBuilder runCount(long runCount) { this.runCount = runCount; return this; }
         public AutomationBuilder successCount(long successCount) { this.successCount = successCount; return this; }
         public AutomationBuilder createdAt(Date createdAt) { this.createdAt = createdAt; return this; }
@@ -236,6 +263,7 @@ public class Automation {
                     publicReplyEnabled, publicReplies,
                     followGateEnabled, followGateMessage, followGateButtonLabel,
                     botProtectionEnabled, botProtectionMinDelaySeconds, botProtectionMaxDelaySeconds,
+                    followUpEnabled, followUpDelayAmount, followUpDelayUnit, followUpMessage,
                     runCount, successCount, createdAt, updatedAt
             );
         }

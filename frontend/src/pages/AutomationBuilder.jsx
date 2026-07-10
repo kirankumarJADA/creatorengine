@@ -144,6 +144,20 @@ const AutomationBuilder = () => {
       return;
     }
 
+    // Follow-up message validation (single no-reply follow-up)
+    if (draft.followUpEnabled) {
+      if (!draft.followUpMessage || !draft.followUpMessage.trim()) {
+        toast.error('Add a follow-up message, or turn off the follow-up.');
+        goToStep(4);
+        return;
+      }
+      if (!draft.followUpDelayAmount || draft.followUpDelayAmount <= 0) {
+        toast.error('Follow-up delay must be greater than 0.');
+        goToStep(4);
+        return;
+      }
+    }
+
     // Strip empty/no-op actions: SEND_DM/SEND_MESSAGE with no message body
     // AND no image is a "no-op" the user left behind — drop it so the
     // backend isn't asked to send blank DMs. An image-only action (message
@@ -203,6 +217,10 @@ const AutomationBuilder = () => {
       botProtectionEnabled: draft.botProtectionEnabled === true,
       botProtectionMinDelaySeconds: draft.botProtectionMinDelaySeconds ?? 2,
       botProtectionMaxDelaySeconds: draft.botProtectionMaxDelaySeconds ?? 8,
+      followUpEnabled: draft.followUpEnabled === true,
+      followUpDelayAmount: draft.followUpDelayAmount ?? 1,
+      followUpDelayUnit: draft.followUpDelayUnit ?? 'HOURS',
+      followUpMessage: draft.followUpEnabled ? (draft.followUpMessage || '').trim() : '',
       enabled: draft.enabled,
     };
 

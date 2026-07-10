@@ -45,6 +45,10 @@ const emptyDraft = () => ({
   botProtectionEnabled: false,
   botProtectionMinDelaySeconds: 2,
   botProtectionMaxDelaySeconds: 8,
+  followUpEnabled: false,
+  followUpDelayAmount: 1,
+  followUpDelayUnit: 'HOURS',
+  followUpMessage: '',
   enabled: true,
 });
 
@@ -126,6 +130,10 @@ export const useBuilderStore = create((set, get) => ({
       botProtectionEnabled: automation.botProtectionEnabled === true,
       botProtectionMinDelaySeconds: automation.botProtectionMinDelaySeconds ?? 2,
       botProtectionMaxDelaySeconds: automation.botProtectionMaxDelaySeconds ?? 8,
+      followUpEnabled: automation.followUpEnabled === true,
+      followUpDelayAmount: automation.followUpDelayAmount ?? 1,
+      followUpDelayUnit: automation.followUpDelayUnit ?? 'HOURS',
+      followUpMessage: automation.followUpMessage ?? '',
       enabled: automation.enabled !== false,
     },
   }),
@@ -231,6 +239,18 @@ export const useBuilderStore = create((set, get) => ({
 
   setBotProtectionMaxDelay: (botProtectionMaxDelaySeconds) =>
     set((s) => ({ draft: { ...s.draft, botProtectionMaxDelaySeconds } })),
+
+  setFollowUpEnabled: (followUpEnabled) =>
+    set((s) => ({ draft: { ...s.draft, followUpEnabled } })),
+
+  setFollowUpDelayAmount: (followUpDelayAmount) =>
+    set((s) => ({ draft: { ...s.draft, followUpDelayAmount } })),
+
+  setFollowUpDelayUnit: (followUpDelayUnit) =>
+    set((s) => ({ draft: { ...s.draft, followUpDelayUnit } })),
+
+  setFollowUpMessage: (followUpMessage) =>
+    set((s) => ({ draft: { ...s.draft, followUpMessage } })),
 
   setActionType: (type) =>
     set((s) => ({ draft: { ...s.draft, action: { ...s.draft.action, type } } })),

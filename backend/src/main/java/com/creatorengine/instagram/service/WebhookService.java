@@ -1,6 +1,7 @@
 package com.creatorengine.instagram.service;
 
 import com.creatorengine.automation.engine.AutomationEngine;
+import com.creatorengine.automation.followup.FollowUpService;
 import com.creatorengine.config.AppProperties;
 import com.creatorengine.instagram.dto.WebhookEventDto;
 import com.creatorengine.instagram.entity.EventType;
@@ -33,6 +34,7 @@ public class WebhookService {
     private final AutomationEngine automationEngine;
     private final com.creatorengine.health.HealthService healthService;
     private final ObjectMapper objectMapper;
+    private final FollowUpService followUpService;
 
     public WebhookService(
             AppProperties props,
@@ -42,7 +44,8 @@ public class WebhookService {
             WebhookEventRepository eventRepository,
             AutomationEngine automationEngine,
             com.creatorengine.health.HealthService healthService,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            FollowUpService followUpService
     ) {
         this.props = props;
         this.signatureVerifier = signatureVerifier;
@@ -52,6 +55,7 @@ public class WebhookService {
         this.automationEngine = automationEngine;
         this.healthService = healthService;
         this.objectMapper = objectMapper;
+        this.followUpService = followUpService;
     }
 
     public boolean isValidVerification(String mode, String token) {
@@ -118,22 +122,20 @@ public class WebhookService {
         String uid = owner.get().uid();
         InstagramAccount account = owner.get().account();
 
-        // ----------------------------------------------------------------
-        // CRITICAL SELF-EVENT FILTER
-        // For COMMENT events, Instagram also delivers the OWNER's own comments
-        // (including this app's public replies). If we processed those, our
-        // own reply would trigger the same automation again -> infinite loop
-        // -> Meta eventually rate-limits and returns 500.
-        //
-        // We compare against the connected account's instagramUserId AND
-        // username, because IG's "from.id" on comments is the IG User ID,
-        // which sometimes differs from the page id used as receivingAccountId.
-        // Username is the most reliable equality check across IG's surfaces.
-        // ----------------------------------------------------------------
         if (e.type() == EventType.COMMENT && isOwnComment(e, account)) {
             log.info("Skipping self-authored comment (own public reply or owner comment): commentId={} from={}",
                     e.commentId(), e.username());
             return false;
+        }
+
+        // ----------------------------------------------------------------
+        // FOLLOW-UP MESSAGE: cancel-on-reply
+        // Any incoming DM from a contact means they replied - cancel any
+        // pending no-reply follow-up(s) scheduled for them under this
+        // account, regardless of which automation scheduled it.
+        // ----------------------------------------------------------------
+        if (e.type() == EventType.DM && e.instagramUserId() != null) {
+            followUpService.cancelPendingForUser(uid, e.instagramUserId());
         }
 
         eventRepository.saveForUser(uid, record);

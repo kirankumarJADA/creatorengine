@@ -4,6 +4,7 @@ import DmPreview from './DmPreview.jsx';
 import PublicReplyEditor from './PublicReplyEditor.jsx';
 import FollowGateEditor from './FollowGateEditor.jsx';
 import BotProtectionEditor from './BotProtectionEditor.jsx';
+import FollowUpEditor from './FollowUpEditor.jsx';
 import { useBuilderStore } from '../../store/builderStore.js';
 import { renderTemplate } from '../../utils/automationEngine.js';
 import { ACTION_TYPE } from '../../utils/constants.js';
@@ -63,6 +64,9 @@ const MessageStep = () => {
 
       {/* Bot Protection — always shown, applies to all trigger types */}
       <BotProtectionEditor />
+
+      {/* Follow-up Message — single no-reply follow-up */}
+      <FollowUpEditor />
     </div>
   );
 };
