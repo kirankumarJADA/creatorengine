@@ -2,6 +2,7 @@ package com.creatorengine.automation.followup;
 
 import com.creatorengine.automation.entity.Automation;
 import com.creatorengine.instagram.entity.InstagramAccount;
+import com.creatorengine.instagram.service.InstagramAccountService;
 import com.creatorengine.instagram.service.MetaMessagingService;
 import com.creatorengine.instagram.service.MetaMessagingService.AccessTokenContext;
 import com.creatorengine.instagram.service.MetaMessagingService.ByUserId;
@@ -17,20 +18,12 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 /**
  * Polls "pending_follow_ups" every minute and sends any whose scheduledAt
  * has passed and are still PENDING (i.e. the contact never replied).
- *
- * IMPORTANT / NEEDS YOUR CONFIRMATION:
- * This reads the Instagram account from Firestore path
- * "instagram_accounts/{uid}" and the automation from
- * "users/{uid}/automations/{automationId}" - matching the structure seen
- * in earlier sessions (users/{uid}/automations, users/{uid}/failed_jobs,
- * etc). If your actual Instagram account storage path/collection name is
- * different, share your InstagramAccount lookup service/repository and
- * I'll swap this one line out - everything else stays the same.
  */
 @Component
 public class FollowUpSchedulerService {
@@ -40,10 +33,16 @@ public class FollowUpSchedulerService {
 
     private final Firestore firestore;
     private final MetaMessagingService metaMessaging;
+    private final InstagramAccountService instagramAccountService;
 
-    public FollowUpSchedulerService(Firestore firestore, MetaMessagingService metaMessaging) {
+    public FollowUpSchedulerService(
+            Firestore firestore,
+            MetaMessagingService metaMessaging,
+            InstagramAccountService instagramAccountService
+    ) {
         this.firestore = firestore;
         this.metaMessaging = metaMessaging;
+        this.instagramAccountService = instagramAccountService;
     }
 
     /** Runs every 60 seconds. */
@@ -100,22 +99,14 @@ public class FollowUpSchedulerService {
             return;
         }
 
-        // NEEDS CONFIRMATION: adjust this lookup if your Instagram account
-        // storage differs from "instagram_accounts/{uid}".
-        DocumentSnapshot acctSnap = firestore.collection("instagram_accounts")
-                .document(uid).get().get();
-
-        if (!acctSnap.exists()) {
+        Optional<InstagramAccount> acctOpt = instagramAccountService.find(uid);
+        if (acctOpt.isEmpty()) {
             log.warn("No connected Instagram account for uid={} - cancelling follow-up.", uid);
             ref.update("status", "CANCELLED", "updatedAt", new Date());
             return;
         }
 
-        InstagramAccount acct = acctSnap.toObject(InstagramAccount.class);
-        if (acct == null) {
-            ref.update("status", "CANCELLED", "updatedAt", new Date());
-            return;
-        }
+        InstagramAccount acct = acctOpt.get();
 
         AccessTokenContext tokenCtx = AccessTokenContext.builder()
                 .instagramBusinessAccountId(acct.getInstagramUserId())
@@ -130,8 +121,6 @@ public class FollowUpSchedulerService {
         } else {
             log.warn("Follow-up send failed uid={} automation={} user={}: {}",
                     uid, automationId, instagramUserId, result.error());
-            // Mark cancelled rather than retry-looping forever on a hard failure
-            // (e.g. token revoked, user blocked the account).
             ref.update("status", "CANCELLED", "updatedAt", new Date());
         }
     }

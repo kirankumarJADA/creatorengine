@@ -1,6 +1,7 @@
 package com.creatorengine.automation.dto;
 
 import com.creatorengine.automation.entity.Automation;
+import com.creatorengine.automation.entity.FollowUpDelayUnit;
 import com.creatorengine.automation.entity.PostTargetMode;
 import com.creatorengine.automation.entity.TriggerType;
 
@@ -28,6 +29,10 @@ public record AutomationResponse(
         boolean botProtectionEnabled,
         int botProtectionMinDelaySeconds,
         int botProtectionMaxDelaySeconds,
+        boolean followUpEnabled,
+        int followUpDelayAmount,
+        FollowUpDelayUnit followUpDelayUnit,
+        String followUpMessage,
         long runCount,
         long successCount,
         Date createdAt,
@@ -63,6 +68,10 @@ public record AutomationResponse(
                 a.getBotProtectionEnabled(),
                 a.getBotProtectionMinDelaySeconds(),
                 a.getBotProtectionMaxDelaySeconds(),
+                a.getFollowUpEnabled(),
+                a.getFollowUpDelayAmount(),
+                a.getFollowUpDelayUnit(),
+                a.getFollowUpMessage(),
                 a.getRunCount(),
                 a.getSuccessCount(),
                 a.getCreatedAt(),

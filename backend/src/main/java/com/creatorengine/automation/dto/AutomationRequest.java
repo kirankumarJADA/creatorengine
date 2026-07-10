@@ -3,6 +3,7 @@ package com.creatorengine.automation.dto;
 import com.creatorengine.automation.entity.ActionType;
 import com.creatorengine.automation.entity.Automation;
 import com.creatorengine.automation.entity.ConditionType;
+import com.creatorengine.automation.entity.FollowUpDelayUnit;
 import com.creatorengine.automation.entity.PostTargetMode;
 import com.creatorengine.exception.BadRequestException;
 import jakarta.validation.Valid;
@@ -53,7 +54,15 @@ public record AutomationRequest(
         // BOT PROTECTION fields — all optional, safe defaults applied in toEntity()
         Boolean botProtectionEnabled,
         Integer botProtectionMinDelaySeconds,
-        Integer botProtectionMaxDelaySeconds
+        Integer botProtectionMaxDelaySeconds,
+
+        // FOLLOW-UP MESSAGE fields — single no-reply follow-up
+        Boolean followUpEnabled,
+        Integer followUpDelayAmount,
+        FollowUpDelayUnit followUpDelayUnit,
+
+        @Size(max = 2000, message = "Follow-up message is too long (max 2000 characters)")
+        String followUpMessage
 ) {
 
     private static final int MIN_DELAY_SECONDS = 1;
@@ -123,6 +132,22 @@ public record AutomationRequest(
             }
             if (max < min || max > BOT_MAX_JITTER) {
                 throw new BadRequestException("Bot protection max delay must be >= min and <= 60 seconds.");
+            }
+        }
+
+        // Validate follow-up message settings if enabled
+        if (Boolean.TRUE.equals(followUpEnabled)) {
+            if (followUpMessage == null || followUpMessage.isBlank()) {
+                throw new BadRequestException(
+                        "Add a follow-up message, or turn off the follow-up.");
+            }
+            if (followUpDelayAmount == null || followUpDelayAmount <= 0) {
+                throw new BadRequestException(
+                        "Follow-up delay must be greater than 0.");
+            }
+            if (followUpDelayUnit == null) {
+                throw new BadRequestException(
+                        "Pick a unit (Minutes, Hours, or Days) for the follow-up delay.");
             }
         }
     }
@@ -208,7 +233,11 @@ public record AutomationRequest(
                 .botProtectionMaxDelaySeconds(
                         botProtectionMaxDelaySeconds != null
                                 ? Math.max(BOT_MIN_JITTER, Math.min(botProtectionMaxDelaySeconds, BOT_MAX_JITTER))
-                                : 8);
+                                : 8)
+                .followUpEnabled(Boolean.TRUE.equals(followUpEnabled))
+                .followUpDelayAmount(followUpDelayAmount != null ? Math.max(1, followUpDelayAmount) : 1)
+                .followUpDelayUnit(followUpDelayUnit != null ? followUpDelayUnit : FollowUpDelayUnit.HOURS)
+                .followUpMessage(followUpMessage == null ? null : followUpMessage.trim());
 
         if (publicReplies != null) {
             builder.publicReplies(publicReplies.stream()
