@@ -1,4 +1,4 @@
-import { MessageSquare, Send, AtSign, Sparkles } from 'lucide-react';
+import { MessageSquare, Send, AtSign, Clock } from 'lucide-react';
 import RadioCardGroup from '../ui/RadioCardGroup.jsx';
 import { useBuilderStore } from '../../store/builderStore.js';
 import { TRIGGER_TYPE } from '../../utils/constants.js';
@@ -29,7 +29,7 @@ const TRIGGER_OPTIONS = [
     value: TRIGGER_TYPE.NEXT_POST,
     label: 'Next Post',
     description: 'Fire on comments of your NEXT uploaded post only.',
-    icon: Sparkles,
+    icon: Clock,
     tone: 'brand',
   },
 ];
