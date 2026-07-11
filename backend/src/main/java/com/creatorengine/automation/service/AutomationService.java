@@ -37,6 +37,129 @@ public class AutomationService {
         this.instagramApiClient = instagramApiClient;
     }
 
+    // ─── Multi-account methods (new) ──────────────────────────────
+
+    public List<AutomationResponse> listForAccount(String uid, String igAccountId) {
+        return repository.findAllByOwner(uid, igAccountId).stream()
+                .map(AutomationResponse::from)
+                .toList();
+    }
+
+    public AutomationResponse getForAccount(String uid, String igAccountId, String id) {
+        return AutomationResponse.from(loadOrThrow(uid, igAccountId, id));
+    }
+
+    public AutomationResponse createForAccount(String uid, String igAccountId, AutomationRequest req) {
+        req.validate();
+
+        Automation entity = req.toEntity();
+        if (entity.getName() == null || entity.getName().isBlank()) {
+            entity.setName(deriveName(entity));
+        }
+
+        if (entity.getTrigger() == TriggerType.NEXT_POST) {
+            entity.setTargetPostMode(PostTargetMode.NEXT_POST);
+            entity.setTargetPostId(null);
+            entity.setNextPostLockedAt(null);
+        }
+
+        if (entity.getEffectiveTargetPostMode() == PostTargetMode.NEXT_POST) {
+            entity.setBaselineMediaIds(snapshotMediaIds(uid, igAccountId));
+            entity.setTargetPostId(null);
+            entity.setNextPostLockedAt(null);
+        }
+
+        Automation saved = repository.save(uid, igAccountId, entity);
+        log.info("Created automation id={} uid={} igAccountId={} trigger={} mode={} baselineSize={}",
+                saved.getId(), uid, igAccountId, saved.getTrigger(),
+                saved.getEffectiveTargetPostMode(),
+                saved.getBaselineMediaIds() == null ? 0 : saved.getBaselineMediaIds().size());
+        return AutomationResponse.from(saved);
+    }
+
+    public AutomationResponse updateForAccount(String uid, String igAccountId, String id, AutomationRequest req) {
+        req.validate();
+
+        Automation existing = loadOrThrow(uid, igAccountId, id);
+        Automation incoming = req.toEntity();
+
+        PostTargetMode prevMode = existing.getEffectiveTargetPostMode();
+        TriggerType prevTrigger = existing.getTrigger();
+
+        existing.setName(req.name() == null || req.name().isBlank()
+                ? existing.getName()
+                : req.name().trim());
+        existing.setTrigger(req.trigger());
+        existing.setCondition(req.condition().toEntity());
+        existing.setAction(incoming.getAction());
+        existing.setMessage(incoming.getMessage());
+        existing.setActions(incoming.getActions());
+        existing.setPublicReplyEnabled(incoming.getPublicReplyEnabled());
+        existing.setPublicReplies(incoming.getPublicReplies());
+        existing.setFollowGateEnabled(incoming.getFollowGateEnabled());
+        existing.setFollowGateMessage(incoming.getFollowGateMessage());
+        existing.setFollowGateButtonLabel(incoming.getFollowGateButtonLabel());
+        existing.setBotProtectionEnabled(incoming.getBotProtectionEnabled());
+        existing.setBotProtectionMinDelaySeconds(incoming.getBotProtectionMinDelaySeconds());
+        existing.setBotProtectionMaxDelaySeconds(incoming.getBotProtectionMaxDelaySeconds());
+        existing.setFollowUpEnabled(incoming.getFollowUpEnabled());
+        existing.setFollowUpDelayAmount(incoming.getFollowUpDelayAmount());
+        existing.setFollowUpDelayUnit(incoming.getFollowUpDelayUnit());
+        existing.setFollowUpMessage(incoming.getFollowUpMessage());
+
+        PostTargetMode newMode = incoming.getTargetPostMode();
+        if (req.trigger() == TriggerType.NEXT_POST) {
+            newMode = PostTargetMode.NEXT_POST;
+        }
+        existing.setTargetPostMode(newMode);
+
+        if (newMode == PostTargetMode.NEXT_POST) {
+            boolean switchedIntoNextPost =
+                    prevMode != PostTargetMode.NEXT_POST
+                    && prevTrigger != TriggerType.NEXT_POST;
+            if (switchedIntoNextPost) {
+                existing.setBaselineMediaIds(snapshotMediaIds(uid, igAccountId));
+                existing.setTargetPostId(null);
+                existing.setNextPostLockedAt(null);
+            }
+        } else if (newMode == PostTargetMode.SPECIFIC) {
+            existing.setTargetPostId(incoming.getTargetPostId());
+            existing.setBaselineMediaIds(null);
+            existing.setNextPostLockedAt(null);
+        } else {
+            existing.setTargetPostId(null);
+            existing.setBaselineMediaIds(null);
+            existing.setNextPostLockedAt(null);
+        }
+
+        if (req.enabled() != null) {
+            existing.setEnabled(req.enabled());
+        }
+
+        if (req.cooldownMinutes() != null) {
+            existing.setCooldownMinutes(Math.max(0, Math.min(req.cooldownMinutes(), 24 * 60)));
+        }
+
+        Automation saved = repository.save(uid, igAccountId, existing);
+        log.info("Updated automation id={} uid={} igAccountId={} trigger={} mode={}",
+                id, uid, igAccountId, saved.getTrigger(), saved.getEffectiveTargetPostMode());
+        return AutomationResponse.from(saved);
+    }
+
+    public void deleteForAccount(String uid, String igAccountId, String id) {
+        loadOrThrow(uid, igAccountId, id);
+        repository.deleteById(uid, igAccountId, id);
+        log.info("Deleted automation id={} for uid={} igAccountId={}", id, uid, igAccountId);
+    }
+
+    public AutomationResponse toggleForAccount(String uid, String igAccountId, String id, boolean enabled) {
+        Automation existing = loadOrThrow(uid, igAccountId, id);
+        existing.setEnabled(enabled);
+        return AutomationResponse.from(repository.save(uid, igAccountId, existing));
+    }
+
+    // ─── Legacy single-account methods (backward compat) ──────────
+
     public List<AutomationResponse> listForUser(String uid) {
         return repository.findAllByOwner(uid).stream()
                 .map(AutomationResponse::from)
@@ -44,7 +167,7 @@ public class AutomationService {
     }
 
     public AutomationResponse get(String uid, String id) {
-        return AutomationResponse.from(loadOrThrow(uid, id));
+        return AutomationResponse.from(loadOrThrowLegacy(uid, id));
     }
 
     public AutomationResponse create(String uid, AutomationRequest req) {
@@ -77,7 +200,7 @@ public class AutomationService {
     public AutomationResponse update(String uid, String id, AutomationRequest req) {
         req.validate();
 
-        Automation existing = loadOrThrow(uid, id);
+        Automation existing = loadOrThrowLegacy(uid, id);
         Automation incoming = req.toEntity();
 
         PostTargetMode prevMode = existing.getEffectiveTargetPostMode();
@@ -122,10 +245,7 @@ public class AutomationService {
             existing.setNextPostLockedAt(null);
         }
 
-        if (req.enabled() != null) {
-            existing.setEnabled(req.enabled());
-        }
-
+        if (req.enabled() != null) existing.setEnabled(req.enabled());
         if (req.cooldownMinutes() != null) {
             existing.setCooldownMinutes(Math.max(0, Math.min(req.cooldownMinutes(), 24 * 60)));
         }
@@ -137,20 +257,46 @@ public class AutomationService {
     }
 
     public void delete(String uid, String id) {
-        loadOrThrow(uid, id);
+        loadOrThrowLegacy(uid, id);
         repository.deleteById(uid, id);
         log.info("Deleted automation id={} for uid={}", id, uid);
     }
 
     public AutomationResponse toggle(String uid, String id, boolean enabled) {
-        Automation existing = loadOrThrow(uid, id);
+        Automation existing = loadOrThrowLegacy(uid, id);
         existing.setEnabled(enabled);
         return AutomationResponse.from(repository.save(uid, existing));
     }
 
-    private Automation loadOrThrow(String uid, String id) {
+    // ─── Helpers ──────────────────────────────────────────────────
+
+    private Automation loadOrThrow(String uid, String igAccountId, String id) {
+        return repository.findById(uid, igAccountId, id)
+                .orElseThrow(() -> new ResourceNotFoundException("Automation", id));
+    }
+
+    private Automation loadOrThrowLegacy(String uid, String id) {
         return repository.findById(uid, id)
                 .orElseThrow(() -> new ResourceNotFoundException("Automation", id));
+    }
+
+    private List<String> snapshotMediaIds(String uid, String igAccountId) {
+        try {
+            Optional<InstagramAccount> account = instagramAccountService.findByIgId(uid, igAccountId);
+            if (account.isEmpty() || account.get().getAccessToken() == null) {
+                log.info("snapshotMediaIds: no IG account for uid={} igAccountId={}", uid, igAccountId);
+                return List.of();
+            }
+            var media = instagramApiClient.fetchMedia(account.get().getAccessToken());
+            if (media == null || media.data() == null) return List.of();
+            return media.data().stream()
+                    .map(m -> m.id())
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+        } catch (Exception e) {
+            log.warn("snapshotMediaIds failed for uid={} igAccountId={}: {}", uid, igAccountId, e.getMessage());
+            return List.of();
+        }
     }
 
     private List<String> snapshotMediaIds(String uid) {

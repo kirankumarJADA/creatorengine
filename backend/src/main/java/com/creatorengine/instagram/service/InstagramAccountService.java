@@ -2,6 +2,7 @@ package com.creatorengine.instagram.service;
 
 import com.creatorengine.instagram.entity.InstagramAccount;
 import com.creatorengine.instagram.repository.InstagramAccountRepository;
+import com.creatorengine.plan.service.PlanService;
 import com.creatorengine.security.TokenEncryptionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,13 +16,9 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
-/**
- * Persistence boundary for {@link InstagramAccount}. Access tokens are
- * encrypted at rest with {@link TokenEncryptionService}; callers always see
- * plaintext tokens from this service's accessor methods.
- */
 @Service
 public class InstagramAccountService {
 
@@ -32,47 +29,109 @@ public class InstagramAccountService {
             .build();
 
     private final InstagramAccountRepository repository;
-    private final TokenEncryptionService     tokenEncryption;
+    private final TokenEncryptionService tokenEncryption;
+    private final PlanService planService;
 
     public InstagramAccountService(
             InstagramAccountRepository repository,
-            TokenEncryptionService tokenEncryption
+            TokenEncryptionService tokenEncryption,
+            PlanService planService
     ) {
-        this.repository      = repository;
+        this.repository = repository;
         this.tokenEncryption = tokenEncryption;
+        this.planService = planService;
     }
 
+    /**
+     * Find the first connected account for a user (backward compat for
+     * single-account usage). Migrates legacy accounts on first call.
+     */
     public Optional<InstagramAccount> find(String uid) {
+        migrateIfNeeded(uid);
         return repository.findByUid(uid).map(this::decryptInPlace);
     }
 
-    public InstagramAccount save(String uid, InstagramAccount account) {
-        Instant now = Instant.now();
+    /**
+     * Find a specific account by uid + instagramUserId.
+     */
+    public Optional<InstagramAccount> findByIgId(String uid, String instagramUserId) {
+        return repository.findByUidAndIgId(uid, instagramUserId).map(this::decryptInPlace);
+    }
 
+    /**
+     * Find ALL connected accounts for a user.
+     */
+    public List<InstagramAccount> findAll(String uid) {
+        migrateIfNeeded(uid);
+        return repository.findAllByUid(uid).stream()
+                .map(this::decryptInPlace)
+                .toList();
+    }
+
+    /**
+     * Count connected accounts for a user.
+     */
+    public int countAccounts(String uid) {
+        return repository.countByUid(uid);
+    }
+
+    /**
+     * Save/connect a new Instagram account.
+     * Enforces plan limits — throws if the user has hit their account cap.
+     */
+    public InstagramAccount save(String uid, InstagramAccount account) {
+        migrateIfNeeded(uid);
+
+        // Check if this is an existing account being updated (reconnect)
+        boolean isExisting = repository.findByUidAndIgId(uid, account.getInstagramUserId()).isPresent();
+
+        if (!isExisting) {
+            int currentCount = repository.countByUid(uid);
+            if (!planService.canAddAccount(uid, currentCount)) {
+                int maxAccounts = planService.maxAccounts(uid);
+                throw new com.creatorengine.exception.BadRequestException(
+                        "You've reached your plan's limit of " + maxAccounts
+                                + " Instagram account" + (maxAccounts == 1 ? "" : "s")
+                                + ". Upgrade your plan to connect more accounts.");
+            }
+        }
+
+        Instant now = Instant.now();
         if (account.getConnectedAt() == null) {
             account.setConnectedAt(now);
         }
         account.setLastSyncAt(now);
         account.setConnected(true);
-
         account.setAccessToken(tokenEncryption.encrypt(account.getAccessToken()));
 
         InstagramAccount saved = repository.save(uid, account);
-        log.info("Saved Instagram account uid={} ig={} (token encrypted)", uid, saved.getInstagramUserId());
+        log.info("Saved Instagram account uid={} ig={} (token encrypted)",
+                uid, saved.getInstagramUserId());
 
         return decryptInPlace(saved);
     }
 
     public void touchLastSync(String uid) {
-        repository.findByUid(uid).ifPresent(a -> {
+        repository.findAllByUid(uid).forEach(a -> {
             a.setLastSyncAt(Instant.now());
             repository.save(uid, a);
         });
     }
 
-    public void disconnect(String uid) {
+    /**
+     * Disconnect a specific Instagram account by instagramUserId.
+     */
+    public void disconnect(String uid, String instagramUserId) {
+        repository.deleteByUidAndIgId(uid, instagramUserId);
+        log.info("Disconnected Instagram account uid={} ig={}", uid, instagramUserId);
+    }
+
+    /**
+     * Disconnect all accounts for a user (legacy disconnect behavior).
+     */
+    public void disconnectAll(String uid) {
         repository.deleteByUid(uid);
-        log.info("Disconnected Instagram account uid={}", uid);
+        log.info("Disconnected all Instagram accounts uid={}", uid);
     }
 
     public Optional<InstagramAccountRepository.OwnedAccount> findByInstagramUserId(String igId) {
@@ -83,15 +142,28 @@ public class InstagramAccountService {
     }
 
     /**
-     * Live-checks a token against Instagram. Returns {@code true} ONLY when
-     * Instagram explicitly rejects the token (revoked / expired / invalid).
-     * Network errors, timeouts, bad-field errors, or 5xx all return
-     * {@code false}, so we never falsely report a working account as down.
+     * Migrate legacy single-account doc to the new multi-account subcollection.
+     * Safe to call on every request — no-ops if already migrated or no legacy data.
      */
+    public void migrateIfNeeded(String uid) {
+        // Already has accounts in the new collection — migration done
+        if (repository.countByUid(uid) > 0) return;
+
+        repository.findLegacy(uid).ifPresent(legacyAccount -> {
+            if (legacyAccount.getInstagramUserId() == null) {
+                log.warn("Legacy account for uid={} has no instagramUserId - skipping migration", uid);
+                return;
+            }
+            log.info("Migrating legacy Instagram account for uid={} ig={}",
+                    uid, legacyAccount.getInstagramUserId());
+            repository.save(uid, legacyAccount);
+            repository.deleteLegacy(uid);
+            log.info("Migration complete for uid={}", uid);
+        });
+    }
+
     public boolean isTokenRevoked(String accessToken) {
-        if (accessToken == null || accessToken.isEmpty()) {
-            return true;
-        }
+        if (accessToken == null || accessToken.isEmpty()) return true;
         try {
             String url = "https://graph.instagram.com/me?fields=username&access_token="
                     + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
@@ -104,9 +176,7 @@ public class InstagramAccountService {
 
             HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
 
-            if (resp.statusCode() == 200) {
-                return false; // token works
-            }
+            if (resp.statusCode() == 200) return false;
 
             String body = resp.body() == null ? "" : resp.body().toLowerCase();
             boolean tokenError =
@@ -122,15 +192,12 @@ public class InstagramAccountService {
                 return true;
             }
 
-            // Some other error (rate limit, server issue) — don't disconnect.
             return false;
         } catch (Exception e) {
             log.warn("Token live-check failed (treating as still connected): {}", e.getMessage());
             return false;
         }
     }
-
-    // ─── internals ─────────────────────────────────
 
     private InstagramAccount decryptInPlace(InstagramAccount account) {
         if (account == null) return null;

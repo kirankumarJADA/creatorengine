@@ -80,11 +80,21 @@ public class InstagramController {
         }
     }
 
+    /**
+     * Disconnect a specific Instagram account by its Instagram user ID.
+     * If no igAccountId is provided, disconnects ALL accounts (legacy behavior).
+     */
     @PostMapping("/disconnect")
-    @Operation(summary = "Disconnect the current user's Instagram account")
-    public ResponseEntity<ApiResponse<Void>> disconnect() {
+    @Operation(summary = "Disconnect an Instagram account")
+    public ResponseEntity<ApiResponse<Void>> disconnect(
+            @RequestParam(value = "igAccountId", required = false) String igAccountId
+    ) {
         String uid = SecurityUtils.getCurrentUserId();
-        accountService.disconnect(uid);
+        if (igAccountId != null && !igAccountId.isBlank()) {
+            accountService.disconnect(uid, igAccountId);
+        } else {
+            accountService.disconnectAll(uid);
+        }
         return ResponseEntity.ok(ApiResponse.ok("Instagram account disconnected."));
     }
 
@@ -99,13 +109,34 @@ public class InstagramController {
         return ResponseEntity.ok(ApiResponse.ok(body));
     }
 
+    /**
+     * List ALL connected Instagram accounts for the current user.
+     */
+    @GetMapping("/accounts")
+    @Operation(summary = "List all connected Instagram accounts for the current user")
+    public ResponseEntity<ApiResponse<List<StatusResponse>>> accounts() {
+        String uid = SecurityUtils.getCurrentUserId();
+        List<StatusResponse> accounts = accountService.findAll(uid).stream()
+                .map(StatusResponse::from)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.ok(accounts));
+    }
+
     @GetMapping("/media")
     @Operation(summary = "List the connected account's recent posts for the automation post-picker")
-    public ResponseEntity<ApiResponse<List<MetaMediaResponse.MediaItem>>> media() {
+    public ResponseEntity<ApiResponse<List<MetaMediaResponse.MediaItem>>> media(
+            @RequestParam(value = "igAccountId", required = false) String igAccountId
+    ) {
         String uid = SecurityUtils.getCurrentUserId();
 
-        InstagramAccount account = accountService.find(uid)
-                .orElseThrow(() -> new BadRequestException("No Instagram account connected."));
+        InstagramAccount account;
+        if (igAccountId != null && !igAccountId.isBlank()) {
+            account = accountService.findByIgId(uid, igAccountId)
+                    .orElseThrow(() -> new BadRequestException("Instagram account not found."));
+        } else {
+            account = accountService.find(uid)
+                    .orElseThrow(() -> new BadRequestException("No Instagram account connected."));
+        }
 
         MetaMediaResponse media = apiClient.fetchMedia(account.getAccessToken());
         List<MetaMediaResponse.MediaItem> items =
