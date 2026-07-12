@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -11,10 +11,14 @@ import {
   ChevronLeft,
   Instagram,
   ShieldCheck,
+  ChevronDown,
+  Plus,
+  Check,
 } from 'lucide-react';
 
 import { useAuthStore } from '../store/authStore.js';
 import { useUiStore } from '../store/uiStore.js';
+import { useAccountStore } from '../store/accountStore.js';
 import instagramService from '../services/instagramService.js';
 import { ROUTES, APP_NAME } from '../utils/constants.js';
 import { cn, getInitials } from '../utils/helpers.js';
@@ -44,36 +48,53 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
   const logout = useAuthStore((s) => s.logout);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
 
+  const accounts = useAccountStore((s) => s.accounts);
+  const activeAccount = useAccountStore((s) => s.activeAccount);
+  const fetchAccounts = useAccountStore((s) => s.fetchAccounts);
+  const setActiveAccount = useAccountStore((s) => s.setActiveAccount);
+  const isLoading = useAccountStore((s) => s.isLoading);
+
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const switcherRef = useRef(null);
+
   const isAdmin = Array.isArray(user?.roles) && user.roles.includes('ADMIN');
 
-  const [igStatus, setIgStatus] = useState(null);   // null = loading
-  const [connecting, setConnecting] = useState(false);
-
   useEffect(() => {
-    let active = true;
-    instagramService
-      .getStatus()
-      .then((s) => { if (active) setIgStatus(s || { status: 'NOT_CONNECTED' }); })
-      .catch(() => { if (active) setIgStatus({ status: 'NOT_CONNECTED' }); });
-    return () => { active = false; };
-  }, []);
+    fetchAccounts();
+  }, [fetchAccounts]);
 
-  const igConnected = Boolean(igStatus?.username);
+  // Close switcher on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (switcherRef.current && !switcherRef.current.contains(e.target)) {
+        setSwitcherOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const handleConnect = async () => {
     if (connecting) return;
     setConnecting(true);
+    setSwitcherOpen(false);
     try {
       const data = await instagramService.startConnect();
       const url = data?.authUrl || data?.url;
       if (url) {
         window.location.href = url;
-        return; // navigating away
+        return;
       }
     } catch {
-      /* fall through to reset */
+      /* fall through */
     }
     setConnecting(false);
+  };
+
+  const handleSelectAccount = (account) => {
+    setActiveAccount(account);
+    setSwitcherOpen(false);
   };
 
   return (
@@ -114,48 +135,17 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
         )}
       </div>
 
-      {/* Instagram card: loading / connected profile / connect CTA */}
+      {/* Account switcher */}
       {!collapsed && (
-        <div className="px-4 pt-4">
-          {igStatus === null ? (
+        <div className="px-4 pt-4" ref={switcherRef}>
+          {isLoading && accounts.length === 0 ? (
+            /* Loading skeleton */
             <div className="flex w-full items-center gap-2.5 rounded-xl border border-ink-200 bg-ink-50/40 px-3 py-2.5 dark:border-ink-800 dark:bg-ink-800/30">
               <span className="h-7 w-7 shrink-0 animate-pulse rounded-lg bg-ink-200 dark:bg-ink-700" />
-              <span className="text-xs text-ink-400 dark:text-ink-500">Checking Instagram…</span>
+              <span className="text-xs text-ink-400 dark:text-ink-500">Loading accounts…</span>
             </div>
-          ) : igConnected ? (
-            <Link
-              to={ROUTES.SETTINGS + '?tab=instagram'}
-              onClick={onNavigate}
-              className="group flex w-full items-center justify-between rounded-xl border border-ink-200 bg-ink-50/40 px-3 py-2.5 text-left text-sm transition-all hover:-translate-y-px hover:border-brand-300 hover:bg-brand-50/30 hover:shadow-soft dark:border-ink-800 dark:bg-ink-800/30 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/5"
-            >
-              <span className="flex min-w-0 items-center gap-2.5">
-                {igStatus.profilePictureUrl ? (
-                  <img
-                    src={igStatus.profilePictureUrl}
-                    alt=""
-                    referrerPolicy="no-referrer"
-                    className="h-7 w-7 shrink-0 rounded-lg object-cover"
-                  />
-                ) : (
-                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-pink-500 via-fuchsia-500 to-amber-400 text-white">
-                    <Instagram size={14} />
-                  </span>
-                )}
-                <span className="min-w-0">
-                  <span className="block truncate font-medium text-ink-900 dark:text-ink-100">
-                    {igStatus.name || igStatus.username}
-                  </span>
-                  <span className="block truncate text-xs text-ink-500 dark:text-ink-400">
-                    @{igStatus.username}
-                  </span>
-                </span>
-              </span>
-              <span className="relative flex h-2 w-2 shrink-0" title="Connected">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-            </Link>
-          ) : (
+          ) : accounts.length === 0 ? (
+            /* No accounts — connect CTA */
             <button
               type="button"
               onClick={handleConnect}
@@ -179,6 +169,116 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
                 →
               </span>
             </button>
+          ) : (
+            /* Account switcher */
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setSwitcherOpen((v) => !v)}
+                className="group flex w-full items-center justify-between rounded-xl border border-ink-200 bg-ink-50/40 px-3 py-2.5 text-left text-sm transition-all hover:-translate-y-px hover:border-brand-300 hover:bg-brand-50/30 hover:shadow-soft dark:border-ink-800 dark:bg-ink-800/30 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/5"
+              >
+                <span className="flex min-w-0 items-center gap-2.5">
+                  {activeAccount?.profilePictureUrl ? (
+                    <img
+                      src={activeAccount.profilePictureUrl}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      className="h-7 w-7 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-pink-500 via-fuchsia-500 to-amber-400 text-white">
+                      <Instagram size={14} />
+                    </span>
+                  )}
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-ink-900 dark:text-ink-100">
+                      {activeAccount?.name || activeAccount?.username || 'Select account'}
+                    </span>
+                    <span className="block truncate text-xs text-ink-500 dark:text-ink-400">
+                      {activeAccount?.username ? `@${activeAccount.username}` : 'No account selected'}
+                    </span>
+                  </span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="relative flex h-2 w-2 shrink-0" title="Connected">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={cn(
+                      'shrink-0 text-ink-400 transition-transform',
+                      switcherOpen && 'rotate-180'
+                    )}
+                  />
+                </span>
+              </button>
+
+              {/* Dropdown */}
+              {switcherOpen && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-1.5 rounded-xl border border-ink-100 bg-white shadow-elevated dark:border-ink-800 dark:bg-ink-900">
+                  <div className="p-1.5">
+                    {accounts.map((account) => {
+                      const isActive = activeAccount?.instagramUserId === account.instagramUserId;
+                      return (
+                        <button
+                          key={account.instagramUserId}
+                          type="button"
+                          onClick={() => handleSelectAccount(account)}
+                          className={cn(
+                            'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
+                            isActive
+                              ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300'
+                              : 'text-ink-700 hover:bg-ink-50 dark:text-ink-200 dark:hover:bg-ink-800'
+                          )}
+                        >
+                          {account.profilePictureUrl ? (
+                            <img
+                              src={account.profilePictureUrl}
+                              alt=""
+                              referrerPolicy="no-referrer"
+                              className="h-6 w-6 shrink-0 rounded-md object-cover"
+                            />
+                          ) : (
+                            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-gradient-to-br from-pink-500 via-fuchsia-500 to-amber-400 text-white">
+                              <Instagram size={12} />
+                            </span>
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium">
+                              {account.name || account.username}
+                            </span>
+                            <span className="block truncate text-xs opacity-60">
+                              @{account.username}
+                            </span>
+                          </span>
+                          {isActive && (
+                            <Check size={14} className="shrink-0 text-brand-600 dark:text-brand-400" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Connect another account */}
+                  <div className="border-t border-ink-100 p-1.5 dark:border-ink-800">
+                    <button
+                      type="button"
+                      onClick={handleConnect}
+                      disabled={connecting}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-ink-600 transition-colors hover:bg-ink-50 disabled:opacity-60 dark:text-ink-400 dark:hover:bg-ink-800"
+                    >
+                      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-dashed border-ink-300 dark:border-ink-700">
+                        <Plus size={12} />
+                      </span>
+                      <span className="font-medium">
+                        {connecting ? 'Connecting…' : 'Connect another account'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -225,10 +325,6 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
           </div>
         ))}
 
-        {/* Admin — only rendered when the logged-in user's roles include ADMIN.
-            This is a UX nicety, not the security boundary: even if this block
-            somehow rendered for a non-admin, every /api/admin/** call would
-            still be rejected by the backend's @PreAuthorize("hasRole('ADMIN')"). */}
         {isAdmin && (
           <div className="mb-6 last:mb-0">
             {!collapsed && (
