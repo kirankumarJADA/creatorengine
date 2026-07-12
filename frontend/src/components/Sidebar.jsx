@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Plus,
   Check,
+  RefreshCw,
 } from 'lucide-react';
 
 import { useAuthStore } from '../store/authStore.js';
@@ -28,11 +29,11 @@ const NAV_GROUPS = [
   {
     label: 'Workspace',
     items: [
-      { to: ROUTES.DASHBOARD,   label: 'Dashboard',     icon: LayoutDashboard },
-      { to: ROUTES.AUTOMATIONS, label: 'Automations',   icon: Workflow },
-      { to: ROUTES.CONTACTS,    label: 'Contacts',      icon: Users },
-      { to: ROUTES.LOGS,        label: 'Activity Logs', icon: ScrollText },
-      { to: ROUTES.FAILED_JOBS, label: 'Failed Jobs',   icon: AlertOctagon },
+      { to: ROUTES.DASHBOARD,   label: 'Dashboard',      icon: LayoutDashboard },
+      { to: ROUTES.AUTOMATIONS, label: 'Automations',    icon: Workflow },
+      { to: ROUTES.CONTACTS,    label: 'Contacts',       icon: Users },
+      { to: ROUTES.LOGS,        label: 'Activity Logs',  icon: ScrollText },
+      { to: ROUTES.FAILED_JOBS, label: 'Failed Jobs',    icon: AlertOctagon },
     ],
   },
   {
@@ -324,6 +325,102 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
             </ul>
           </div>
         ))}
+
+        {/* Switch Accounts — visible when at least one account is connected */}
+        {accounts.length > 0 && !collapsed && (
+          <div className="mb-6 last:mb-0" ref={switcherRef}>
+            {!collapsed && (
+              <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-400 dark:text-ink-500">
+                Instagram
+              </p>
+            )}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setSwitcherOpen((v) => !v)}
+                className={cn(
+                  'group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150',
+                  'text-ink-700 hover:translate-x-0.5 hover:bg-ink-100 hover:text-ink-950 dark:text-ink-300 dark:hover:bg-ink-800 dark:hover:text-ink-100'
+                )}
+              >
+                {activeAccount?.profilePictureUrl ? (
+                  <img
+                    src={activeAccount.profilePictureUrl}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="h-[18px] w-[18px] shrink-0 rounded-md object-cover"
+                  />
+                ) : (
+                  <Instagram size={18} className="shrink-0" />
+                )}
+                <span className="flex-1 truncate text-left">
+                  {activeAccount?.username ? `@${activeAccount.username}` : 'Switch Accounts'}
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={cn(
+                    'shrink-0 text-ink-400 transition-transform',
+                    switcherOpen && 'rotate-180'
+                  )}
+                />
+              </button>
+
+              {switcherOpen && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-xl border border-ink-100 bg-white shadow-elevated dark:border-ink-800 dark:bg-ink-900">
+                  <div className="p-1.5">
+                    {accounts.map((account) => {
+                      const isActive = activeAccount?.instagramUserId === account.instagramUserId;
+                      return (
+                        <button
+                          key={account.instagramUserId}
+                          type="button"
+                          onClick={() => handleSelectAccount(account)}
+                          className={cn(
+                            'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
+                            isActive
+                              ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300'
+                              : 'text-ink-700 hover:bg-ink-50 dark:text-ink-200 dark:hover:bg-ink-800'
+                          )}
+                        >
+                          {account.profilePictureUrl ? (
+                            <img
+                              src={account.profilePictureUrl}
+                              alt=""
+                              referrerPolicy="no-referrer"
+                              className="h-6 w-6 shrink-0 rounded-md object-cover"
+                            />
+                          ) : (
+                            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-gradient-to-br from-pink-500 via-fuchsia-500 to-amber-400 text-white">
+                              <Instagram size={12} />
+                            </span>
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium">{account.name || account.username}</span>
+                            <span className="block truncate text-xs opacity-60">@{account.username}</span>
+                          </span>
+                          {isActive && <Check size={14} className="shrink-0 text-brand-600 dark:text-brand-400" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="border-t border-ink-100 p-1.5 dark:border-ink-800">
+                    <button
+                      type="button"
+                      onClick={handleConnect}
+                      disabled={connecting}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-ink-600 transition-colors hover:bg-ink-50 disabled:opacity-60 dark:text-ink-400 dark:hover:bg-ink-800"
+                    >
+                      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-dashed border-ink-300 dark:border-ink-700">
+                        <Plus size={12} />
+                      </span>
+                      <span className="font-medium">{connecting ? 'Connecting…' : 'Connect another account'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {isAdmin && (
           <div className="mb-6 last:mb-0">
