@@ -16,19 +16,10 @@ const api = axios.create({
 // import between api.js and accountStore.js.
 api.interceptors.request.use(async (config) => {
   // Attach Firebase auth token
-  const { token, refreshToken } = useAuthStore.getState();
-  let currentToken = token;
+  const { accessToken } = useAuthStore.getState();
 
-  if (!currentToken && refreshToken) {
-    try {
-      currentToken = await refreshToken();
-    } catch {
-      // Let the request go through — the backend will return 401
-    }
-  }
-
-  if (currentToken) {
-    config.headers['Authorization'] = `Bearer ${currentToken}`;
+  if (accessToken) {
+    config.headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
   // Attach active Instagram account ID for per-account scoping.
