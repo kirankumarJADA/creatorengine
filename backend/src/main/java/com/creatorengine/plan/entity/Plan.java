@@ -1,7 +1,9 @@
 package com.creatorengine.plan.entity;
 
 public enum Plan {
-    FREE, PRO, AGENCY;
+    FREE,
+    PRO,
+    AGENCY;
 
     public int maxInstagramAccounts() {
         return switch (this) {

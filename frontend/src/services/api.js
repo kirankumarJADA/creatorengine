@@ -9,21 +9,14 @@ const api = axios.create({
   withCredentials: false,
 });
 
-// ─── Request interceptor ──────────────────────────────────────────
-// Attaches the Firebase JWT and the active Instagram account ID to
-// every outgoing request. The account ID is read directly from
-// localStorage (where accountStore persists it) to avoid a circular
-// import between api.js and accountStore.js.
 api.interceptors.request.use(async (config) => {
-  // Attach Firebase auth token
+  // Attach Firebase auth token — field is accessToken not token
   const { accessToken } = useAuthStore.getState();
-
   if (accessToken) {
     config.headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  // Attach active Instagram account ID for per-account scoping.
-  // Read from persisted accountStore state in localStorage.
+  // Attach active Instagram account ID for per-account scoping
   try {
     const stored = localStorage.getItem('ce.active_account');
     if (stored) {
@@ -40,9 +33,6 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// ─── Response interceptor ─────────────────────────────────────────
-// Unwraps the {success, data, message} envelope returned by the
-// backend so callers get the payload directly in response.data.
 api.interceptors.response.use(
   (response) => {
     const body = response.data;

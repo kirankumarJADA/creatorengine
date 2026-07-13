@@ -20,6 +20,7 @@ import Button from '../components/form/Button.jsx';
 import SimulatorModal from '../components/builder/SimulatorModal.jsx';
 
 import { useAutomationStore } from '../store/automationStore.js';
+import { useAccountStore } from '../store/accountStore.js';
 import {
   ROUTES, buildRoute,
   TRIGGER_TYPE, TRIGGER_LABEL,
@@ -57,6 +58,11 @@ const Automations = () => {
   const fetchAutomations  = useAutomationStore((s) => s.fetchAutomations);
   const deleteAutomation  = useAutomationStore((s) => s.deleteAutomation);
   const toggleAutomation  = useAutomationStore((s) => s.toggleAutomation);
+  const clearAutomations  = useAutomationStore((s) => s.clearAutomations);
+
+  // Subscribe to active account — re-fetch automations whenever it changes
+  const activeAccount = useAccountStore((s) => s.activeAccount);
+  const activeIgId = activeAccount?.instagramUserId;
 
   const [query, setQuery]                 = useState('');
   const [statusFilter, setStatusFilter]   = useState('all');
@@ -65,7 +71,13 @@ const Automations = () => {
   const [deletingId, setDeletingId]       = useState(null);
   const [testingAutomation, setTesting]   = useState(null);
 
-  useEffect(() => { fetchAutomations(); }, [fetchAutomations]);
+  // KEY FIX: re-fetch when active account changes
+  useEffect(() => {
+    clearAutomations?.();
+    fetchAutomations();
+    setPage(1);
+    setQuery('');
+  }, [activeIgId]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -102,6 +114,23 @@ const Automations = () => {
   };
 
   const target = automations.find((a) => a.id === deletingId);
+
+  // Show "no account selected" state
+  if (!activeIgId) {
+    return (
+      <div>
+        <PageHeader
+          title="Automations"
+          description="Build and manage your Instagram workflows."
+        />
+        <EmptyState
+          icon={Workflow}
+          title="No account selected"
+          description="Select an Instagram account from the sidebar to view your automations."
+        />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -234,12 +263,10 @@ const AutomationCard = ({ automation, onToggle, onEdit, onDelete, onTest, index 
       whileHover={{ y: -3 }}
       transition={{ duration: 0.25, delay: index * 0.03 }}
     >
-      <Card
-        className={cn(
-          'group relative flex h-full flex-col overflow-hidden transition-shadow hover:shadow-elevated',
-          isActive && 'ring-1 ring-brand-500/20'
-        )}
-      >
+      <Card className={cn(
+        'group relative flex h-full flex-col overflow-hidden transition-shadow hover:shadow-elevated',
+        isActive && 'ring-1 ring-brand-500/20'
+      )}>
         {isActive && (
           <span className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-brand-500/[0.07] blur-2xl" />
         )}
@@ -269,9 +296,7 @@ const AutomationCard = ({ automation, onToggle, onEdit, onDelete, onTest, index 
         </div>
 
         <div className="mt-4 flex items-center gap-2 rounded-xl border border-ink-100 bg-ink-50/60 px-3 py-2.5 text-xs dark:border-ink-800 dark:bg-ink-800/30">
-          <span className="truncate font-mono text-ink-600 dark:text-ink-300">
-            {conditionLabel}
-          </span>
+          <span className="truncate font-mono text-ink-600 dark:text-ink-300">{conditionLabel}</span>
           <ArrowRight size={13} className={cn('shrink-0', isActive ? 'text-brand-500' : 'text-ink-400')} />
           <span className="flex shrink-0 items-center gap-1.5 font-medium text-ink-800 dark:text-ink-200">
             <ActionIcon size={12} className="text-ink-500 dark:text-ink-400" />
@@ -288,15 +313,9 @@ const AutomationCard = ({ automation, onToggle, onEdit, onDelete, onTest, index 
             size="sm"
           />
           <div className="flex items-center gap-1 opacity-70 transition-opacity group-hover:opacity-100">
-            <IconButton size="sm" aria-label="Test" onClick={onTest}>
-              <PlayCircle size={14} />
-            </IconButton>
-            <IconButton size="sm" aria-label="Edit" onClick={onEdit}>
-              <Pencil size={14} />
-            </IconButton>
-            <IconButton size="sm" tone="danger" aria-label="Delete" onClick={onDelete}>
-              <Trash2 size={14} />
-            </IconButton>
+            <IconButton size="sm" aria-label="Test" onClick={onTest}><PlayCircle size={14} /></IconButton>
+            <IconButton size="sm" aria-label="Edit" onClick={onEdit}><Pencil size={14} /></IconButton>
+            <IconButton size="sm" tone="danger" aria-label="Delete" onClick={onDelete}><Trash2 size={14} /></IconButton>
           </div>
         </div>
       </Card>
@@ -308,10 +327,7 @@ const Pagination = ({ page, totalPages, total, pageSize, onChange }) => {
   const first = (page - 1) * pageSize + 1;
   const last  = Math.min(page * pageSize, total);
   return (
-    <nav
-      aria-label="Pagination"
-      className="mt-6 flex flex-col items-center justify-between gap-3 rounded-2xl border border-ink-100 bg-white px-4 py-3 text-sm dark:border-ink-800 dark:bg-ink-900 sm:flex-row"
-    >
+    <nav className="mt-6 flex flex-col items-center justify-between gap-3 rounded-2xl border border-ink-100 bg-white px-4 py-3 text-sm dark:border-ink-800 dark:bg-ink-900 sm:flex-row">
       <p className="text-ink-500 dark:text-ink-400">
         Showing <span className="font-medium text-ink-800 dark:text-ink-200">{first}–{last}</span> of {total}
       </p>

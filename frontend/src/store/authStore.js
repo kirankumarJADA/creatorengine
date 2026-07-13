@@ -19,7 +19,7 @@ export const useAuthStore = create((set, get) => ({
   accessToken: null,
   refreshToken: null,
   isAuthenticated: false,
-  isHydrated: false, // becomes true after bootstrap() runs
+  isHydrated: false,
   isLoading: false,
 
   // ─── Hydration ─────────────────────────────────────
