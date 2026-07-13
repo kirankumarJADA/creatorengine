@@ -17,6 +17,7 @@ import OnboardingChecklist from '../components/dashboard/OnboardingChecklist.jsx
 
 import { useAuthStore } from '../store/authStore.js';
 import { useAutomationStore } from '../store/automationStore.js';
+import { useAccountStore } from '../store/accountStore.js';
 import dashboardService from '../services/dashboardService.js';
 import SystemStatus from '../components/dashboard/SystemStatus.jsx';
 import { ROUTES, TRIGGER_LABEL } from '../utils/constants.js';
@@ -26,18 +27,33 @@ const Dashboard = () => {
   const user = useAuthStore((s) => s.user);
   const firstName = user?.name?.split(' ')[0] || 'there';
 
-  const automations    = useAutomationStore((s) => s.automations);
+  const automations = useAutomationStore((s) => s.automations);
   const fetchAutomations = useAutomationStore((s) => s.fetchAutomations);
+  const clearAutomations = useAutomationStore((s) => s.clearAutomations);
 
-  const [isLoading, setIsLoading]   = useState(true);
-  const [logs, setLogs]             = useState([]);
-  const [contacts, setContacts]     = useState([]);
-  const [igStatus, setIgStatus]     = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [logs, setLogs] = useState([]);
+  const [contacts, setContacts] = useState([]);
+  const [igStatus, setIgStatus] = useState(null);
+
+  // Subscribe to active account — re-fetch everything when it changes
+  const activeAccount = useAccountStore((s) => s.activeAccount);
+  const activeIgId = activeAccount?.instagramUserId;
 
   useEffect(() => {
     let cancelled = false;
+
     const load = async () => {
       setIsLoading(true);
+      clearAutomations?.();
+      setLogs([]);
+      setContacts([]);
+
+      if (!activeIgId) {
+        setIsLoading(false);
+        return;
+      }
+
       const [, snapshot] = await Promise.all([
         fetchAutomations(),
         dashboardService.loadAll(),
@@ -48,27 +64,42 @@ const Dashboard = () => {
       setIgStatus(snapshot.igStatus);
       setIsLoading(false);
     };
+
     load();
     return () => { cancelled = true; };
-  }, [fetchAutomations]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIgId]);
 
-  const igConnected     = Boolean(igStatus?.username) || logs.length > 0;
-  const hasAutomations  = automations.length > 0;
-  const hasActivity     = logs.length > 0;
+  const igConnected = Boolean(igStatus?.username) || logs.length > 0;
+  const hasAutomations = automations.length > 0;
+  const hasActivity = logs.length > 0;
 
-  const activeCount     = automations.filter((a) => a.enabled).length;
-  const contactsCount   = contacts.length;
-  const sentLast7d      = useMemo(() => countSentLast7d(logs), [logs]);
+  const activeCount = automations.filter((a) => a.enabled).length;
+  const contactsCount = contacts.length;
+  const sentLast7d = useMemo(() => countSentLast7d(logs), [logs]);
 
   const stats = [
-    { label: 'Total automations',  value: automations.length, icon: Workflow,      tone: 'brand'   },
-    { label: 'Active automations', value: activeCount,        icon: Zap,           tone: 'success' },
-    { label: 'Total contacts',     value: contactsCount,      icon: Users,         tone: 'neutral' },
-    { label: 'Messages sent (7d)', value: sentLast7d,         icon: MessageSquare, tone: 'warning' },
+    { label: 'Total automations', value: automations.length, icon: Workflow, tone: 'brand' },
+    { label: 'Active automations', value: activeCount, icon: Zap, tone: 'success' },
+    { label: 'Total contacts', value: contactsCount, icon: Users, tone: 'neutral' },
+    { label: 'Messages sent (7d)', value: sentLast7d, icon: MessageSquare, tone: 'warning' },
   ];
 
   const activeAutomations = automations.filter((a) => a.enabled).slice(0, 4);
-  const recentActivity    = useMemo(() => logs.slice(0, 6).map(toActivityItem), [logs]);
+  const recentActivity = useMemo(() => logs.slice(0, 6).map(toActivityItem), [logs]);
+
+  if (!activeIgId) {
+    return (
+      <div>
+        <PageHeader title={`Welcome back, ${firstName}`} description="Here's what's happening across your workspace." />
+        <EmptyState
+          icon={Workflow}
+          title="No account selected"
+          description="Select an Instagram account from the sidebar to see your dashboard."
+        />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -83,11 +114,7 @@ const Dashboard = () => {
       />
 
       {!isLoading && (
-        <OnboardingChecklist
-          igConnected={igConnected}
-          hasAutomations={hasAutomations}
-          hasActivity={hasActivity}
-        />
+        <OnboardingChecklist igConnected={igConnected} hasAutomations={hasAutomations} hasActivity={hasActivity} />
       )}
       {!isLoading && (
         <SystemStatus igStatus={igStatus} logs={logs} automations={automations} />
@@ -154,9 +181,9 @@ const timeAgo = (iso) => {
 };
 
 const ACTIVITY_ICON = {
-  message_sent:         { icon: Send,     tone: 'bg-brand-100 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300' },
-  contact_added:        { icon: UserPlus, tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' },
-  automation_triggered: { icon: Play,     tone: 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400' },
+  message_sent: { icon: Send, tone: 'bg-brand-100 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300' },
+  contact_added: { icon: UserPlus, tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' },
+  automation_triggered: { icon: Play, tone: 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400' },
 };
 
 const RecentActivity = ({ isLoading, items }) => (
@@ -166,9 +193,7 @@ const RecentActivity = ({ isLoading, items }) => (
         <h3 className="text-lg font-semibold text-ink-900 dark:text-ink-100">Recent activity</h3>
         <p className="text-sm text-ink-500 dark:text-ink-400">Live events from your workspace.</p>
       </div>
-      <Link to="/activity" className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
-        View all
-      </Link>
+      <Link to="/activity" className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">View all</Link>
     </div>
     {isLoading ? (
       <ul className="space-y-3">
@@ -185,23 +210,13 @@ const RecentActivity = ({ isLoading, items }) => (
     ) : items.length === 0 ? (
       <EmptyState icon={Inbox} title="No activity yet" description="Once your automations start running, events will show up here." />
     ) : (
-      <motion.ul
-        initial="hidden" animate="visible"
-        variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.04 } } }}
-        className="divide-y divide-ink-100 dark:divide-ink-800"
-      >
+      <motion.ul initial="hidden" animate="visible" variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.04 } } }} className="divide-y divide-ink-100 dark:divide-ink-800">
         {items.map((evt) => {
           const meta = ACTIVITY_ICON[evt.type] || ACTIVITY_ICON.message_sent;
           const Icon = meta.icon;
           return (
-            <motion.li
-              key={evt.id}
-              variants={{ hidden: { opacity: 0, y: 4 }, visible: { opacity: 1, y: 0 } }}
-              className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"
-            >
-              <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl', meta.tone)}>
-                <Icon size={16} />
-              </span>
+            <motion.li key={evt.id} variants={{ hidden: { opacity: 0, y: 4 }, visible: { opacity: 1, y: 0 } }} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+              <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl', meta.tone)}><Icon size={16} /></span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-ink-800 dark:text-ink-200">{evt.message}</p>
                 <p className="mt-0.5 text-xs text-ink-500 dark:text-ink-400">{evt.timeAgo}</p>
@@ -221,9 +236,7 @@ const ActiveAutomationsPreview = ({ isLoading, automations }) => (
         <h3 className="text-lg font-semibold text-ink-900 dark:text-ink-100">Active automations</h3>
         <p className="text-sm text-ink-500 dark:text-ink-400">Running right now.</p>
       </div>
-      <Link to={ROUTES.AUTOMATIONS} className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
-        See all
-      </Link>
+      <Link to={ROUTES.AUTOMATIONS} className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">See all</Link>
     </div>
     {isLoading ? (
       <ul className="space-y-3">
