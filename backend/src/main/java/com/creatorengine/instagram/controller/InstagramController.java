@@ -100,8 +100,21 @@ public class InstagramController {
 
     @GetMapping("/status")
     @Operation(summary = "Connection status + safe profile fields for the current user")
-    public ResponseEntity<ApiResponse<StatusResponse>> status() {
+    public ResponseEntity<ApiResponse<StatusResponse>> status(
+            @RequestHeader(value = "X-IG-Account-Id", required = false) String igAccountId
+    ) {
         String uid = SecurityUtils.getCurrentUserId();
+
+        // If a specific account is requested, return its status
+        if (igAccountId != null && !igAccountId.isBlank()) {
+            StatusResponse body = accountService.findByIgId(uid, igAccountId.trim())
+                    .filter(acc -> !accountService.isTokenRevoked(acc.getAccessToken()))
+                    .map(StatusResponse::from)
+                    .orElseGet(StatusResponse::notConnected);
+            return ResponseEntity.ok(ApiResponse.ok(body));
+        }
+
+        // Fallback: return the first connected account (legacy behavior)
         StatusResponse body = accountService.find(uid)
                 .filter(acc -> !accountService.isTokenRevoked(acc.getAccessToken()))
                 .map(StatusResponse::from)
