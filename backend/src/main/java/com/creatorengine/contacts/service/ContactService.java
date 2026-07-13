@@ -20,11 +20,32 @@ public class ContactService {
         this.repository = repository;
     }
 
+    /**
+     * List contacts for the active Instagram account.
+     * Falls back to legacy path if igAccountId is null.
+     */
+    public List<Contact> list(String uid, String igAccountId) {
+        if (igAccountId != null && !igAccountId.isBlank()) {
+            return repository.listForAccount(uid, igAccountId);
+        }
+        return repository.listForUser(uid);
+    }
+
+    /**
+     * @deprecated Use list(uid, igAccountId) instead.
+     */
+    @Deprecated
     public List<Contact> list(String uid) {
         return repository.listForUser(uid);
     }
 
+    /**
+     * Record a contact from a webhook event.
+     * Uses the event's receivingAccountId to scope to the correct account.
+     */
     public Contact recordFromEvent(String uid, WebhookEventDto event, String lastMessage) {
+        if (event == null || event.instagramUserId() == null) return null;
+
         Contact contact = Contact.builder()
                 .instagramUserId(event.instagramUserId())
                 .username(event.username())
@@ -32,10 +53,17 @@ public class ContactService {
                 .lastMessage(lastMessage)
                 .build();
 
-        Contact saved = repository.upsertByInstagramUserId(uid, contact);
+        String igAccountId = event.receivingAccountId();
 
-        log.debug("Contact upserted uid={} ig={} source={}",
-                uid, saved.getInstagramUserId(), saved.getSource());
+        Contact saved;
+        if (igAccountId != null && !igAccountId.isBlank()) {
+            saved = repository.upsertByInstagramUserId(uid, igAccountId, contact);
+        } else {
+            saved = repository.upsertByInstagramUserId(uid, contact);
+        }
+
+        log.debug("Contact upserted uid={} igAccountId={} ig={} source={}",
+                uid, igAccountId, saved.getInstagramUserId(), saved.getSource());
 
         return saved;
     }

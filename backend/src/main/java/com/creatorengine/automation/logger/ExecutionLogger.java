@@ -16,105 +16,90 @@ public class ExecutionLogger {
 
     private static final Logger log = LoggerFactory.getLogger(ExecutionLogger.class);
 
-    public static final String STATUS_SUCCESS = "SUCCESS";
-    public static final String STATUS_FAILED = "FAILED";
-    public static final String STATUS_COOLDOWN_SKIPPED = "COOLDOWN_SKIPPED";
-    public static final String STATUS_DUPLICATE_IGNORED = "DUPLICATE_IGNORED";
-
     private final ExecutionLogRepository repository;
 
     public ExecutionLogger(ExecutionLogRepository repository) {
         this.repository = repository;
     }
 
-    public void logMatch(
-            String uid,
-            Automation automation,
-            WebhookEventDto event,
-            ExecutionResult result
-    ) {
-        String status = deriveMatchStatus(result);
+    public void logMatch(String uid, Automation automation, WebhookEventDto event, ExecutionResult result) {
+        if (uid == null) return;
+        String igAccountId = event != null ? event.receivingAccountId() : null;
 
-        ExecutionLog row = ExecutionLog.builder()
-                .automationId(automation.getId())
-                .automationName(automation.getName())
-                .matched(true)
-                .eventType(event != null && event.type() != null ? event.type().name() : null)
-                .triggerText(event != null ? event.message() : null)
-                .messageSent(result.messageSent())
-                .status(status)
-                .renderedMessage(result.renderedMessage())
-                .actionType(automation.getAction() != null && automation.getAction().getType() != null
-                        ? automation.getAction().getType().name()
-                        : null)
-                .recipientUsername(event != null ? event.username() : null)
-                .recipientInstagramId(event != null ? event.instagramUserId() : null)
-                .metaMessageId(result.metaMessageId())
-                .errorMessage(result.error())
-                .timestamp(Instant.now())
-                .build();
+        ExecutionLog row = new ExecutionLog();
+        row.setTimestamp(Instant.now());
+        row.setAutomationId(automation != null ? automation.getId() : null);
+        row.setAutomationName(automation != null ? automation.getName() : null);
+        if (automation != null && automation.getTrigger() != null) {
+            row.setEventType(automation.getTrigger().name());
+        }
+        row.setRecipientUsername(event != null ? event.username() : null);
+        row.setRecipientInstagramId(event != null ? event.instagramUserId() : null);
+        row.setTriggerText(event != null ? event.message() : null);
+        row.setMessageSent(result != null && result.messageSent());
+        row.setMatched(true);
+        row.setStatus(deriveStatus(result));
+        row.setErrorMessage(result != null ? result.error() : null);
 
-        safeSave(uid, row, "match");
-    }
-
-    public void logCooldownSkipped(String uid, Automation automation, WebhookEventDto event) {
-        ExecutionLog row = ExecutionLog.builder()
-                .automationId(automation.getId())
-                .automationName(automation.getName())
-                .matched(true)
-                .eventType(event != null && event.type() != null ? event.type().name() : null)
-                .triggerText(event != null ? event.message() : null)
-                .messageSent(false)
-                .status(STATUS_COOLDOWN_SKIPPED)
-                .actionType(automation.getAction() != null && automation.getAction().getType() != null
-                        ? automation.getAction().getType().name()
-                        : null)
-                .recipientUsername(event != null ? event.username() : null)
-                .recipientInstagramId(event != null ? event.instagramUserId() : null)
-                .timestamp(Instant.now())
-                .build();
-
-        safeSave(uid, row, "cooldown-skip");
+        try {
+            repository.save(uid, igAccountId, row);
+        } catch (Exception ex) {
+            log.warn("ExecutionLogger.logMatch failed uid={}: {}", uid, ex.getMessage());
+        }
     }
 
     public void logDuplicateIgnored(String uid, WebhookEventDto event) {
-        ExecutionLog row = ExecutionLog.builder()
-                .matched(false)
-                .eventType(event != null && event.type() != null ? event.type().name() : null)
-                .triggerText(event != null ? event.message() : null)
-                .messageSent(false)
-                .status(STATUS_DUPLICATE_IGNORED)
-                .recipientUsername(event != null ? event.username() : null)
-                .recipientInstagramId(event != null ? event.instagramUserId() : null)
-                .timestamp(Instant.now())
-                .build();
+        if (uid == null) return;
+        String igAccountId = event != null ? event.receivingAccountId() : null;
 
-        safeSave(uid, row, "dup-ignored");
-    }
+        ExecutionLog row = new ExecutionLog();
+        row.setTimestamp(Instant.now());
+        if (event != null && event.type() != null) {
+            row.setEventType(event.type().name());
+        }
+        row.setRecipientUsername(event != null ? event.username() : null);
+        row.setRecipientInstagramId(event != null ? event.instagramUserId() : null);
+        row.setTriggerText(event != null ? event.message() : null);
+        row.setMessageSent(false);
+        row.setMatched(false);
+        row.setStatus("DUPLICATE_IGNORED");
 
-    private void safeSave(String uid, ExecutionLog row, String tag) {
         try {
-            repository.save(uid, row);
-            log.debug("Logged [{}] uid={} automation={} status={}",
-                    tag, uid, row.getAutomationId(), row.getStatus());
+            repository.save(uid, igAccountId, row);
         } catch (Exception ex) {
-            log.warn("Failed to persist [{}] log uid={}: {}", tag, uid, ex.getMessage());
+            log.warn("ExecutionLogger.logDuplicateIgnored failed uid={}: {}", uid, ex.getMessage());
         }
     }
 
-    private static String deriveMatchStatus(ExecutionResult result) {
-        if (result == null) {
-            return STATUS_FAILED;
-        }
+    public void logCooldownSkipped(String uid, Automation automation, WebhookEventDto event) {
+        if (uid == null) return;
+        String igAccountId = event != null ? event.receivingAccountId() : null;
 
-        if (result.messageSent()) {
-            return STATUS_SUCCESS;
+        ExecutionLog row = new ExecutionLog();
+        row.setTimestamp(Instant.now());
+        row.setAutomationId(automation != null ? automation.getId() : null);
+        row.setAutomationName(automation != null ? automation.getName() : null);
+        if (automation != null && automation.getTrigger() != null) {
+            row.setEventType(automation.getTrigger().name());
         }
+        row.setRecipientUsername(event != null ? event.username() : null);
+        row.setRecipientInstagramId(event != null ? event.instagramUserId() : null);
+        row.setTriggerText(event != null ? event.message() : null);
+        row.setMessageSent(false);
+        row.setMatched(true);
+        row.setStatus("COOLDOWN_SKIPPED");
 
-        if (result.error() == null) {
-            return STATUS_SUCCESS;
+        try {
+            repository.save(uid, igAccountId, row);
+        } catch (Exception ex) {
+            log.warn("ExecutionLogger.logCooldownSkipped failed uid={}: {}", uid, ex.getMessage());
         }
+    }
 
-        return STATUS_FAILED;
+    private static String deriveStatus(ExecutionResult result) {
+        if (result == null) return "FAILED";
+        if (result.messageSent()) return "SUCCESS";
+        if (result.error() != null) return "FAILED";
+        return "SUCCESS";
     }
 }

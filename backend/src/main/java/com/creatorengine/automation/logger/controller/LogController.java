@@ -28,14 +28,22 @@ public class LogController {
     @GetMapping
     @Operation(summary = "List recent activity log rows for the current user")
     public ResponseEntity<ApiResponse<List<LogResponse>>> list(
-            @RequestParam(name = "limit", required = false) Integer limit
+            @RequestParam(name = "limit", required = false) Integer limit,
+            @RequestHeader(value = "X-IG-Account-Id", required = false) String igAccountId
     ) {
         String uid = SecurityUtils.getCurrentUserId();
         int requested = limit == null ? DEFAULT_LIMIT : Math.max(1, Math.min(limit, MAX_LIMIT));
 
-        List<LogResponse> items = repository.listForUser(uid, requested).stream()
-                .map(LogResponse::from)
-                .toList();
+        List<LogResponse> items;
+        if (igAccountId != null && !igAccountId.isBlank()) {
+            items = repository.listForAccount(uid, igAccountId.trim(), requested).stream()
+                    .map(LogResponse::from)
+                    .toList();
+        } else {
+            items = repository.listForUser(uid, requested).stream()
+                    .map(LogResponse::from)
+                    .toList();
+        }
 
         return ResponseEntity.ok(ApiResponse.ok(items));
     }
