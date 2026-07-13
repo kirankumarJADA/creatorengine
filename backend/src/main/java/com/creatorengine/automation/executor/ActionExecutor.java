@@ -314,7 +314,8 @@ public class ActionExecutor {
         String instagramUserId = event.instagramUserId();
         if (instagramUserId == null || instagramUserId.isBlank()) return;
 
-        followUpService.scheduleOrReset(ctx.uid(), automation, instagramUserId);
+        // Pass full event so FollowUpService can store username + igAccountId
+        followUpService.scheduleOrReset(ctx.uid(), automation, event);
     }
 
     private void maybePostPublicReply(ExecutionContext ctx, AccessTokenContext tokenCtx) {

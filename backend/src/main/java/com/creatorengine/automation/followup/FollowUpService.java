@@ -1,6 +1,7 @@
 package com.creatorengine.automation.followup;
 
 import com.creatorengine.automation.entity.Automation;
+import com.creatorengine.instagram.dto.WebhookEventDto;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
@@ -10,23 +11,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-/**
- * Manages the single "no-reply follow-up" per automation per contact.
- *
- * Storage: Firestore collection "pending_follow_ups". Document ID is
- * deterministic: {uid}_{automationId}_{instagramUserId} - this makes
- * scheduling idempotent. If the automation's chain sends multiple
- * messages, each successful send simply overwrites the same document,
- * resetting the timer to "now + delay" from the LAST message sent -
- * exactly matching the spec ("timer starts immediately after the
- * previous message is sent").
- *
- * Statuses: PENDING -> SENT | CANCELLED
- */
 @Service
 public class FollowUpService {
 
@@ -41,21 +29,21 @@ public class FollowUpService {
 
     /**
      * Schedule (or reschedule) the single follow-up for this automation + contact.
-     * Called after a successful send when automation.followUpEnabled is true.
+     * Now stores username and igAccountId for proper template rendering and
+     * account lookup at send time.
      */
-    public void scheduleOrReset(String uid, Automation automation, String instagramUserId) {
-        if (uid == null || automation == null || automation.getId() == null
-                || instagramUserId == null || instagramUserId.isBlank()) {
+    public void scheduleOrReset(String uid, Automation automation, WebhookEventDto event) {
+        if (uid == null || automation == null || automation.getId() == null || event == null) {
             return;
         }
-        if (!automation.getFollowUpEnabled()) {
-            return;
-        }
+        if (!automation.getFollowUpEnabled()) return;
+
+        String instagramUserId = event.instagramUserId();
+        if (instagramUserId == null || instagramUserId.isBlank()) return;
 
         String message = automation.getFollowUpMessage();
         if (message == null || message.isBlank()) {
-            log.warn("Follow-up enabled for automation {} but message is empty - skipping schedule.",
-                    automation.getId());
+            log.warn("Follow-up enabled for automation {} but message is empty - skipping.", automation.getId());
             return;
         }
 
@@ -64,19 +52,20 @@ public class FollowUpService {
 
         String docId = docId(uid, automation.getId(), instagramUserId);
 
-        Map<String, Object> data = Map.of(
-                "uid", uid,
-                "automationId", automation.getId(),
-                "instagramUserId", instagramUserId,
-                "message", message,
-                "scheduledAt", scheduledAt,
-                "status", "PENDING",
-                "updatedAt", new Date()
-        );
+        Map<String, Object> data = new HashMap<>();
+        data.put("uid", uid);
+        data.put("automationId", automation.getId());
+        data.put("instagramUserId", instagramUserId);
+        data.put("username", event.username() != null ? event.username() : "");
+        data.put("igAccountId", event.receivingAccountId() != null ? event.receivingAccountId() : "");
+        data.put("message", message);
+        data.put("scheduledAt", scheduledAt);
+        data.put("status", "PENDING");
+        data.put("updatedAt", new Date());
 
         try {
             firestore.collection(COLLECTION).document(docId).set(data).get();
-            log.info("Follow-up scheduled/reset for uid={} automation={} user={} at={}",
+            log.info("Follow-up scheduled for uid={} automation={} user={} at={}",
                     uid, automation.getId(), instagramUserId, scheduledAt);
         } catch (InterruptedException | ExecutionException ex) {
             Thread.currentThread().interrupt();
@@ -85,15 +74,11 @@ public class FollowUpService {
     }
 
     /**
-     * Cancel ANY pending follow-up(s) for this contact under this account,
-     * regardless of which automation scheduled them. Called the moment a
-     * new DM arrives from this user - a reply is a reply, it cancels
-     * whatever follow-up(s) were waiting on them.
+     * Cancel any pending follow-up for this contact under this account.
+     * Called when a new DM arrives from this user.
      */
     public void cancelPendingForUser(String uid, String instagramUserId) {
-        if (uid == null || instagramUserId == null || instagramUserId.isBlank()) {
-            return;
-        }
+        if (uid == null || instagramUserId == null || instagramUserId.isBlank()) return;
 
         try {
             QuerySnapshot snapshot = firestore.collection(COLLECTION)

@@ -21,10 +21,6 @@ import java.util.Date;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
-/**
- * Polls "pending_follow_ups" every minute and sends any whose scheduledAt
- * has passed and are still PENDING (i.e. the contact never replied).
- */
 @Component
 public class FollowUpSchedulerService {
 
@@ -45,7 +41,6 @@ public class FollowUpSchedulerService {
         this.instagramAccountService = instagramAccountService;
     }
 
-    /** Runs every 60 seconds. */
     @Scheduled(fixedDelay = 60_000)
     public void processDueFollowUps() {
         QuerySnapshot snapshot;
@@ -75,6 +70,7 @@ public class FollowUpSchedulerService {
         String automationId = doc.getString("automationId");
         String instagramUserId = doc.getString("instagramUserId");
         String message = doc.getString("message");
+        String username = doc.getString("username"); // stored at schedule time if available
         DocumentReference ref = doc.getReference();
 
         if (uid == null || instagramUserId == null || message == null) {
@@ -82,11 +78,24 @@ public class FollowUpSchedulerService {
             return;
         }
 
-        // Re-check the automation is still enabled and follow-up still wanted,
-        // in case it was disabled/deleted after scheduling.
-        DocumentSnapshot autoSnap = firestore.collection("users").document(uid)
-                .collection("automations").document(automationId)
-                .get().get();
+        // Re-check automation is still enabled
+        // Try new per-account path first, then fall back to legacy
+        DocumentSnapshot autoSnap = null;
+        String igAccountId = doc.getString("igAccountId");
+
+        if (igAccountId != null && !igAccountId.isBlank()) {
+            autoSnap = firestore.collection("users").document(uid)
+                    .collection("accounts").document(igAccountId)
+                    .collection("automations").document(automationId)
+                    .get().get();
+        }
+
+        if (autoSnap == null || !autoSnap.exists()) {
+            // Try legacy path
+            autoSnap = firestore.collection("users").document(uid)
+                    .collection("automations").document(automationId)
+                    .get().get();
+        }
 
         if (!autoSnap.exists()) {
             ref.update("status", "CANCELLED", "updatedAt", new Date());
@@ -99,7 +108,11 @@ public class FollowUpSchedulerService {
             return;
         }
 
-        Optional<InstagramAccount> acctOpt = instagramAccountService.find(uid);
+        // Look up account — try by specific igAccountId first, fall back to find(uid)
+        Optional<InstagramAccount> acctOpt = igAccountId != null
+                ? instagramAccountService.findByIgId(uid, igAccountId)
+                : instagramAccountService.find(uid);
+
         if (acctOpt.isEmpty()) {
             log.warn("No connected Instagram account for uid={} - cancelling follow-up.", uid);
             ref.update("status", "CANCELLED", "updatedAt", new Date());
@@ -108,12 +121,16 @@ public class FollowUpSchedulerService {
 
         InstagramAccount acct = acctOpt.get();
 
+        // Render {{username}} — use stored username or generic fallback
+        String displayName = (username != null && !username.isBlank()) ? username : "there";
+        String renderedMessage = message.replace("{{username}}", displayName);
+
         AccessTokenContext tokenCtx = AccessTokenContext.builder()
                 .instagramBusinessAccountId(acct.getInstagramUserId())
                 .pageAccessToken(acct.getAccessToken())
                 .build();
 
-        SendResult result = metaMessaging.sendText(new ByUserId(instagramUserId), message, tokenCtx);
+        SendResult result = metaMessaging.sendText(new ByUserId(instagramUserId), renderedMessage, tokenCtx);
 
         if (result.success()) {
             ref.update("status", "SENT", "sentAt", new Date(), "updatedAt", new Date());
