@@ -21,34 +21,6 @@ public class EventDeduplicationService {
         this.repository = repository;
     }
 
-    public boolean isDuplicate(WebhookEventDto event) {
-        String key = event.dedupKey();
-        if (key == null) {
-            return false;
-        }
-        return repository.exists(key);
-    }
-
-    public void markProcessed(String uid, WebhookEventDto event) {
-        String key = event.dedupKey();
-        if (key == null) {
-            return;
-        }
-
-        Instant now = Instant.now();
-
-        ProcessedEvent record = ProcessedEvent.builder()
-                .id(key)
-                .eventType(event.type() != null ? event.type().name() : null)
-                .uid(uid)
-                .processedAt(now)
-                .expiresAt(now.plus(RETENTION))
-                .build();
-
-        repository.save(record);
-        log.debug("Recorded processed event key={} uid={}", key, uid);
-    }
-
     /**
      * Atomically check-and-claim this event.
      * Returns true if this is the first time we've seen this event (caller should process it).
