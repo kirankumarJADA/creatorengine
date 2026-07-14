@@ -77,6 +77,24 @@ public class WebhookEventParser {
         String field = text(change.path("field"));
         JsonNode value = change.path("value");
 
+        if ("mentions".equals(field)) {
+            // Instagram fires this when someone tags @youraccount in their story.
+            // The payload only contains the story's media_id — the sender's user id
+            // must be resolved later via the Graph API (done in WebhookService).
+            String mediaId = text(value.path("media_id"));
+            if (mediaId == null || mediaId.isBlank()) {
+                log.warn("Story mention webhook missing media_id - skipping.");
+                return null;
+            }
+            log.info("STORY_MENTION received mediaId='{}'", mediaId);
+            return WebhookEventDto.builder()
+                    .type(EventType.STORY_MENTION)
+                    .postId(mediaId)
+                    .eventTime(secsToInstant(entryTimeSec))
+                    .receivingAccountId(accountId)
+                    .build();
+        }
+
         if ("comments".equals(field) || "live_comments".equals(field)) {
             boolean isLive = "live_comments".equals(field);
             String fromId = text(value.path("from").path("id"));

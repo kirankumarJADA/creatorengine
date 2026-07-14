@@ -16,6 +16,7 @@ public enum TriggerType {
     DM,
     STORY_REPLY,
     NEXT_POST,
-    CONTENT_SHARED,  // someone shares a post/reel to your DM inbox
-    LIVE_COMMENT     // comment during an Instagram Live broadcast
+    CONTENT_SHARED,   // someone shares a post/reel to your DM inbox
+    LIVE_COMMENT,     // comment during an Instagram Live broadcast
+    STORY_MENTION     // someone mentioned @youraccount in their story
 }

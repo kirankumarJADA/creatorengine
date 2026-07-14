@@ -11,6 +11,7 @@ import org.springframework.web.client.RestClient;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Component
 public class MetaMessagingService {
@@ -201,6 +202,46 @@ public class MetaMessagingService {
             return SendResult.failure(ex.getMessage(), 0);
         }
     }
+
+    /**
+     * Resolve the owner of an Instagram media object (e.g. a story that mentioned us).
+     * Calls GET /{mediaId}?fields=owner{id,username}&access_token={token}.
+     * Returns empty if the call fails or the owner block is absent.
+     */
+    public Optional<MediaOwner> resolveMediaOwner(String mediaId, String accessToken) {
+        if (mediaId == null || mediaId.isBlank() || accessToken == null || accessToken.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = client().get()
+                    .uri(uri -> uri
+                            .path("/" + mediaId)
+                            .queryParam("fields", "owner")
+                            .queryParam("access_token", accessToken)
+                            .build())
+                    .retrieve()
+                    .body(Map.class);
+
+            if (response == null) return Optional.empty();
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> owner = (Map<String, Object>) response.get("owner");
+            if (owner == null) return Optional.empty();
+
+            String id = String.valueOf(owner.getOrDefault("id", ""));
+            String username = owner.containsKey("username") ? String.valueOf(owner.get("username")) : null;
+            if (id.isBlank()) return Optional.empty();
+
+            log.info("Resolved media owner mediaId={} ownerId={} username={}", mediaId, id, username);
+            return Optional.of(new MediaOwner(id, username));
+        } catch (Exception ex) {
+            log.warn("Failed to resolve media owner mediaId={}: {}", mediaId, ex.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    public record MediaOwner(String id, String username) {}
 
     public sealed interface Recipient permits ByUserId, ByCommentId {
         Map<String, Object> toJsonShape();

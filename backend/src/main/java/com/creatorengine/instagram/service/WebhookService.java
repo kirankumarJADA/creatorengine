@@ -37,6 +37,7 @@ public class WebhookService {
     private final ObjectMapper objectMapper;
     private final FollowUpService followUpService;
     private final EmailCollectionService emailCollectionService;
+    private final MetaMessagingService metaMessagingService;
 
     public WebhookService(
             AppProperties props,
@@ -48,7 +49,8 @@ public class WebhookService {
             com.creatorengine.health.HealthService healthService,
             ObjectMapper objectMapper,
             FollowUpService followUpService,
-            EmailCollectionService emailCollectionService
+            EmailCollectionService emailCollectionService,
+            MetaMessagingService metaMessagingService
     ) {
         this.props = props;
         this.signatureVerifier = signatureVerifier;
@@ -60,6 +62,7 @@ public class WebhookService {
         this.objectMapper = objectMapper;
         this.followUpService = followUpService;
         this.emailCollectionService = emailCollectionService;
+        this.metaMessagingService = metaMessagingService;
     }
 
     public boolean isValidVerification(String mode, String token) {
@@ -133,13 +136,40 @@ public class WebhookService {
             return false;
         }
 
+        // STORY MENTION: resolve the sender's Instagram user id from the media_id.
+        // The parser can't do this — it doesn't have the account's access token.
+        if (e.type() == EventType.STORY_MENTION) {
+            var ownerOpt = metaMessagingService.resolveMediaOwner(e.postId(), account.getAccessToken());
+            if (ownerOpt.isEmpty()) {
+                log.warn("Could not resolve story mention sender for mediaId={} - dropping event.", e.postId());
+                return false;
+            }
+            var owner = ownerOpt.get();
+            // Skip if the mention came from the owner's own account
+            if (owner.id() != null && owner.id().equals(account.getInstagramUserId())) {
+                log.debug("Skipping story mention authored by the owning account.");
+                return false;
+            }
+            e = WebhookEventDto.builder()
+                    .type(EventType.STORY_MENTION)
+                    .instagramUserId(owner.id())
+                    .username(owner.username())
+                    .postId(e.postId())
+                    .eventTime(e.eventTime())
+                    .receivingAccountId(e.receivingAccountId())
+                    .build();
+            log.info("STORY_MENTION enriched: sender={} ({})", owner.id(), owner.username());
+        }
+
         // ----------------------------------------------------------------
         // FOLLOW-UP MESSAGE: cancel-on-reply
         // Any incoming DM from a contact means they replied - cancel any
         // pending no-reply follow-up(s) scheduled for them under this
         // account, regardless of which automation scheduled it.
         // ----------------------------------------------------------------
-        if ((e.type() == EventType.DM || e.type() == EventType.CONTENT_SHARED)
+        if ((e.type() == EventType.DM
+                || e.type() == EventType.CONTENT_SHARED
+                || e.type() == EventType.STORY_MENTION)
                 && e.instagramUserId() != null) {
             followUpService.cancelPendingForUser(uid, e.instagramUserId());
 

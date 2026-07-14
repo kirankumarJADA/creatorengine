@@ -116,7 +116,8 @@ public class CooldownService {
         String trigger = automation.getTrigger().name();
         boolean directInbox = "DM".equals(trigger)
                 || "STORY_REPLY".equals(trigger)
-                || "CONTENT_SHARED".equals(trigger);
+                || "CONTENT_SHARED".equals(trigger)
+                || "STORY_MENTION".equals(trigger);
         if (!directInbox) {
             return false;
         }

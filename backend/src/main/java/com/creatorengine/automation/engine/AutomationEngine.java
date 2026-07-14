@@ -199,7 +199,8 @@ public class AutomationEngine {
         boolean isFollowGateable = evType == EventType.COMMENT
                 || evType == EventType.DM
                 || evType == EventType.STORY_REPLY
-                || evType == EventType.CONTENT_SHARED;
+                || evType == EventType.CONTENT_SHARED
+                || evType == EventType.STORY_MENTION;
         if (automation.getFollowGateEnabled() && isFollowGateable && !job.followGateCompleted()) {
             runFollowGateAsk(job, automation, account);
             return;
