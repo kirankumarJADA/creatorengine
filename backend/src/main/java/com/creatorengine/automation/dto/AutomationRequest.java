@@ -62,7 +62,13 @@ public record AutomationRequest(
         FollowUpDelayUnit followUpDelayUnit,
 
         @Size(max = 2000, message = "Follow-up message is too long (max 2000 characters)")
-        String followUpMessage
+        String followUpMessage,
+
+        // EMAIL COLLECTION fields
+        Boolean emailCollectEnabled,
+
+        @Size(max = 2000, message = "Email collect message is too long (max 2000 characters)")
+        String emailCollectMessage
 ) {
 
     private static final int MIN_DELAY_SECONDS = 1;
@@ -237,7 +243,9 @@ public record AutomationRequest(
                 .followUpEnabled(Boolean.TRUE.equals(followUpEnabled))
                 .followUpDelayAmount(followUpDelayAmount != null ? Math.max(1, followUpDelayAmount) : 1)
                 .followUpDelayUnit(followUpDelayUnit != null ? followUpDelayUnit : FollowUpDelayUnit.HOURS)
-                .followUpMessage(followUpMessage == null ? null : followUpMessage.trim());
+                .followUpMessage(followUpMessage == null ? null : followUpMessage.trim())
+                .emailCollectEnabled(Boolean.TRUE.equals(emailCollectEnabled))
+                .emailCollectMessage(emailCollectMessage == null ? null : emailCollectMessage.trim());
 
         if (publicReplies != null) {
             builder.publicReplies(publicReplies.stream()
