@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Check, ChevronDown, Image as ImageIcon, Images, RefreshCw } from 'lucide-react';
 
 import { useBuilderStore } from '../../store/builderStore.js';
+import { useAccountStore } from '../../store/accountStore.js';
 import instagramService from '../../services/instagramService.js';
 import { POST_TARGET_MODE, TRIGGER_TYPE } from '../../utils/constants.js';
 
@@ -23,6 +24,8 @@ const PostPicker = () => {
   const setTargetPostMode  = useBuilderStore((s) => s.setTargetPostMode);
   const setTargetPostId    = useBuilderStore((s) => s.setTargetPostId);
 
+  const activeIgId = useAccountStore((s) => s.activeAccount?.instagramUserId);
+
   const [posts, setPosts]     = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState(null);
@@ -39,8 +42,9 @@ const PostPicker = () => {
     (async () => {
       setLoading(true);
       setError(null);
+      setPosts([]);
       try {
-        const items = await instagramService.getMedia();
+        const items = await instagramService.getMedia(activeIgId);
         if (!cancelled) setPosts(Array.isArray(items) ? items : []);
       } catch (e) {
         if (!cancelled) {
@@ -52,7 +56,7 @@ const PostPicker = () => {
     })();
 
     return () => { cancelled = true; };
-  }, [show, reloadKey]);
+  }, [show, reloadKey, activeIgId]);
 
   // If a user is editing and their selected post is beyond the first 2,
   // auto-expand so the highlight is visible.

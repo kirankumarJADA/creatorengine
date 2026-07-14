@@ -193,7 +193,7 @@ const RecentActivity = ({ isLoading, items }) => (
         <h3 className="text-lg font-semibold text-ink-900 dark:text-ink-100">Recent activity</h3>
         <p className="text-sm text-ink-500 dark:text-ink-400">Live events from your workspace.</p>
       </div>
-      <Link to="/activity" className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">View all</Link>
+      <Link to={ROUTES.LOGS} className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">View all</Link>
     </div>
     {isLoading ? (
       <ul className="space-y-3">
