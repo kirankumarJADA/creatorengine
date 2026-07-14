@@ -1,5 +1,6 @@
 package com.creatorengine.automation.executor;
 
+import com.creatorengine.automation.email.EmailCollectionService;
 import com.creatorengine.automation.entity.ActionType;
 import com.creatorengine.automation.entity.Automation;
 import com.creatorengine.automation.followup.FollowUpService;
@@ -33,17 +34,20 @@ public class ActionExecutor {
     private final MetaMessagingService metaMessaging;
     private final ContactService contactService;
     private final FollowUpService followUpService;
+    private final EmailCollectionService emailCollectionService;
 
     public ActionExecutor(
             TemplateRenderer templateRenderer,
             MetaMessagingService metaMessaging,
             ContactService contactService,
-            FollowUpService followUpService
+            FollowUpService followUpService,
+            EmailCollectionService emailCollectionService
     ) {
         this.templateRenderer = templateRenderer;
         this.metaMessaging = metaMessaging;
         this.contactService = contactService;
         this.followUpService = followUpService;
+        this.emailCollectionService = emailCollectionService;
     }
 
     public ExecutionResult execute(ExecutionContext ctx, Automation.Action action) {
@@ -280,6 +284,7 @@ public class ActionExecutor {
                 contactService.recordFromEvent(ctx.uid(), ctx.event(), "[image]");
                 maybePostPublicReply(ctx, tokenCtx);
                 maybeScheduleFollowUp(ctx);
+                maybeScheduleEmailCapture(ctx, recipient, tokenCtx);
                 return ExecutionResult.sent("[image]", imageResult.messageId());
             }
             return ExecutionResult.failed(null,
@@ -293,6 +298,7 @@ public class ActionExecutor {
             contactService.recordFromEvent(ctx.uid(), ctx.event(), message);
             maybePostPublicReply(ctx, tokenCtx);
             maybeScheduleFollowUp(ctx);
+            maybeScheduleEmailCapture(ctx, recipient, tokenCtx);
             return ExecutionResult.sent(message, result.messageId());
         }
 
@@ -316,6 +322,37 @@ public class ActionExecutor {
 
         // Pass full event so FollowUpService can store username + igAccountId
         followUpService.scheduleOrReset(ctx.uid(), automation, event);
+    }
+
+    /**
+     * EMAIL COLLECTION
+     * Called after every successful DM send. If the automation has
+     * emailCollectEnabled, registers an expectation so the engine can
+     * capture the contact's email when they reply. If the creator also
+     * set an emailCollectMessage, that text is sent as an extra DM
+     * prompting the user to share their email.
+     */
+    private void maybeScheduleEmailCapture(
+            ExecutionContext ctx,
+            Recipient recipient,
+            AccessTokenContext tokenCtx
+    ) {
+        Automation automation = ctx.automation();
+        var event = ctx.event();
+        if (automation == null || !automation.getEmailCollectEnabled() || event == null) return;
+
+        // Send the "ask for email" message if configured
+        String askMsg = automation.getEmailCollectMessage();
+        if (askMsg != null && !askMsg.isBlank()) {
+            String rendered = templateRenderer.renderWithUsername(askMsg, event.username());
+            SendResult askResult = metaMessaging.sendText(recipient, rendered, tokenCtx);
+            if (!askResult.success()) {
+                log.warn("Email-ask DM failed for automation {}: {}", automation.getId(), askResult.error());
+            }
+        }
+
+        // Register expectation so the next DM from this contact is checked for an email
+        emailCollectionService.scheduleExpectation(ctx.uid(), automation, event);
     }
 
     private void maybePostPublicReply(ExecutionContext ctx, AccessTokenContext tokenCtx) {

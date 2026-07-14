@@ -183,6 +183,7 @@ const ContactsTable = ({ contacts }) => (
         <tr className="border-b border-ink-100 bg-ink-50/60 text-left text-xs uppercase tracking-wider text-ink-500 dark:border-ink-800 dark:bg-ink-900/60 dark:text-ink-400">
           <th className="px-5 py-3 font-semibold">Contact</th>
           <th className="px-5 py-3 font-semibold">Instagram ID</th>
+          <th className="px-5 py-3 font-semibold">Email</th>
           <th className="px-5 py-3 font-semibold">Source</th>
           <th className="px-5 py-3 font-semibold">Triggers</th>
           <th className="px-5 py-3 font-semibold">Last interaction</th>
@@ -209,6 +210,13 @@ const ContactsTable = ({ contacts }) => (
             <td className="px-5 py-3.5 font-mono text-xs text-ink-600 dark:text-ink-400" title={c.instagramUserId}>
               {truncateId(c.instagramUserId)}
             </td>
+            <td className="px-5 py-3.5 text-sm text-ink-700 dark:text-ink-300">
+              {c.email ? (
+                <a href={`mailto:${c.email}`} className="hover:underline text-brand-600 dark:text-brand-400">{c.email}</a>
+              ) : (
+                <span className="text-ink-400">—</span>
+              )}
+            </td>
             <td className="px-5 py-3.5">
               <Badge tone={SOURCE_TONE[c.source] || 'neutral'} dot>{SOURCE_LABEL[c.source] || c.source || '—'}</Badge>
             </td>
@@ -233,7 +241,7 @@ const TableSkeleton = () => (
     <table className="w-full text-sm">
       <thead>
         <tr className="border-b border-ink-100 bg-ink-50/60 dark:border-ink-800 dark:bg-ink-900/60">
-          {['Contact', 'Instagram ID', 'Source', 'Triggers', 'Last interaction', 'Created'].map((h) => (
+          {['Contact', 'Instagram ID', 'Email', 'Source', 'Triggers', 'Last interaction', 'Created'].map((h) => (
             <th key={h} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-400">{h}</th>
           ))}
         </tr>
@@ -248,6 +256,7 @@ const TableSkeleton = () => (
               </div>
             </td>
             <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-24" /></td>
+            <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-32" /></td>
             <td className="px-5 py-3.5"><Skeleton className="h-5 w-20 rounded-full" /></td>
             <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-12" /></td>
             <td className="px-5 py-3.5"><Skeleton className="h-3.5 w-20" /></td>

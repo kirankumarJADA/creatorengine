@@ -11,6 +11,7 @@ public class Contact {
 
     private String instagramUserId;
     private String username;
+    private String email;
     private String source;
     private String lastMessage;
     private long totalTriggers;
@@ -24,6 +25,7 @@ public class Contact {
             String id,
             String instagramUserId,
             String username,
+            String email,
             String source,
             String lastMessage,
             long totalTriggers,
@@ -33,6 +35,7 @@ public class Contact {
         this.id = id;
         this.instagramUserId = instagramUserId;
         this.username = username;
+        this.email = email;
         this.source = source;
         this.lastMessage = lastMessage;
         this.totalTriggers = totalTriggers;
@@ -66,6 +69,14 @@ public class Contact {
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getSource() {
@@ -112,6 +123,7 @@ public class Contact {
         private String id;
         private String instagramUserId;
         private String username;
+        private String email;
         private String source;
         private String lastMessage;
         private long totalTriggers;
@@ -130,6 +142,11 @@ public class Contact {
 
         public ContactBuilder username(String username) {
             this.username = username;
+            return this;
+        }
+
+        public ContactBuilder email(String email) {
+            this.email = email;
             return this;
         }
 
@@ -163,6 +180,7 @@ public class Contact {
                     id,
                     instagramUserId,
                     username,
+                    email,
                     source,
                     lastMessage,
                     totalTriggers,

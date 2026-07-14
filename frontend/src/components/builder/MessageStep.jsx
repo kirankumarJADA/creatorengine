@@ -5,6 +5,7 @@ import PublicReplyEditor from './PublicReplyEditor.jsx';
 import FollowGateEditor from './FollowGateEditor.jsx';
 import BotProtectionEditor from './BotProtectionEditor.jsx';
 import FollowUpEditor from './FollowUpEditor.jsx';
+import EmailCollectEditor from './EmailCollectEditor.jsx';
 import { useBuilderStore } from '../../store/builderStore.js';
 import { renderTemplate } from '../../utils/automationEngine.js';
 import { ACTION_TYPE } from '../../utils/constants.js';
@@ -67,6 +68,9 @@ const MessageStep = () => {
 
       {/* Follow-up Message — single no-reply follow-up */}
       <FollowUpEditor />
+
+      {/* Email Collection — save email when contact replies with it */}
+      <EmailCollectEditor />
     </div>
   );
 };

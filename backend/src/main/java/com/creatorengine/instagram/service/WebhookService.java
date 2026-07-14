@@ -1,5 +1,6 @@
 package com.creatorengine.instagram.service;
 
+import com.creatorengine.automation.email.EmailCollectionService;
 import com.creatorengine.automation.engine.AutomationEngine;
 import com.creatorengine.automation.followup.FollowUpService;
 import com.creatorengine.config.AppProperties;
@@ -35,6 +36,7 @@ public class WebhookService {
     private final com.creatorengine.health.HealthService healthService;
     private final ObjectMapper objectMapper;
     private final FollowUpService followUpService;
+    private final EmailCollectionService emailCollectionService;
 
     public WebhookService(
             AppProperties props,
@@ -45,7 +47,8 @@ public class WebhookService {
             AutomationEngine automationEngine,
             com.creatorengine.health.HealthService healthService,
             ObjectMapper objectMapper,
-            FollowUpService followUpService
+            FollowUpService followUpService,
+            EmailCollectionService emailCollectionService
     ) {
         this.props = props;
         this.signatureVerifier = signatureVerifier;
@@ -56,6 +59,7 @@ public class WebhookService {
         this.healthService = healthService;
         this.objectMapper = objectMapper;
         this.followUpService = followUpService;
+        this.emailCollectionService = emailCollectionService;
     }
 
     public boolean isValidVerification(String mode, String token) {
@@ -136,6 +140,9 @@ public class WebhookService {
         // ----------------------------------------------------------------
         if (e.type() == EventType.DM && e.instagramUserId() != null) {
             followUpService.cancelPendingForUser(uid, e.instagramUserId());
+
+            // EMAIL COLLECTION: try to capture email from the reply
+            emailCollectionService.tryCapture(uid, e.instagramUserId(), e.message(), e.receivingAccountId());
         }
 
         eventRepository.saveForUser(uid, record);

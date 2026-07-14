@@ -47,6 +47,17 @@ public class Automation {
     private FollowUpDelayUnit followUpDelayUnit = FollowUpDelayUnit.HOURS;
     private String followUpMessage;
 
+    // ---------------------------------------------------------------
+    // EMAIL COLLECTION
+    // When enabled, after the automation sends its DM the engine waits
+    // for the contact to reply with their email address. If a reply
+    // containing a valid email arrives within 48 hours, it is saved to
+    // the Contact record. If the creator also set emailCollectMessage,
+    // that text is sent as an additional DM asking for the email.
+    // ---------------------------------------------------------------
+    private boolean emailCollectEnabled = false;
+    private String emailCollectMessage;
+
     private long runCount;
     private long successCount;
     private Date createdAt;
@@ -65,6 +76,7 @@ public class Automation {
             String followGateButtonLabel,
             boolean botProtectionEnabled, int botProtectionMinDelaySeconds, int botProtectionMaxDelaySeconds,
             boolean followUpEnabled, int followUpDelayAmount, FollowUpDelayUnit followUpDelayUnit, String followUpMessage,
+            boolean emailCollectEnabled, String emailCollectMessage,
             long runCount, long successCount,
             Date createdAt, Date updatedAt
     ) {
@@ -93,6 +105,8 @@ public class Automation {
         this.followUpDelayAmount = followUpDelayAmount;
         this.followUpDelayUnit = followUpDelayUnit;
         this.followUpMessage = followUpMessage;
+        this.emailCollectEnabled = emailCollectEnabled;
+        this.emailCollectMessage = emailCollectMessage;
         this.runCount = runCount;
         this.successCount = successCount;
         this.createdAt = createdAt;
@@ -151,6 +165,10 @@ public class Automation {
     public void setFollowUpDelayUnit(FollowUpDelayUnit followUpDelayUnit) { this.followUpDelayUnit = followUpDelayUnit; }
     public String getFollowUpMessage() { return followUpMessage; }
     public void setFollowUpMessage(String followUpMessage) { this.followUpMessage = followUpMessage; }
+    public boolean getEmailCollectEnabled() { return emailCollectEnabled; }
+    public void setEmailCollectEnabled(boolean emailCollectEnabled) { this.emailCollectEnabled = emailCollectEnabled; }
+    public String getEmailCollectMessage() { return emailCollectMessage; }
+    public void setEmailCollectMessage(String emailCollectMessage) { this.emailCollectMessage = emailCollectMessage; }
     public long getRunCount() { return runCount; }
     public void setRunCount(long runCount) { this.runCount = runCount; }
     public long getSuccessCount() { return successCount; }
@@ -219,6 +237,8 @@ public class Automation {
         private int followUpDelayAmount = 1;
         private FollowUpDelayUnit followUpDelayUnit = FollowUpDelayUnit.HOURS;
         private String followUpMessage;
+        private boolean emailCollectEnabled = false;
+        private String emailCollectMessage;
         private long runCount;
         private long successCount;
         private Date createdAt;
@@ -249,6 +269,8 @@ public class Automation {
         public AutomationBuilder followUpDelayAmount(int followUpDelayAmount) { this.followUpDelayAmount = followUpDelayAmount; return this; }
         public AutomationBuilder followUpDelayUnit(FollowUpDelayUnit followUpDelayUnit) { this.followUpDelayUnit = followUpDelayUnit; return this; }
         public AutomationBuilder followUpMessage(String followUpMessage) { this.followUpMessage = followUpMessage; return this; }
+        public AutomationBuilder emailCollectEnabled(boolean emailCollectEnabled) { this.emailCollectEnabled = emailCollectEnabled; return this; }
+        public AutomationBuilder emailCollectMessage(String emailCollectMessage) { this.emailCollectMessage = emailCollectMessage; return this; }
         public AutomationBuilder runCount(long runCount) { this.runCount = runCount; return this; }
         public AutomationBuilder successCount(long successCount) { this.successCount = successCount; return this; }
         public AutomationBuilder createdAt(Date createdAt) { this.createdAt = createdAt; return this; }
@@ -264,6 +286,7 @@ public class Automation {
                     followGateEnabled, followGateMessage, followGateButtonLabel,
                     botProtectionEnabled, botProtectionMinDelaySeconds, botProtectionMaxDelaySeconds,
                     followUpEnabled, followUpDelayAmount, followUpDelayUnit, followUpMessage,
+                    emailCollectEnabled, emailCollectMessage,
                     runCount, successCount, createdAt, updatedAt
             );
         }

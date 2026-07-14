@@ -49,6 +49,8 @@ const emptyDraft = () => ({
   followUpDelayAmount: 1,
   followUpDelayUnit: 'HOURS',
   followUpMessage: '',
+  emailCollectEnabled: false,
+  emailCollectMessage: '',
   enabled: true,
 });
 
@@ -134,6 +136,8 @@ export const useBuilderStore = create((set, get) => ({
       followUpDelayAmount: automation.followUpDelayAmount ?? 1,
       followUpDelayUnit: automation.followUpDelayUnit ?? 'HOURS',
       followUpMessage: automation.followUpMessage ?? '',
+      emailCollectEnabled: automation.emailCollectEnabled === true,
+      emailCollectMessage: automation.emailCollectMessage ?? '',
       enabled: automation.enabled !== false,
     },
   }),
@@ -251,6 +255,12 @@ export const useBuilderStore = create((set, get) => ({
 
   setFollowUpMessage: (followUpMessage) =>
     set((s) => ({ draft: { ...s.draft, followUpMessage } })),
+
+  setEmailCollectEnabled: (emailCollectEnabled) =>
+    set((s) => ({ draft: { ...s.draft, emailCollectEnabled } })),
+
+  setEmailCollectMessage: (emailCollectMessage) =>
+    set((s) => ({ draft: { ...s.draft, emailCollectMessage } })),
 
   setActionType: (type) =>
     set((s) => ({ draft: { ...s.draft, action: { ...s.draft.action, type } } })),

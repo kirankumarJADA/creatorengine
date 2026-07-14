@@ -82,6 +82,32 @@ public class ContactRepository {
         }
     }
 
+    /**
+     * Patch just the email field on an existing contact document.
+     * Creates the document if it doesn't exist yet (upsert-style).
+     */
+    public void saveEmail(String uid, String igAccountId, String instagramUserId, String email) {
+        if (instagramUserId == null || email == null) return;
+        DocumentReference ref = collection(uid, igAccountId).document(instagramUserId);
+        try {
+            DocumentSnapshot snap = ref.get().get();
+            if (snap.exists()) {
+                ref.update("email", email, "updatedAt", java.time.Instant.now()).get();
+            } else {
+                java.util.Map<String, Object> data = new java.util.HashMap<>();
+                data.put("instagramUserId", instagramUserId);
+                data.put("email", email);
+                data.put("createdAt", java.time.Instant.now());
+                data.put("updatedAt", java.time.Instant.now());
+                data.put("totalTriggers", 0L);
+                ref.set(data).get();
+            }
+            log.info("Email saved for contact uid={} igAccountId={} ig={}", uid, igAccountId, instagramUserId);
+        } catch (InterruptedException | ExecutionException e) {
+            throw wrap("saveEmail", e);
+        }
+    }
+
     // ─── Legacy single-account path ───────────────────────────────
 
     private CollectionReference legacyCollection(String uid) {
