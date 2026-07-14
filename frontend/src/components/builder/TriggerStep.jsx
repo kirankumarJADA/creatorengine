@@ -1,4 +1,4 @@
-import { MessageSquare, Send, AtSign, Clock, Share2 } from 'lucide-react';
+import { MessageSquare, Send, AtSign, Clock, Share2, Radio } from 'lucide-react';
 import RadioCardGroup from '../ui/RadioCardGroup.jsx';
 import { useBuilderStore } from '../../store/builderStore.js';
 import { TRIGGER_TYPE } from '../../utils/constants.js';
@@ -38,6 +38,13 @@ const TRIGGER_OPTIONS = [
     description: 'Fire when someone shares a post or reel into your DM.',
     icon: Share2,
     tone: 'success',
+  },
+  {
+    value: TRIGGER_TYPE.LIVE_COMMENT,
+    label: 'Live Comment',
+    description: 'Fire when someone comments during your Instagram Live.',
+    icon: Radio,
+    tone: 'warning',
   },
 ];
 

@@ -77,7 +77,8 @@ public class WebhookEventParser {
         String field = text(change.path("field"));
         JsonNode value = change.path("value");
 
-        if ("comments".equals(field)) {
+        if ("comments".equals(field) || "live_comments".equals(field)) {
+            boolean isLive = "live_comments".equals(field);
             String fromId = text(value.path("from").path("id"));
 
             // ---------------------------------------------------------------
@@ -107,7 +108,7 @@ public class WebhookEventParser {
             }
 
             return WebhookEventDto.builder()
-                    .type(EventType.COMMENT)
+                    .type(isLive ? EventType.LIVE_COMMENT : EventType.COMMENT)
                     .message(text(value.path("text")))
                     .username(text(value.path("from").path("username")))
                     .instagramUserId(fromId)

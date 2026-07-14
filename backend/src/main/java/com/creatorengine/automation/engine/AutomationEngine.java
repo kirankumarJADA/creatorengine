@@ -175,7 +175,8 @@ public class AutomationEngine {
                 ? instagramAccountService.findByIgId(job.uid(), job.igAccountId()).orElse(null)
                 : instagramAccountService.find(job.uid()).orElse(null);
 
-        if (automation.getFollowGateEnabled() && job.event().type() == EventType.COMMENT) {
+        if (automation.getFollowGateEnabled()
+                && (job.event().type() == EventType.COMMENT || job.event().type() == EventType.LIVE_COMMENT)) {
             runFollowGateAsk(job, automation, account);
             return;
         }
@@ -184,7 +185,8 @@ public class AutomationEngine {
 
         if (actions.isEmpty()) {
             if (automation.getPublicReplyEnabled()
-                    && job.event().type() == EventType.COMMENT) {
+                    && (job.event().type() == EventType.COMMENT
+                        || job.event().type() == EventType.LIVE_COMMENT)) {
                 runPublicReplyOnly(job, automation, account);
             } else {
                 log.warn("Skipping job {} - automation {} has no actions and no public reply",

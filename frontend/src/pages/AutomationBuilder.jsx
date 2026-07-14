@@ -25,7 +25,7 @@ import {
   POST_TARGET_MODE,
 } from '../utils/constants.js';
 
-const COMMENT_LIKE_TRIGGERS = new Set([TRIGGER_TYPE.COMMENT, TRIGGER_TYPE.NEXT_POST]);
+const COMMENT_LIKE_TRIGGERS = new Set([TRIGGER_TYPE.COMMENT, TRIGGER_TYPE.NEXT_POST, TRIGGER_TYPE.LIVE_COMMENT]);
 
 const AutomationBuilder = () => {
   const navigate    = useNavigate();

@@ -126,7 +126,8 @@ public class WebhookService {
         String uid = owner.get().uid();
         InstagramAccount account = owner.get().account();
 
-        if (e.type() == EventType.COMMENT && isOwnComment(e, account)) {
+        if ((e.type() == EventType.COMMENT || e.type() == EventType.LIVE_COMMENT)
+                && isOwnComment(e, account)) {
             log.info("Skipping self-authored comment (own public reply or owner comment): commentId={} from={}",
                     e.commentId(), e.username());
             return false;

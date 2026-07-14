@@ -100,6 +100,7 @@ export const TRIGGER_TYPE = Object.freeze({
   STORY_REPLY:    'STORY_REPLY',
   NEXT_POST:      'NEXT_POST',
   CONTENT_SHARED: 'CONTENT_SHARED',
+  LIVE_COMMENT:   'LIVE_COMMENT',
 });
 
 export const TRIGGER_LABEL = Object.freeze({
@@ -108,6 +109,7 @@ export const TRIGGER_LABEL = Object.freeze({
   [TRIGGER_TYPE.STORY_REPLY]:    'Story Reply',
   [TRIGGER_TYPE.NEXT_POST]:      'Next Post',
   [TRIGGER_TYPE.CONTENT_SHARED]: 'Content Shared in DM',
+  [TRIGGER_TYPE.LIVE_COMMENT]:   'Live Comment',
 });
 
 export const POST_TARGET_MODE = Object.freeze({
