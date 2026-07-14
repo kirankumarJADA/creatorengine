@@ -158,13 +158,20 @@ public class WebhookEventParser {
         boolean isStoryReply = !message.path("reply_to").path("story").isMissingNode();
 
         // Detect content-shared events: message has an attachment with type=="share"
+        // Also extract the shared media ID so automations can target a specific post.
         boolean isContentShared = false;
+        String sharedPostId = null;
         if (!isStoryReply) {
             JsonNode attachments = message.path("attachments");
             if (attachments.isArray()) {
                 for (JsonNode att : attachments) {
                     if ("share".equals(text(att.path("type")))) {
                         isContentShared = true;
+                        // Try to get the media ID from the share payload
+                        String payloadId = text(att.path("payload").path("id"));
+                        if (payloadId != null && !payloadId.isBlank()) {
+                            sharedPostId = payloadId;
+                        }
                         break;
                     }
                 }
@@ -186,7 +193,7 @@ public class WebhookEventParser {
                 .instagramUserId(senderId)
                 .postId(isStoryReply
                         ? text(message.path("reply_to").path("story").path("id"))
-                        : null)
+                        : sharedPostId)
                 .messageId(text(message.path("mid")))
                 .quickReplyPayload(quickReplyPayload)
                 .eventTime(msToInstant(timestampMs))

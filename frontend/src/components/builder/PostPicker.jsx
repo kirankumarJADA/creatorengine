@@ -32,8 +32,9 @@ const PostPicker = () => {
   const [reloadKey, setReloadKey] = useState(0);
   const [showAll, setShowAll] = useState(false);
 
-  // Only show the post picker for the regular COMMENT trigger.
-  const show = trigger === TRIGGER_TYPE.COMMENT;
+  // Show the post picker for COMMENT (target a post to watch comments on)
+  // and CONTENT_SHARED (target a specific post/reel to watch shares of).
+  const show = trigger === TRIGGER_TYPE.COMMENT || trigger === TRIGGER_TYPE.CONTENT_SHARED;
 
   useEffect(() => {
     if (!show) return undefined;

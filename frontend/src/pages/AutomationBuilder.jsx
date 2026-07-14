@@ -191,7 +191,10 @@ const AutomationBuilder = () => {
     if (draft.trigger === TRIGGER_TYPE.NEXT_POST) {
       targetPostMode = POST_TARGET_MODE.NEXT_POST;
       targetPostId = null;
-    } else if (draft.trigger === TRIGGER_TYPE.COMMENT) {
+    } else if (
+      draft.trigger === TRIGGER_TYPE.COMMENT ||
+      draft.trigger === TRIGGER_TYPE.CONTENT_SHARED
+    ) {
       targetPostMode = draft.targetPostMode || POST_TARGET_MODE.ALL;
       targetPostId = targetPostMode === POST_TARGET_MODE.SPECIFIC
         ? (draft.targetPostId ?? null)
