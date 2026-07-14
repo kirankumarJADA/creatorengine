@@ -162,6 +162,7 @@ public class WebhookEventParser {
         //   "share"    — a post/reel shared from someone's profile
         //   "reel"     — a reel shared directly
         //   "ig_reel"  — same, alternate type name seen in production
+        //   "ig_post"  — static post, payload URL is a lookaside CDN URL (not instagram.com)
         //   "video"    — video attachment (can also be a shared reel)
         // We detect a "share" if:
         //   (a) the attachment type is one of the above, OR
@@ -185,7 +186,8 @@ public class WebhookEventParser {
 
                     boolean typeIsShare = "share".equals(attType)
                             || "reel".equals(attType)
-                            || "ig_reel".equals(attType);
+                            || "ig_reel".equals(attType)
+                            || "ig_post".equals(attType);
 
                     // Also detect via payload URL even if type is missing/unknown
                     boolean urlIsPost = payloadUrl != null

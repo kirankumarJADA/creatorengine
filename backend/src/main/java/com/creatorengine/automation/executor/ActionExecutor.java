@@ -113,8 +113,8 @@ public class ActionExecutor {
         }
 
         var event = ctx.event();
-        if (event == null || event.commentId() == null || event.commentId().isBlank()) {
-            return ExecutionResult.failed(null, "Follow gate requires a comment to reply to.");
+        if (event == null) {
+            return ExecutionResult.failed(null, "Follow gate requires an event.");
         }
 
         Automation automation = ctx.automation();
@@ -142,8 +142,23 @@ public class ActionExecutor {
 
         QuickReply button = new QuickReply(buttonLabel, "fgate:" + automation.getId());
 
+        // For COMMENT events: send as a private reply to the comment (inline notification).
+        // For DM-based events (DM, STORY_REPLY, CONTENT_SHARED): send a plain DM by user id.
+        Recipient recipient;
+        if (event.type() == EventType.COMMENT
+                && event.commentId() != null && !event.commentId().isBlank()) {
+            recipient = new ByCommentId(event.commentId());
+        } else {
+            String senderId = event.instagramUserId();
+            if (senderId == null || senderId.isBlank()) {
+                return ExecutionResult.failed(null,
+                        "Follow gate: no sender id available for this event type.");
+            }
+            recipient = new ByUserId(senderId);
+        }
+
         SendResult result = metaMessaging.sendTextWithQuickReplies(
-                new ByCommentId(event.commentId()),
+                recipient,
                 askText,
                 List.of(button),
                 tokenCtx
