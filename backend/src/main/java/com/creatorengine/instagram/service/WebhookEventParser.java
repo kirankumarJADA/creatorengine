@@ -186,6 +186,7 @@ public class WebhookEventParser {
         //   (a) the attachment type is one of the above, OR
         //   (b) the payload URL contains an instagram.com/p/ or /reel/ path.
         boolean isContentShared = false;
+        boolean isStoryMention = false;
         String sharedPostId = null;
         if (!isStoryReply) {
             JsonNode attachments = message.path("attachments");
@@ -201,6 +202,15 @@ public class WebhookEventParser {
                 for (JsonNode att : attachments) {
                     String attType = text(att.path("type"));
                     String payloadUrl = text(att.path("payload").path("url"));
+
+                    // Story mention — Instagram sends this when someone tags @you in their story.
+                    // Comes through the messaging channel with type="story_mention".
+                    // The sender's user id is already in sender.id — no extra API call needed.
+                    if ("story_mention".equals(attType)) {
+                        isStoryMention = true;
+                        log.info("STORY_MENTION detected via messaging channel sender={}", senderId);
+                        break;
+                    }
 
                     boolean typeIsShare = "share".equals(attType)
                             || "reel".equals(attType)
@@ -227,9 +237,10 @@ public class WebhookEventParser {
             }
         }
 
-        EventType type = isStoryReply
-                ? EventType.STORY_REPLY
-                : isContentShared ? EventType.CONTENT_SHARED : EventType.DM;
+        EventType type = isStoryReply    ? EventType.STORY_REPLY
+                : isStoryMention         ? EventType.STORY_MENTION
+                : isContentShared        ? EventType.CONTENT_SHARED
+                :                          EventType.DM;
 
         // When a user taps a quick-reply button, the message carries the
         // hidden payload we set on the button (e.g. "fgate:<automationId>").
