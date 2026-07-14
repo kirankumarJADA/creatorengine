@@ -15,5 +15,6 @@ public enum TriggerType {
     COMMENT,
     DM,
     STORY_REPLY,
-    NEXT_POST
+    NEXT_POST,
+    CONTENT_SHARED   // someone shares a post/reel to your DM inbox
 }

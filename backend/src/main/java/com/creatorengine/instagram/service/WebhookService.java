@@ -138,7 +138,8 @@ public class WebhookService {
         // pending no-reply follow-up(s) scheduled for them under this
         // account, regardless of which automation scheduled it.
         // ----------------------------------------------------------------
-        if (e.type() == EventType.DM && e.instagramUserId() != null) {
+        if ((e.type() == EventType.DM || e.type() == EventType.CONTENT_SHARED)
+                && e.instagramUserId() != null) {
             followUpService.cancelPendingForUser(uid, e.instagramUserId());
 
             // EMAIL COLLECTION: try to capture email from the reply

@@ -1,4 +1,4 @@
-import { MessageSquare, Send, AtSign, Clock } from 'lucide-react';
+import { MessageSquare, Send, AtSign, Clock, Share2 } from 'lucide-react';
 import RadioCardGroup from '../ui/RadioCardGroup.jsx';
 import { useBuilderStore } from '../../store/builderStore.js';
 import { TRIGGER_TYPE } from '../../utils/constants.js';
@@ -31,6 +31,13 @@ const TRIGGER_OPTIONS = [
     description: 'Fire on comments of your NEXT uploaded post only.',
     icon: Clock,
     tone: 'brand',
+  },
+  {
+    value: TRIGGER_TYPE.CONTENT_SHARED,
+    label: 'Content Shared in DM',
+    description: 'Fire when someone shares a post or reel into your DM.',
+    icon: Share2,
+    tone: 'success',
   },
 ];
 

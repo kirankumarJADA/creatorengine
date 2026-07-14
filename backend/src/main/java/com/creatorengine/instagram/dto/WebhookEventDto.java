@@ -27,7 +27,7 @@ public record WebhookEventDto(
 
         return switch (type) {
             case COMMENT -> commentId != null ? "c:" + commentId : null;
-            case DM, STORY_REPLY -> messageId != null ? "m:" + messageId : null;
+            case DM, STORY_REPLY, CONTENT_SHARED -> messageId != null ? "m:" + messageId : null;
         };
     }
 

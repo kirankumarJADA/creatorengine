@@ -155,7 +155,24 @@ public class WebhookEventParser {
         }
 
         boolean isStoryReply = !message.path("reply_to").path("story").isMissingNode();
-        EventType type = isStoryReply ? EventType.STORY_REPLY : EventType.DM;
+
+        // Detect content-shared events: message has an attachment with type=="share"
+        boolean isContentShared = false;
+        if (!isStoryReply) {
+            JsonNode attachments = message.path("attachments");
+            if (attachments.isArray()) {
+                for (JsonNode att : attachments) {
+                    if ("share".equals(text(att.path("type")))) {
+                        isContentShared = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        EventType type = isStoryReply
+                ? EventType.STORY_REPLY
+                : isContentShared ? EventType.CONTENT_SHARED : EventType.DM;
 
         // When a user taps a quick-reply button, the message carries the
         // hidden payload we set on the button (e.g. "fgate:<automationId>").
