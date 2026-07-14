@@ -31,6 +31,12 @@ const instagramService = {
     const { data } = await api.get('/instagram/media', { params });
     return data;
   },
+
+  /** Check if the user can connect another account based on their plan */
+  getPlanLimits: async () => {
+    const { data } = await api.get('/instagram/plan-limits');
+    return data; // { canAdd, currentAccounts, maxAccounts, plan }
+  },
 };
 
 export default instagramService;

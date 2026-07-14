@@ -16,6 +16,7 @@ import {
   Check,
 } from 'lucide-react';
 
+import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/authStore.js';
 import { useUiStore } from '../store/uiStore.js';
 import { useAccountStore } from '../store/accountStore.js';
@@ -76,8 +77,24 @@ const Sidebar = ({ collapsed = false, onNavigate }) => {
 
   const handleConnect = async () => {
     if (connecting) return;
-    setConnecting(true);
     setSwitcherOpen(false);
+
+    // Check plan limits before starting the OAuth flow
+    try {
+      const limits = await instagramService.getPlanLimits();
+      if (!limits.canAdd) {
+        const plan = limits.plan === 'FREE' ? 'Free' : limits.plan;
+        toast.error(
+          `You're on the ${plan} plan (max ${limits.maxAccounts} account${limits.maxAccounts === 1 ? '' : 's'}). Upgrade to connect more.`,
+          { duration: 5000 }
+        );
+        return;
+      }
+    } catch {
+      // If the check fails, let the OAuth flow proceed naturally
+    }
+
+    setConnecting(true);
     try {
       const data = await instagramService.startConnect();
       const url = data?.authUrl || data?.url;

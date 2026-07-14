@@ -10,6 +10,7 @@ import com.creatorengine.instagram.entity.InstagramAccount;
 import com.creatorengine.instagram.service.InstagramAccountService;
 import com.creatorengine.instagram.service.InstagramApiClient;
 import com.creatorengine.instagram.service.InstagramOAuthService;
+import com.creatorengine.plan.service.PlanService;
 import com.creatorengine.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,15 +32,18 @@ public class InstagramController {
     private final InstagramOAuthService oauthService;
     private final InstagramAccountService accountService;
     private final InstagramApiClient apiClient;
+    private final PlanService planService;
 
     public InstagramController(
             InstagramOAuthService oauthService,
             InstagramAccountService accountService,
-            InstagramApiClient apiClient
+            InstagramApiClient apiClient,
+            PlanService planService
     ) {
         this.oauthService = oauthService;
         this.accountService = accountService;
         this.apiClient = apiClient;
+        this.planService = planService;
     }
 
     @GetMapping("/connect")
@@ -133,6 +137,21 @@ public class InstagramController {
                 .map(StatusResponse::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.ok(accounts));
+    }
+
+    @GetMapping("/plan-limits")
+    @Operation(summary = "Returns whether the user can connect another Instagram account")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> planLimits() {
+        String uid = SecurityUtils.getCurrentUserId();
+        int current = accountService.countAccounts(uid);
+        int max = planService.maxAccounts(uid);
+        boolean canAdd = planService.canAddAccount(uid, current);
+        return ResponseEntity.ok(ApiResponse.ok(java.util.Map.of(
+                "canAdd", canAdd,
+                "currentAccounts", current,
+                "maxAccounts", max,
+                "plan", planService.getPlan(uid).name()
+        )));
     }
 
     @GetMapping("/media")
