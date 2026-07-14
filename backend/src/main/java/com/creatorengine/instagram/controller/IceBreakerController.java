@@ -47,7 +47,7 @@ public class IceBreakerController {
 
     @PutMapping
     @Operation(summary = "Save ice breakers to Instagram (up to 4)")
-    public ResponseEntity<ApiResponse<String>> save(
+    public ResponseEntity<ApiResponse<Void>> save(
             @RequestHeader(value = "X-IG-Account-Id", required = false) String igAccountId,
             @RequestBody List<IceBreakerQuestion> questions
     ) {
