@@ -20,7 +20,6 @@ public record GenerateMessageRequest(
         @NotNull(message = "Tone is required")
         MessageTone tone,
 
-        @NotBlank(message = "Audience is required")
         @Size(max = 200, message = "Audience is too long (max 200 characters)")
         String audience,
 
