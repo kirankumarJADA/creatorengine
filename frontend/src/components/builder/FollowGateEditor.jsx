@@ -9,7 +9,15 @@ const DEFAULT_MESSAGE =
   "Hey {{username}}! 🙌 Make sure you're following me, then tap the button below and I'll send it right over 👇";
 const DEFAULT_BUTTON = 'I Followed ✅';
 
-const COMMENT_LIKE_TRIGGERS = new Set([TRIGGER_TYPE.COMMENT, TRIGGER_TYPE.NEXT_POST]);
+// Follow gate works for any trigger where a DM can be sent first.
+// Excluded: LIVE_COMMENT (can't reliably gate a live stream interaction).
+const FOLLOW_GATE_TRIGGERS = new Set([
+  TRIGGER_TYPE.COMMENT,
+  TRIGGER_TYPE.NEXT_POST,
+  TRIGGER_TYPE.DM,
+  TRIGGER_TYPE.STORY_REPLY,
+  TRIGGER_TYPE.CONTENT_SHARED,
+]);
 
 const FollowGateEditor = () => {
   const trigger     = useBuilderStore((s) => s.draft.trigger);
@@ -20,7 +28,7 @@ const FollowGateEditor = () => {
   const setMessage     = useBuilderStore((s) => s.setFollowGateMessage);
   const setButtonLabel = useBuilderStore((s) => s.setFollowGateButtonLabel);
 
-  if (!COMMENT_LIKE_TRIGGERS.has(trigger)) return null;
+  if (!FOLLOW_GATE_TRIGGERS.has(trigger)) return null;
 
   const handleToggle = () => {
     if (!enabled) {
@@ -39,7 +47,7 @@ const FollowGateEditor = () => {
             Ask to follow first
           </h3>
           <p className="mt-1 text-sm text-ink-500 dark:text-ink-400">
-            Before delivering your content, send a DM asking the commenter to follow you.
+            Before delivering your content, send a DM asking them to follow you first.
             They tap a button to confirm, then the content is sent — trust-based, no follower checking.
           </p>
         </div>

@@ -175,8 +175,14 @@ public class AutomationEngine {
                 ? instagramAccountService.findByIgId(job.uid(), job.igAccountId()).orElse(null)
                 : instagramAccountService.find(job.uid()).orElse(null);
 
-        if (automation.getFollowGateEnabled()
-                && (job.event().type() == EventType.COMMENT || job.event().type() == EventType.LIVE_COMMENT)) {
+        // Follow gate applies to comment-based triggers AND DM-based triggers.
+        // Excluded: LIVE_COMMENT (live stream interactions can't be reliably gated).
+        EventType evType = job.event().type();
+        boolean isFollowGateable = evType == EventType.COMMENT
+                || evType == EventType.DM
+                || evType == EventType.STORY_REPLY
+                || evType == EventType.CONTENT_SHARED;
+        if (automation.getFollowGateEnabled() && isFollowGateable) {
             runFollowGateAsk(job, automation, account);
             return;
         }

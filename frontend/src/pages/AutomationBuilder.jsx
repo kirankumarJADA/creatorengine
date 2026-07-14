@@ -25,7 +25,17 @@ import {
   POST_TARGET_MODE,
 } from '../utils/constants.js';
 
-const COMMENT_LIKE_TRIGGERS = new Set([TRIGGER_TYPE.COMMENT, TRIGGER_TYPE.NEXT_POST, TRIGGER_TYPE.LIVE_COMMENT]);
+// Public reply only makes sense for comment-based triggers.
+const PUBLIC_REPLY_TRIGGERS = new Set([TRIGGER_TYPE.COMMENT, TRIGGER_TYPE.NEXT_POST]);
+
+// Follow gate works for any DM-capable trigger (not live comments).
+const FOLLOW_GATE_TRIGGERS = new Set([
+  TRIGGER_TYPE.COMMENT,
+  TRIGGER_TYPE.NEXT_POST,
+  TRIGGER_TYPE.DM,
+  TRIGGER_TYPE.STORY_REPLY,
+  TRIGGER_TYPE.CONTENT_SHARED,
+]);
 
 const AutomationBuilder = () => {
   const navigate    = useNavigate();
@@ -121,9 +131,7 @@ const AutomationBuilder = () => {
       return;
     }
 
-    const isCommentLike = COMMENT_LIKE_TRIGGERS.has(draft.trigger);
-
-    const publicReplyEnabled = isCommentLike && draft.publicReplyEnabled === true;
+    const publicReplyEnabled = PUBLIC_REPLY_TRIGGERS.has(draft.trigger) && draft.publicReplyEnabled === true;
     const publicReplies = (draft.publicReplies || [])
       .filter((r) => r.text && r.text.trim())
       .map((r) => ({ text: r.text.trim(), enabled: r.enabled !== false }));
@@ -134,7 +142,7 @@ const AutomationBuilder = () => {
       return;
     }
 
-    const followGateEnabled = isCommentLike && draft.followGateEnabled === true;
+    const followGateEnabled = FOLLOW_GATE_TRIGGERS.has(draft.trigger) && draft.followGateEnabled === true;
     const followGateMessage = (draft.followGateMessage || '').trim();
     const followGateButtonLabel = (draft.followGateButtonLabel || '').trim();
 
