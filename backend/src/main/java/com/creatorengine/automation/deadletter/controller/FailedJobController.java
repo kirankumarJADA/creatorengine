@@ -2,7 +2,7 @@ package com.creatorengine.automation.deadletter.controller;
 
 import com.creatorengine.automation.deadletter.DeadLetterService;
 import com.creatorengine.automation.deadletter.dto.FailedJobResponse;
-import com.creatorengine.automation.deadletter.entity.FailedJob;
+import com.creatorengine.automation.deadletter.FailedJob;
 import com.creatorengine.automation.queue.AutomationJob;
 import com.creatorengine.automation.queue.JobQueue;
 import com.creatorengine.common.ApiResponse;

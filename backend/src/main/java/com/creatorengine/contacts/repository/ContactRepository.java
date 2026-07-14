@@ -40,7 +40,7 @@ public class ContactRepository {
     public List<Contact> listForAccount(String uid, String igAccountId) {
         try {
             return collection(uid, igAccountId)
-                    .orderBy("lastInteraction", Query.Direction.DESCENDING)
+                    .orderBy("updatedAt", Query.Direction.DESCENDING)
                     .get().get()
                     .getDocuments().stream()
                     .map(d -> d.toObject(Contact.class))
@@ -66,14 +66,13 @@ public class ContactRepository {
                 if (contact.getUsername() != null) existing.setUsername(contact.getUsername());
                 if (contact.getSource() != null) existing.setSource(contact.getSource());
                 if (contact.getLastMessage() != null) existing.setLastMessage(contact.getLastMessage());
-                existing.setLastInteraction(Instant.now());
-                existing.setTotalTriggers(
-                        (existing.getTotalTriggers() == null ? 0L : existing.getTotalTriggers()) + 1L);
+                existing.setUpdatedAt(Instant.now());
+                existing.setTotalTriggers(existing.getTotalTriggers() + 1L);
                 ref.set(existing).get();
                 return existing;
             } else {
                 contact.setCreatedAt(Instant.now());
-                contact.setLastInteraction(Instant.now());
+                contact.setUpdatedAt(Instant.now());
                 contact.setTotalTriggers(1L);
                 ref.set(contact).get();
                 return contact;
@@ -93,7 +92,7 @@ public class ContactRepository {
     public List<Contact> listForUser(String uid) {
         try {
             return legacyCollection(uid)
-                    .orderBy("lastInteraction", Query.Direction.DESCENDING)
+                    .orderBy("updatedAt", Query.Direction.DESCENDING)
                     .get().get()
                     .getDocuments().stream()
                     .map(d -> d.toObject(Contact.class))
@@ -120,14 +119,13 @@ public class ContactRepository {
                 if (contact.getUsername() != null) existing.setUsername(contact.getUsername());
                 if (contact.getSource() != null) existing.setSource(contact.getSource());
                 if (contact.getLastMessage() != null) existing.setLastMessage(contact.getLastMessage());
-                existing.setLastInteraction(Instant.now());
-                existing.setTotalTriggers(
-                        (existing.getTotalTriggers() == null ? 0L : existing.getTotalTriggers()) + 1L);
+                existing.setUpdatedAt(Instant.now());
+                existing.setTotalTriggers(existing.getTotalTriggers() + 1L);
                 ref.set(existing).get();
                 return existing;
             } else {
                 contact.setCreatedAt(Instant.now());
-                contact.setLastInteraction(Instant.now());
+                contact.setUpdatedAt(Instant.now());
                 contact.setTotalTriggers(1L);
                 ref.set(contact).get();
                 return contact;

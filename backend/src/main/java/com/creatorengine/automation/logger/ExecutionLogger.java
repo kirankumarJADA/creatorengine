@@ -14,6 +14,9 @@ import java.time.Instant;
 @Component
 public class ExecutionLogger {
 
+    public static final String STATUS_SUCCESS = "SUCCESS";
+    public static final String STATUS_FAILED = "FAILED";
+
     private static final Logger log = LoggerFactory.getLogger(ExecutionLogger.class);
 
     private final ExecutionLogRepository repository;
