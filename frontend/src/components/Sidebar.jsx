@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Plus,
   Check,
+  MessageCircleQuestion,
 } from 'lucide-react';
 
 import toast from 'react-hot-toast';
@@ -32,6 +33,7 @@ const NAV_GROUPS = [
       { to: ROUTES.DASHBOARD,   label: 'Dashboard',     icon: LayoutDashboard },
       { to: ROUTES.AUTOMATIONS, label: 'Automations',   icon: Workflow },
       { to: ROUTES.CONTACTS,    label: 'Contacts',      icon: Users },
+      { to: ROUTES.ICE_BREAKERS, label: 'Ice Breakers', icon: MessageCircleQuestion },
       { to: ROUTES.LOGS,        label: 'Activity Logs', icon: ScrollText },
       { to: ROUTES.FAILED_JOBS, label: 'Failed Jobs',   icon: AlertOctagon },
     ],

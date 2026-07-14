@@ -10,6 +10,7 @@ export const ROUTES = Object.freeze({
   AUTOMATION_NEW: '/automations/new',
   AUTOMATION_EDIT: '/automations/:id/edit',
   CONTACTS: '/contacts',
+  ICE_BREAKERS: '/ice-breakers',
   SETTINGS: '/settings',
   LOGS:     '/logs',
   FAILED_JOBS: '/failed-jobs',
@@ -79,6 +80,8 @@ export const API_ENDPOINTS = Object.freeze({
   ADMIN_SYSTEM: '/admin/system',
 
   AI_GENERATE_MESSAGE: '/ai/generate-message',
+
+  ICE_BREAKERS: '/ice-breakers',
 });
 
 export const LOG_STATUS = Object.freeze({
