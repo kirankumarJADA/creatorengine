@@ -104,16 +104,19 @@ public class CooldownService {
     }
 
     /**
-     * True when this automation replies to EVERY message in someone's inbox:
-     * a DM or story-reply trigger whose condition is ANY (or unset). These are
-     * limited to one reply per person. Keyword DMs and comments are NOT match-all.
+     * True when this automation replies to EVERY matching inbox event:
+     * a DM, story-reply, or content-shared trigger whose condition is ANY (or unset).
+     * These are limited to one reply per person so we never spam someone who
+     * messages/shares repeatedly. Keyword DMs and comments are NOT match-all.
      */
     private static boolean isMatchAllDirectMessage(Automation automation) {
         if (automation == null || automation.getTrigger() == null) {
             return false;
         }
         String trigger = automation.getTrigger().name();
-        boolean directInbox = "DM".equals(trigger) || "STORY_REPLY".equals(trigger);
+        boolean directInbox = "DM".equals(trigger)
+                || "STORY_REPLY".equals(trigger)
+                || "CONTENT_SHARED".equals(trigger);
         if (!directInbox) {
             return false;
         }

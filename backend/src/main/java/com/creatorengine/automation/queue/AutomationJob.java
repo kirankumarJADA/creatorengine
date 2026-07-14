@@ -17,7 +17,11 @@ public record AutomationJob(
         // MULTI-ACCOUNT: the Instagram account that received the webhook event.
         // Used by AutomationEngine to load the right account credentials and
         // look up automations in the per-account Firestore path.
-        String igAccountId
+        String igAccountId,
+        // Set to true when this job was enqueued by handleFollowGateCompletion
+        // (i.e. the user tapped "I Followed"). Tells processJob to skip the
+        // follow-gate check and deliver the actual content instead.
+        boolean followGateCompleted
 ) {
     public static AutomationJob fresh(String uid, WebhookEventDto event, String automationId) {
         return new AutomationJob(
@@ -29,44 +33,49 @@ public record AutomationJob(
                 0,
                 Instant.now(),
                 null,
-                null
+                null,
+                false
         );
     }
 
     public AutomationJob withIgAccountId(String igAccountId) {
-        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId);
+        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId, followGateCompleted);
+    }
+
+    public AutomationJob withFollowGateCompleted(boolean followGateCompleted) {
+        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId, followGateCompleted);
     }
 
     public AutomationJob withJobId(String jobId) {
-        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId);
+        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId, followGateCompleted);
     }
 
     public AutomationJob withUid(String uid) {
-        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId);
+        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId, followGateCompleted);
     }
 
     public AutomationJob withEvent(WebhookEventDto event) {
-        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId);
+        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId, followGateCompleted);
     }
 
     public AutomationJob withAutomationId(String automationId) {
-        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId);
+        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId, followGateCompleted);
     }
 
     public AutomationJob withAttempt(int attempt) {
-        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId);
+        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId, followGateCompleted);
     }
 
     public AutomationJob withActionIndex(int actionIndex) {
-        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId);
+        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId, followGateCompleted);
     }
 
     public AutomationJob withEnqueuedAt(Instant enqueuedAt) {
-        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId);
+        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId, followGateCompleted);
     }
 
     public AutomationJob withLastError(String lastError) {
-        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId);
+        return new AutomationJob(jobId, uid, event, automationId, attempt, actionIndex, enqueuedAt, lastError, igAccountId, followGateCompleted);
     }
 
     public AutomationJob nextAttempt(String error) {

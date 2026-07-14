@@ -143,7 +143,8 @@ public class AutomationEngine {
         }
 
         AutomationJob job = AutomationJob.fresh(uid, event, automationId)
-                .withIgAccountId(igAccountId);
+                .withIgAccountId(igAccountId)
+                .withFollowGateCompleted(true);
         queue.enqueue(job);
         log.info("Follow-gate completed for automation {} - delivering content.", automationId);
     }
@@ -177,12 +178,14 @@ public class AutomationEngine {
 
         // Follow gate applies to comment-based triggers AND DM-based triggers.
         // Excluded: LIVE_COMMENT (live stream interactions can't be reliably gated).
+        // Skip when followGateCompleted=true — that means the user already tapped
+        // "I Followed" and this job is the content-delivery pass, not the ask pass.
         EventType evType = job.event().type();
         boolean isFollowGateable = evType == EventType.COMMENT
                 || evType == EventType.DM
                 || evType == EventType.STORY_REPLY
                 || evType == EventType.CONTENT_SHARED;
-        if (automation.getFollowGateEnabled() && isFollowGateable) {
+        if (automation.getFollowGateEnabled() && isFollowGateable && !job.followGateCompleted()) {
             runFollowGateAsk(job, automation, account);
             return;
         }
