@@ -139,26 +139,26 @@ public class WebhookService {
         // STORY MENTION: resolve the sender's Instagram user id from the media_id.
         // The parser can't do this — it doesn't have the account's access token.
         if (e.type() == EventType.STORY_MENTION) {
-            var ownerOpt = metaMessagingService.resolveMediaOwner(e.postId(), account.getAccessToken());
-            if (ownerOpt.isEmpty()) {
+            var mentionOwnerOpt = metaMessagingService.resolveMediaOwner(e.postId(), account.getAccessToken());
+            if (mentionOwnerOpt.isEmpty()) {
                 log.warn("Could not resolve story mention sender for mediaId={} - dropping event.", e.postId());
                 return false;
             }
-            var owner = ownerOpt.get();
+            var mentionOwner = mentionOwnerOpt.get();
             // Skip if the mention came from the owner's own account
-            if (owner.id() != null && owner.id().equals(account.getInstagramUserId())) {
+            if (mentionOwner.id() != null && mentionOwner.id().equals(account.getInstagramUserId())) {
                 log.debug("Skipping story mention authored by the owning account.");
                 return false;
             }
             e = WebhookEventDto.builder()
                     .type(EventType.STORY_MENTION)
-                    .instagramUserId(owner.id())
-                    .username(owner.username())
+                    .instagramUserId(mentionOwner.id())
+                    .username(mentionOwner.username())
                     .postId(e.postId())
                     .eventTime(e.eventTime())
                     .receivingAccountId(e.receivingAccountId())
                     .build();
-            log.info("STORY_MENTION enriched: sender={} ({})", owner.id(), owner.username());
+            log.info("STORY_MENTION enriched: sender={} ({})", mentionOwner.id(), mentionOwner.username());
         }
 
         // ----------------------------------------------------------------
