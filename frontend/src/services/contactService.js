@@ -15,6 +15,17 @@ const contactService = {
     const { data } = await api.get(API_ENDPOINTS.CONTACTS);
     return data; // → ContactResponse[]
   },
+
+  /**
+   * Download all contacts as a CSV file.
+   * Returns a Blob the caller can turn into a download link.
+   */
+  exportCsv: async () => {
+    const response = await api.get(`${API_ENDPOINTS.CONTACTS}/export`, {
+      responseType: 'blob',
+    });
+    return response.data; // → Blob (text/csv)
+  },
 };
 
 export default contactService;

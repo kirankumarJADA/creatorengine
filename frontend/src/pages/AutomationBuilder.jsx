@@ -221,6 +221,8 @@ const AutomationBuilder = () => {
       followUpDelayAmount: draft.followUpDelayAmount ?? 1,
       followUpDelayUnit: draft.followUpDelayUnit ?? 'HOURS',
       followUpMessage: draft.followUpEnabled ? (draft.followUpMessage || '').trim() : '',
+      emailCollectEnabled: draft.emailCollectEnabled === true,
+      emailCollectMessage: draft.emailCollectEnabled ? (draft.emailCollectMessage || '').trim() : '',
       enabled: draft.enabled,
     };
 

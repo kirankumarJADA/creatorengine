@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Plus, Search, Upload, Users,
+  Search, Download, Users,
   ChevronLeft, ChevronRight, AlertTriangle, RefreshCw,
 } from 'lucide-react';
 
@@ -33,6 +33,7 @@ const Contacts = () => {
   const [contacts, setContacts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [query, setQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
@@ -53,6 +54,23 @@ const Contacts = () => {
       setContacts([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const blob = await contactService.exportCsv();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'contacts.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -111,8 +129,14 @@ const Contacts = () => {
             <Button variant="secondary" leftIcon={RefreshCw} onClick={fetchContacts}>
               Refresh
             </Button>
-            <Button variant="secondary" leftIcon={Upload}>Import</Button>
-            <Button leftIcon={Plus}>Add contact</Button>
+            <Button
+              variant="secondary"
+              leftIcon={Download}
+              onClick={handleExport}
+              disabled={isExporting || contacts.length === 0}
+            >
+              {isExporting ? 'Exporting…' : 'Export CSV'}
+            </Button>
           </div>
         }
       />
