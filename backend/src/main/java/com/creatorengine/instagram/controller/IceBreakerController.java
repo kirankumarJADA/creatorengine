@@ -8,6 +8,9 @@ import com.creatorengine.instagram.service.InstagramAccountService;
 import com.creatorengine.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,6 +20,8 @@ import java.util.List;
 @RequestMapping("/api/ice-breakers")
 @Tag(name = "Ice Breakers", description = "Manage Instagram DM ice breaker questions")
 public class IceBreakerController {
+
+    private static final Logger log = LoggerFactory.getLogger(IceBreakerController.class);
 
     private final IceBreakerService iceBreakerService;
     private final InstagramAccountService accountService;
@@ -42,14 +47,20 @@ public class IceBreakerController {
 
     @PutMapping
     @Operation(summary = "Save ice breakers to Instagram (up to 4)")
-    public ResponseEntity<ApiResponse<Void>> save(
+    public ResponseEntity<ApiResponse<String>> save(
             @RequestHeader(value = "X-IG-Account-Id", required = false) String igAccountId,
             @RequestBody List<IceBreakerQuestion> questions
     ) {
         String uid = SecurityUtils.getCurrentUserId();
         InstagramAccount account = resolveAccount(uid, igAccountId);
-        iceBreakerService.save(account, questions);
-        return ResponseEntity.ok(ApiResponse.ok(null));
+        try {
+            iceBreakerService.save(account, questions);
+            return ResponseEntity.ok(ApiResponse.ok(null));
+        } catch (Exception ex) {
+            log.warn("Ice breaker save error for uid={}: {}", uid, ex.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(ApiResponse.error(ex.getMessage()));
+        }
     }
 
     @DeleteMapping

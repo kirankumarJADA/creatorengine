@@ -20,6 +20,7 @@ import java.util.Map;
  * that text as a DM which can then trigger a DM keyword automation.
  *
  * Uses the Instagram Graph API messenger_profile endpoint.
+ * Instagram uses the flat { question, payload } format (not the Messenger call_to_actions format).
  */
 @Service
 public class IceBreakerService {
@@ -40,6 +41,8 @@ public class IceBreakerService {
 
     /**
      * Fetch current ice breakers from Instagram for the given account.
+     * Instagram returns each ice breaker as { "question": "...", "payload": "..." }.
+     * Older accounts may use call_to_actions format — we handle both.
      */
     @SuppressWarnings("unchecked")
     public List<IceBreakerQuestion> fetch(InstagramAccount account) {
@@ -60,12 +63,29 @@ public class IceBreakerService {
             if (data == null || data.isEmpty()) return List.of();
 
             Map<String, Object> first = data.get(0);
-            List<Map<String, Object>> iceBreakers = (List<Map<String, Object>>) first.get("ice_breakers");
-            if (iceBreakers == null || iceBreakers.isEmpty()) return List.of();
+            Object iceBreakersRaw = first.get("ice_breakers");
+            if (iceBreakersRaw == null) return List.of();
 
+            List<Map<String, Object>> iceBreakers = (List<Map<String, Object>>) iceBreakersRaw;
+            if (iceBreakers.isEmpty()) return List.of();
+
+            // Instagram flat format: [{ "question": "...", "payload": "..." }, ...]
+            // If the first item has a "question" field it's the flat format.
+            Map<String, Object> first_item = iceBreakers.get(0);
+            if (first_item.containsKey("question")) {
+                return iceBreakers.stream()
+                        .map(q -> new IceBreakerQuestion(
+                                String.valueOf(q.getOrDefault("question", "")),
+                                String.valueOf(q.getOrDefault("payload", ""))))
+                        .filter(q -> !q.title().isBlank())
+                        .toList();
+            }
+
+            // Fallback: Messenger call_to_actions format
+            // [{ "call_to_actions": [{ "title": "...", "payload": "..." }], "locale": "default" }]
             List<Map<String, Object>> actions =
-                    (List<Map<String, Object>>) iceBreakers.get(0).get("call_to_actions");
-            if (actions == null) return List.of();
+                    (List<Map<String, Object>>) first_item.get("call_to_actions");
+            if (actions == null || actions.isEmpty()) return List.of();
 
             return actions.stream()
                     .map(a -> new IceBreakerQuestion(
@@ -83,6 +103,7 @@ public class IceBreakerService {
     /**
      * Push ice breakers to Instagram (replaces all existing ones).
      * Max 4 questions. Empty list clears all ice breakers.
+     * Uses the flat { question, payload } format required by Instagram.
      */
     public void save(InstagramAccount account, List<IceBreakerQuestion> questions) {
         if (questions == null || questions.isEmpty()) {
@@ -96,29 +117,31 @@ public class IceBreakerService {
                 .limit(4)
                 .toList();
 
-        List<Map<String, Object>> actions = new ArrayList<>();
-        for (IceBreakerQuestion q : capped) {
-            Map<String, Object> action = new LinkedHashMap<>();
-            action.put("type", "POSTBACK");
-            action.put("title", q.title().length() > 80 ? q.title().substring(0, 80) : q.title());
-            // Payload is what gets sent as the DM text when the user taps the button.
-            // Default to the title if no separate payload provided.
-            String payload = (q.payload() != null && !q.payload().isBlank()) ? q.payload() : q.title();
-            action.put("payload", payload);
-            actions.add(action);
+        if (capped.isEmpty()) {
+            delete(account);
+            return;
         }
 
-        Map<String, Object> iceBreaker = Map.of(
-                "call_to_actions", actions,
-                "locale", "default"
-        );
+        // Build flat ice_breakers array: [{ "question": "...", "payload": "..." }]
+        List<Map<String, Object>> iceBreakers = new ArrayList<>();
+        for (IceBreakerQuestion q : capped) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            String title = q.title().length() > 80 ? q.title().substring(0, 80) : q.title();
+            item.put("question", title);
+            // Payload = the DM text sent when tapped. Defaults to the button text.
+            String payload = (q.payload() != null && !q.payload().isBlank()) ? q.payload() : title;
+            item.put("payload", payload);
+            iceBreakers.add(item);
+        }
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("platform", "instagram");
-        body.put("ice_breakers", List.of(iceBreaker));
+        body.put("ice_breakers", iceBreakers);
+
+        log.info("Saving ice breakers ig={} body={}", account.getInstagramUserId(), body);
 
         try {
-            graphClient.post()
+            Map<?, ?> result = graphClient.post()
                     .uri(uri -> uri
                             .path("/" + account.getInstagramUserId() + "/messenger_profile")
                             .queryParam("access_token", account.getAccessToken())
@@ -127,11 +150,11 @@ public class IceBreakerService {
                     .retrieve()
                     .body(Map.class);
 
-            log.info("Ice breakers saved ig={} count={}", account.getInstagramUserId(), capped.size());
+            log.info("Ice breakers saved ig={} count={} result={}", account.getInstagramUserId(), capped.size(), result);
         } catch (HttpStatusCodeException ex) {
             log.warn("Ice breakers save failed ig={} status={} body={}",
                     account.getInstagramUserId(), ex.getStatusCode(), ex.getResponseBodyAsString());
-            throw new RuntimeException("Instagram rejected the ice breakers: " + ex.getResponseBodyAsString());
+            throw new RuntimeException("Instagram rejected ice breakers: " + ex.getResponseBodyAsString());
         } catch (Exception ex) {
             log.warn("Ice breakers save failed ig={}: {}", account.getInstagramUserId(), ex.getMessage());
             throw new RuntimeException("Failed to save ice breakers: " + ex.getMessage());
