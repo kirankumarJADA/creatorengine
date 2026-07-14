@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class AutomationEngine {
@@ -35,6 +36,12 @@ public class AutomationEngine {
     private static final Logger log = LoggerFactory.getLogger(AutomationEngine.class);
 
     private static final String FOLLOW_GATE_PREFIX = "fgate:";
+
+    // Dedup guard for follow-gate completions. Prevents the same user from
+    // triggering multiple content deliveries by tapping "I Followed" more than
+    // once (e.g. if they received multiple follow-gate asks before the once-per-
+    // person fix was deployed). Key: automationId + ":" + instagramUserId.
+    private final ConcurrentHashMap<String, Boolean> followGateDelivered = new ConcurrentHashMap<>();
 
     private final AutomationMatcher matcher;
     private final ConditionEvaluator evaluator;
@@ -139,6 +146,14 @@ public class AutomationEngine {
         }
         if (!automationOpt.get().getEnabled()) {
             log.info("Follow-gate completion: automation {} is disabled.", automationId);
+            return;
+        }
+
+        // Dedup: if the user tapped "I Followed" multiple times (e.g. they had
+        // multiple follow-gate asks in their inbox), only deliver once.
+        String deliveryKey = automationId + ":" + event.instagramUserId();
+        if (followGateDelivered.putIfAbsent(deliveryKey, Boolean.TRUE) != null) {
+            log.info("Follow-gate completion ignored - already delivered for key={}", deliveryKey);
             return;
         }
 
