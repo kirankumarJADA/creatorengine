@@ -306,7 +306,7 @@ const AutomationBuilder = () => {
                 <PostPicker />
               </>
             )}
-            {builderStep === 2 && <ConditionStep errors={errors} />}
+            {builderStep === 2 && <ConditionStep errors={errors} trigger={draft.trigger} />}
             {builderStep === 3 && <ActionStep errors={errors} />}
             {builderStep === 4 && <MessageStep errors={errors} />}
             {builderStep === 5 && <ReviewStep />}

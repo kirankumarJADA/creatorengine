@@ -1,9 +1,15 @@
-import { Layers, KeyRound } from 'lucide-react';
+import { Layers, KeyRound, Zap } from 'lucide-react';
 import RadioCardGroup from '../ui/RadioCardGroup.jsx';
 import FormField from '../form/FormField.jsx';
 import { useBuilderStore } from '../../store/builderStore.js';
-import { CONDITION_TYPE, MATCH_TYPE } from '../../utils/constants.js';
+import { CONDITION_TYPE, MATCH_TYPE, TRIGGER_TYPE } from '../../utils/constants.js';
 import { cn } from '../../utils/helpers.js';
+
+// Triggers that carry no text — keyword matching is not applicable.
+const NO_KEYWORD_TRIGGERS = new Set([
+  TRIGGER_TYPE.STORY_MENTION,
+  TRIGGER_TYPE.CONTENT_SHARED,
+]);
 
 const CONDITION_OPTIONS = [
   {
@@ -29,13 +35,48 @@ const MATCH_TYPES = [
     hint: 'Fires only when the entire message equals the keyword.' },
 ];
 
-const ConditionStep = ({ errors = {} }) => {
+const ConditionStep = ({ errors = {}, trigger }) => {
   const cond = useBuilderStore((s) => s.draft.condition);
   const setConditionType = useBuilderStore((s) => s.setConditionType);
   const setKeyword       = useBuilderStore((s) => s.setKeyword);
   const setMatchType     = useBuilderStore((s) => s.setMatchType);
 
   const isKeyword = cond.type === CONDITION_TYPE.KEYWORD;
+  const noKeyword = NO_KEYWORD_TRIGGERS.has(trigger);
+
+  // Auto-lock to ANY for triggers that carry no text content
+  if (noKeyword && cond.type !== CONDITION_TYPE.ANY) {
+    setConditionType(CONDITION_TYPE.ANY);
+  }
+
+  if (noKeyword) {
+    const label = trigger === TRIGGER_TYPE.STORY_MENTION
+      ? 'Every story mention'
+      : 'Every shared post or reel';
+    const desc = trigger === TRIGGER_TYPE.STORY_MENTION
+      ? 'Fires whenever someone tags @you in their story. No text to filter — it always fires.'
+      : 'Fires whenever someone shares a post or reel to your DMs. No text to filter — it always fires.';
+
+    return (
+      <div>
+        <header className="mb-6">
+          <h2 className="text-xl font-semibold text-ink-900 dark:text-ink-100">
+            When should it fire?
+          </h2>
+          <p className="mt-1 text-sm text-ink-500 dark:text-ink-400">
+            This trigger has no text content, so keyword filtering is not available.
+          </p>
+        </header>
+        <div className="flex items-start gap-3 rounded-2xl border border-brand-200 bg-brand-50/60 p-4 dark:border-brand-800 dark:bg-brand-500/10">
+          <Zap size={18} className="mt-0.5 shrink-0 text-brand-600 dark:text-brand-400" />
+          <div>
+            <p className="text-sm font-semibold text-ink-900 dark:text-ink-100">{label}</p>
+            <p className="mt-0.5 text-sm text-ink-500 dark:text-ink-400">{desc}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
