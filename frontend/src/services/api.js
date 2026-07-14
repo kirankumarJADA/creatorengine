@@ -61,8 +61,10 @@ api.interceptors.response.use(
     const originalRequest = error.config;
     const status = error.response?.status;
 
-    // Only handle 401s, and never retry the refresh endpoint itself
-    if (status !== 401 || originalRequest._retry || originalRequest.url?.includes('/auth/refresh')) {
+    // Never retry auth endpoints — avoids logout/refresh loops
+    const AUTH_SKIP = ['/auth/refresh', '/auth/logout', '/auth/login', '/auth/google', '/auth/register'];
+    const isAuthEndpoint = AUTH_SKIP.some((p) => originalRequest.url?.includes(p));
+    if (status !== 401 || originalRequest._retry || isAuthEndpoint) {
       return Promise.reject(error);
     }
 

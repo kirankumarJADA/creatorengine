@@ -108,7 +108,7 @@ const Register = () => {
     try {
       const provider = new GoogleAuthProvider();
       const result   = await signInWithPopup(auth, provider);
-      const idToken  = await result.user.getIdToken();
+      const idToken  = await result.user.getIdToken(true); // force fresh token
 
       const data = await authService.googleSignIn({ idToken });
       persistSession(data);
