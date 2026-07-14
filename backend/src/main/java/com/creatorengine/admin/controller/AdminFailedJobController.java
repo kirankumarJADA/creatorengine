@@ -76,7 +76,8 @@ public class AdminFailedJobController {
             throw new BadRequestException("Failed job has no automation to retry against.");
         }
 
-        AutomationJob fresh = AutomationJob.fresh(uid, event, row.getAutomationId());
+        AutomationJob fresh = AutomationJob.fresh(uid, event, row.getAutomationId())
+                .withIgAccountId(event.receivingAccountId());
         jobQueue.enqueue(fresh);
         failedJobRepository.delete(uid, id);
 

@@ -46,11 +46,12 @@ public class AdminAutomationController {
     public ResponseEntity<ApiResponse<AdminAutomationResponse>> toggle(
             @PathVariable String uid, @PathVariable String id
     ) {
-        Automation a = automationRepository.findById(uid, id)
+        AutomationRepository.OwnedAutomation owned = automationRepository.findByIdAcrossAccounts(uid, id)
                 .orElseThrow(() -> new ResourceNotFoundException("Automation", id));
 
+        Automation a = owned.automation();
         a.setEnabled(!a.getEnabled());
-        Automation saved = automationRepository.save(uid, a);
+        Automation saved = automationRepository.save(uid, owned.igAccountId(), a);
 
         String email = userRepository.findById(uid).map(u -> u.getEmail()).orElse(null);
         return ResponseEntity.ok(ApiResponse.ok("Automation toggled.",
@@ -61,10 +62,10 @@ public class AdminAutomationController {
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable String uid, @PathVariable String id
     ) {
-        automationRepository.findById(uid, id)
+        AutomationRepository.OwnedAutomation owned = automationRepository.findByIdAcrossAccounts(uid, id)
                 .orElseThrow(() -> new ResourceNotFoundException("Automation", id));
 
-        automationRepository.deleteById(uid, id);
+        automationRepository.deleteById(uid, owned.igAccountId(), id);
         return ResponseEntity.ok(ApiResponse.<Void>ok("Automation deleted.", null));
     }
 }

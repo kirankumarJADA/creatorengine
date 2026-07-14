@@ -163,6 +163,16 @@ public class AutomationRepository {
         }
     }
 
+    /**
+     * Find a specific automation for a user, searching across all their IG accounts.
+     * Used by the admin panel where the igAccountId is not in the URL.
+     */
+    public Optional<OwnedAutomation> findByIdAcrossAccounts(String uid, String id) {
+        return findAllAcrossUsers().stream()
+                .filter(o -> uid.equals(o.uid()) && id.equals(o.automation().getId()))
+                .findFirst();
+    }
+
     // ─── Legacy single-account methods (backward compat) ──────────
 
     /**
