@@ -55,11 +55,10 @@
       (function () {
         try {
           var stored = localStorage.getItem('ce.theme');
+          var pref = stored ? JSON.parse(stored) : 'system';
           var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          var theme = stored ? JSON.parse(stored) : (systemDark ? 'dark' : 'light');
-          if (theme === 'dark') {
-            document.documentElement.classList.add('dark');
-          }
+          var isDark = pref === 'dark' || (pref === 'system' && systemDark);
+          if (isDark) document.documentElement.classList.add('dark');
         } catch (e) { /* ignore */ }
       })();
     </script>

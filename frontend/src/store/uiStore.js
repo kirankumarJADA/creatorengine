@@ -16,9 +16,15 @@ import { STORAGE_KEYS } from '../utils/constants.js';
  * just mirrors what's already on <html>.
  */
 
+const getSystemTheme = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
+
 const readInitialTheme = () => {
-  if (typeof document === 'undefined') return 'light';
-  return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+  if (typeof document === 'undefined') return 'system';
+  // Default to 'system' when nothing is stored
+  return storage.get(STORAGE_KEYS.THEME) || 'system';
 };
 
 const readSidebarOpen = () => {
@@ -28,7 +34,8 @@ const readSidebarOpen = () => {
 
 const applyTheme = (theme) => {
   if (typeof document === 'undefined') return;
-  document.documentElement.classList.toggle('dark', theme === 'dark');
+  const effective = theme === 'system' ? getSystemTheme() : theme;
+  document.documentElement.classList.toggle('dark', effective === 'dark');
 };
 
 export const useUiStore = create((set, get) => ({
@@ -52,8 +59,10 @@ export const useUiStore = create((set, get) => ({
 
   // ─── Theme ─────────────────────────────────────
   theme: readInitialTheme(),
+  // Cycles: light → dark → system → light …
   toggleTheme: () => {
-    const next = get().theme === 'dark' ? 'light' : 'dark';
+    const cur = get().theme;
+    const next = cur === 'light' ? 'dark' : cur === 'dark' ? 'system' : 'light';
     applyTheme(next);
     storage.set(STORAGE_KEYS.THEME, next);
     set({ theme: next });
@@ -62,5 +71,15 @@ export const useUiStore = create((set, get) => ({
     applyTheme(theme);
     storage.set(STORAGE_KEYS.THEME, theme);
     set({ theme });
+  },
+  // Call once on app mount — keeps 'system' mode in sync when the OS theme changes
+  initThemeListener: () => {
+    if (typeof window === 'undefined') return () => {};
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = () => {
+      if (useUiStore.getState().theme === 'system') applyTheme('system');
+    };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
   },
 }));
