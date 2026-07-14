@@ -44,7 +44,6 @@ const AiAssistantModal = ({ open, onClose, onInsert }) => {
   const [error,    setError]    = useState(null);
 
   const canSubmit = goal.trim().length > 0
-                 && audience.trim().length > 0
                  && tone
                  && !loading;
 
@@ -93,7 +92,7 @@ const AiAssistantModal = ({ open, onClose, onInsert }) => {
       open={open}
       onClose={handleClose}
       title="Generate with AI"
-      description="Describe your goal and we'll write 3 DM templates you can refine."
+      description="Tell us what your DM is about and we'll write 3 creator-style templates you can use or tweak."
       size="lg"
       footer={
         <>
@@ -123,11 +122,11 @@ const AiAssistantModal = ({ open, onClose, onInsert }) => {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.2fr]">
         {/* ─── Brief inputs ─────────────────────────── */}
         <div className="space-y-4">
-          <Field label="Goal" required hint="What is the DM trying to do?">
+          <Field label="What's your DM about?" required hint="What do you want to say to people who comment?">
             <input
               type="text"
               className="input"
-              placeholder="Send free guide on Instagram growth"
+              placeholder="Welcome new followers, share my free guide, hype my new post…"
               value={goal}
               onChange={(e) => setGoal(e.target.value)}
               maxLength={500}
@@ -146,24 +145,24 @@ const AiAssistantModal = ({ open, onClose, onInsert }) => {
             </select>
           </Field>
 
-          <Field label="Audience" required hint="Who's commenting on your posts?">
+          <Field label="Call to action" hint="Optional — e.g. 'Follow for more', 'Link in bio'">
             <input
               type="text"
               className="input"
-              placeholder="Aspiring creators, students, customers…"
-              value={audience}
-              onChange={(e) => setAudience(e.target.value)}
+              placeholder="Follow for more content like this!"
+              value={cta}
+              onChange={(e) => setCta(e.target.value)}
               maxLength={200}
             />
           </Field>
 
-          <Field label="Call to action" hint="Optional — leave blank if there isn't one.">
+          <Field label="Who's your audience?" hint="Optional — helps personalise the tone">
             <input
               type="text"
               className="input"
-              placeholder="Tap the link to join the free workshop"
-              value={cta}
-              onChange={(e) => setCta(e.target.value)}
+              placeholder="Aspiring creators, fitness fans, small biz owners…"
+              value={audience}
+              onChange={(e) => setAudience(e.target.value)}
               maxLength={200}
             />
           </Field>
@@ -202,7 +201,7 @@ const EmptyHint = () => (
       Fill in the brief and click Generate.
     </p>
     <p className="max-w-xs">
-      We'll write 3 short DM templates targeting the tone and audience you picked.
+      We'll write 3 short creator-style DMs — just tell us what the message is about.
     </p>
   </div>
 );
