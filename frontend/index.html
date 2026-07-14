@@ -55,7 +55,7 @@
       (function () {
         try {
           var stored = localStorage.getItem('ce.theme');
-          var pref = stored ? JSON.parse(stored) : 'system';
+          var pref = stored || 'system'; // stored as plain string, not JSON
           var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
           var isDark = pref === 'dark' || (pref === 'system' && systemDark);
           if (isDark) document.documentElement.classList.add('dark');
