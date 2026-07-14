@@ -111,7 +111,8 @@ public class AutomationEngine {
                 continue;
             }
 
-            AutomationJob job = AutomationJob.fresh(uid, event, automation.getId());
+            AutomationJob job = AutomationJob.fresh(uid, event, automation.getId())
+                    .withIgAccountId(event.receivingAccountId());
             queue.enqueue(job);
             log.debug("Enqueued job {} for automation {}", job.jobId(), automation.getId());
         }
@@ -128,7 +129,10 @@ public class AutomationEngine {
             return;
         }
 
-        Optional<Automation> automationOpt = automationRepository.findById(uid, automationId);
+        String igAccountId = event.receivingAccountId();
+        Optional<Automation> automationOpt = igAccountId != null && !igAccountId.isBlank()
+                ? automationRepository.findById(uid, igAccountId, automationId)
+                : automationRepository.findById(uid, automationId);
         if (automationOpt.isEmpty()) {
             log.info("Follow-gate completion: automation {} no longer exists.", automationId);
             return;
@@ -138,7 +142,8 @@ public class AutomationEngine {
             return;
         }
 
-        AutomationJob job = AutomationJob.fresh(uid, event, automationId);
+        AutomationJob job = AutomationJob.fresh(uid, event, automationId)
+                .withIgAccountId(igAccountId);
         queue.enqueue(job);
         log.info("Follow-gate completed for automation {} - delivering content.", automationId);
     }
@@ -149,8 +154,9 @@ public class AutomationEngine {
             return;
         }
 
-        Optional<Automation> automationOpt =
-                automationRepository.findById(job.uid(), job.automationId());
+        Optional<Automation> automationOpt = job.igAccountId() != null && !job.igAccountId().isBlank()
+                ? automationRepository.findById(job.uid(), job.igAccountId(), job.automationId())
+                : automationRepository.findById(job.uid(), job.automationId());
 
         if (automationOpt.isEmpty()) {
             log.info("Skipping job {} - automation {} no longer exists",
@@ -165,7 +171,9 @@ public class AutomationEngine {
             return;
         }
 
-        InstagramAccount account = instagramAccountService.find(job.uid()).orElse(null);
+        InstagramAccount account = job.igAccountId() != null && !job.igAccountId().isBlank()
+                ? instagramAccountService.findByIgId(job.uid(), job.igAccountId()).orElse(null)
+                : instagramAccountService.find(job.uid()).orElse(null);
 
         if (automation.getFollowGateEnabled() && job.event().type() == EventType.COMMENT) {
             runFollowGateAsk(job, automation, account);
