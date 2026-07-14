@@ -49,13 +49,34 @@ public class EventDeduplicationService {
         log.debug("Recorded processed event key={} uid={}", key, uid);
     }
 
+    /**
+     * Atomically check-and-claim this event.
+     * Returns true if this is the first time we've seen this event (caller should process it).
+     * Returns false if another request already claimed it (caller must skip it).
+     *
+     * Replaces the old isDuplicate() + markProcessed() two-step which had a
+     * race condition when Meta retried a webhook during a cold-start delay.
+     */
     public boolean markIfNew(String uid, WebhookEventDto event) {
-        if (isDuplicate(event)) {
-            log.info("Duplicate event ignored key={} uid={}", event.dedupKey(), uid);
-            return false;
+        String key = event.dedupKey();
+        if (key == null) {
+            // No dedup key (unknown event type) — allow through
+            return true;
         }
 
-        markProcessed(uid, event);
-        return true;
+        Instant now = Instant.now();
+        ProcessedEvent record = ProcessedEvent.builder()
+                .id(key)
+                .eventType(event.type() != null ? event.type().name() : null)
+                .uid(uid)
+                .processedAt(now)
+                .expiresAt(now.plus(RETENTION))
+                .build();
+
+        boolean claimed = repository.tryClaimAndSave(record);
+        if (!claimed) {
+            log.info("Duplicate event ignored key={} uid={}", key, uid);
+        }
+        return claimed;
     }
 }
