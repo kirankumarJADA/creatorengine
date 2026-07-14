@@ -53,7 +53,20 @@ const AppLayout = () => {
       {/* Main column — keeps the fade-IN, no "wait for exit" (that caused the blank) */}
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
-        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+        <main className="relative flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+          {/*
+            Subtle radial gradient — adds depth without hurting readability.
+            Opacity is intentionally very low; it should be barely perceptible.
+            pointer-events-none keeps it out of the interaction layer.
+          */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 h-80 opacity-[0.4] dark:opacity-[0.18]"
+            style={{
+              background:
+                'radial-gradient(ellipse 75% 100% at 50% -5%, rgba(99,102,241,0.10) 0%, transparent 70%)',
+            }}
+          />
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 6 }}

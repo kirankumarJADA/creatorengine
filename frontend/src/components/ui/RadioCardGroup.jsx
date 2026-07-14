@@ -13,7 +13,7 @@ import { cn } from '../../utils/helpers.js';
  *     label:       string,
  *     description: string?,
  *     icon:        LucideIcon?,
- *     tone:        'brand' | 'success' | 'warning' | 'neutral'  (chip color)
+ *     tone:        'brand' | 'success' | 'warning' | 'neutral'
  *     disabled:    boolean?,
  *   }
  */
@@ -46,13 +46,27 @@ const RadioCardGroup = ({
         return (
           <motion.label
             key={opt.value}
-            whileTap={{ scale: 0.985 }}
+            whileTap={!opt.disabled ? { scale: 0.985 } : undefined}
             className={cn(
-              'group relative flex h-full cursor-pointer flex-col rounded-2xl border p-4 transition-colors',
+              // Base layout
+              'group relative flex h-full cursor-pointer flex-col rounded-2xl border p-4',
+              // GPU-only transitions: transform + border + bg + shadow
+              // motion-reduce: disable lift for accessibility
+              'transition-[transform,border-color,background-color,box-shadow] duration-[220ms] ease-out',
+              !opt.disabled && [
+                'hover:-translate-y-0.5 motion-reduce:hover:translate-y-0',
+              ],
               opt.disabled && 'cursor-not-allowed opacity-60',
+              // Keyboard focus ring — visible for keyboard users, WCAG AA
+              'focus-within:outline-none focus-within:ring-2 focus-within:ring-brand-500/40',
+              // Selected: light accent tint (3–5% opacity), tighter ring
               selected
-                ? 'border-brand-500 bg-brand-50/60 ring-2 ring-brand-500/40 dark:border-brand-400 dark:bg-brand-500/10 dark:ring-brand-400/30'
-                : 'border-ink-200 bg-white hover:border-ink-300 dark:border-ink-800 dark:bg-ink-900 dark:hover:border-ink-700'
+                ? 'border-brand-400 bg-brand-50/50 ring-1 ring-brand-500/20 dark:border-brand-500 dark:bg-brand-500/10 dark:ring-brand-400/15'
+                : [
+                    'border-ink-200 bg-white dark:border-ink-800 dark:bg-ink-900',
+                    // Hover: hint of brand on the border, subtle shadow lift
+                    !opt.disabled && 'hover:border-brand-200 hover:shadow-sm dark:hover:border-ink-600',
+                  ]
             )}
           >
             <input
@@ -70,6 +84,9 @@ const RadioCardGroup = ({
                 <span
                   className={cn(
                     'grid h-10 w-10 shrink-0 place-items-center rounded-xl',
+                    // Gentle icon scale on hover — GPU-accelerated, reduced-motion-safe
+                    'transition-transform duration-[220ms] ease-out motion-reduce:transition-none',
+                    'group-hover:scale-[1.07] group-focus-within:scale-[1.07]',
                     TONE_CHIP[opt.tone || 'neutral']
                   )}
                 >
@@ -88,7 +105,8 @@ const RadioCardGroup = ({
               </div>
               <span
                 className={cn(
-                  'mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors',
+                  'mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border',
+                  'transition-colors duration-[220ms] ease-out',
                   selected
                     ? 'border-brand-600 bg-brand-600 text-white'
                     : 'border-ink-300 bg-white dark:border-ink-700 dark:bg-ink-900'
