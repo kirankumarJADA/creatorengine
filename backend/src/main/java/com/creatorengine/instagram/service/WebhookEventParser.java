@@ -157,21 +157,50 @@ public class WebhookEventParser {
 
         boolean isStoryReply = !message.path("reply_to").path("story").isMissingNode();
 
-        // Detect content-shared events: message has an attachment with type=="share"
-        // Also extract the shared media ID so automations can target a specific post.
+        // Detect content-shared events.
+        // Instagram sends different attachment types depending on what was shared:
+        //   "share"    — a post/reel shared from someone's profile
+        //   "reel"     — a reel shared directly
+        //   "ig_reel"  — same, alternate type name seen in production
+        //   "video"    — video attachment (can also be a shared reel)
+        // We detect a "share" if:
+        //   (a) the attachment type is one of the above, OR
+        //   (b) the payload URL contains an instagram.com/p/ or /reel/ path.
         boolean isContentShared = false;
         String sharedPostId = null;
         if (!isStoryReply) {
             JsonNode attachments = message.path("attachments");
-            if (attachments.isArray()) {
+            if (attachments.isArray() && !attachments.isEmpty()) {
+                // Log all attachment types to aid debugging
                 for (JsonNode att : attachments) {
-                    if ("share".equals(text(att.path("type")))) {
+                    log.info("DM attachment type='{}' payloadUrl='{}' payloadId='{}'",
+                            text(att.path("type")),
+                            text(att.path("payload").path("url")),
+                            text(att.path("payload").path("id")));
+                }
+                // Now check each attachment
+                for (JsonNode att : attachments) {
+                    String attType = text(att.path("type"));
+                    String payloadUrl = text(att.path("payload").path("url"));
+
+                    boolean typeIsShare = "share".equals(attType)
+                            || "reel".equals(attType)
+                            || "ig_reel".equals(attType);
+
+                    // Also detect via payload URL even if type is missing/unknown
+                    boolean urlIsPost = payloadUrl != null
+                            && (payloadUrl.contains("instagram.com/p/")
+                                || payloadUrl.contains("instagram.com/reel/")
+                                || payloadUrl.contains("instagram.com/tv/"));
+
+                    if (typeIsShare || urlIsPost) {
                         isContentShared = true;
-                        // Try to get the media ID from the share payload
                         String payloadId = text(att.path("payload").path("id"));
                         if (payloadId != null && !payloadId.isBlank()) {
                             sharedPostId = payloadId;
                         }
+                        log.info("CONTENT_SHARED detected via type='{}' url='{}' postId='{}'",
+                                attType, payloadUrl, sharedPostId);
                         break;
                     }
                 }
