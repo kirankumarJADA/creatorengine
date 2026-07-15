@@ -25,7 +25,18 @@ public class ConditionEvaluator {
 
     private Result evaluateKeyword(Automation.Condition condition, WebhookEventDto event) {
         String needle = norm(condition.getKeyword());
-        String haystack = norm(event != null ? event.message() : null);
+
+        // Use message text as the primary haystack.
+        // For ice breaker button taps, Instagram sends the button payload in
+        // quick_reply.payload and may leave message.text empty — fall back to it.
+        String rawMessage = event != null ? event.message() : null;
+        if ((rawMessage == null || rawMessage.isBlank())
+                && event != null
+                && event.quickReplyPayload() != null
+                && !event.quickReplyPayload().startsWith("fgate:")) {
+            rawMessage = event.quickReplyPayload();
+        }
+        String haystack = norm(rawMessage);
 
         if (needle.isEmpty()) {
             return Result.notMatched("No keyword configured on automation.");
