@@ -246,9 +246,25 @@ public class WebhookEventParser {
         // hidden payload we set on the button (e.g. "fgate:<automationId>").
         String quickReplyPayload = text(message.path("quick_reply").path("payload"));
 
+        // Ice breaker button taps do NOT use quick_reply. Instagram puts the
+        // payload in message.referral.ref instead. Fall back to it so the
+        // ConditionEvaluator can use it as the keyword haystack.
+        if (quickReplyPayload == null || quickReplyPayload.isBlank()) {
+            String referralRef = text(message.path("referral").path("ref"));
+            if (referralRef != null && !referralRef.isBlank()) {
+                quickReplyPayload = referralRef;
+                log.info("Ice breaker tap detected via referral.ref='{}' sender={}", referralRef, senderId);
+            }
+        }
+
+        String messageText = text(message.path("text"));
+        log.info("Parsed messaging event: type={} text={} qr={} referral={} mid={}",
+                type, messageText, quickReplyPayload,
+                text(message.path("referral").path("ref")), text(message.path("mid")));
+
         return WebhookEventDto.builder()
                 .type(type)
-                .message(text(message.path("text")))
+                .message(messageText)
                 .username(text(sender.path("username")))
                 .instagramUserId(senderId)
                 .postId(isStoryReply
