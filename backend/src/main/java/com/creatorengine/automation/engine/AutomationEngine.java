@@ -102,14 +102,15 @@ public class AutomationEngine {
 
         List<Automation> candidates = matcher.findCandidates(uid, event);
         if (candidates.isEmpty()) {
-            log.debug("No matching automations uid={} event={}", uid, event.type());
+            log.warn("No matching automations uid={} igAccountId={} event={} msg={} qr={}",
+                    uid, event.receivingAccountId(), event.type(), event.message(), event.quickReplyPayload());
             return;
         }
 
         for (Automation automation : candidates) {
             Result conditionResult = evaluator.evaluate(automation.getCondition(), event);
             if (!conditionResult.matched()) {
-                log.debug("Automation {} skipped: {}", automation.getId(), conditionResult.reason());
+                log.info("Automation {} condition skipped: {}", automation.getId(), conditionResult.reason());
                 continue;
             }
 
@@ -121,7 +122,7 @@ public class AutomationEngine {
             AutomationJob job = AutomationJob.fresh(uid, event, automation.getId())
                     .withIgAccountId(event.receivingAccountId());
             queue.enqueue(job);
-            log.debug("Enqueued job {} for automation {}", job.jobId(), automation.getId());
+            log.info("Enqueued job {} for automation {}", job.jobId(), automation.getId());
         }
     }
 

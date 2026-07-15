@@ -51,7 +51,7 @@ public class AutomationMatcher {
                 .filter(a -> matchesTargetPost(a, event))
                 .toList();
 
-        log.debug("Matcher uid={} igAccountId={} event={} postId={} candidates={} total={}",
+        log.info("Matcher uid={} igAccountId={} event={} postId={} candidates={} total={}",
                 uid, igAccountId, expectedTrigger, event.postId(), filtered.size(), all.size());
 
         return filtered;
