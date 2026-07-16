@@ -146,8 +146,19 @@ public class WebhookEventParser {
         JsonNode message = m.path("message");
         long timestampMs = m.path("timestamp").asLong(0);
 
-        if (message.isMissingNode() || message.isNull()) {
-            log.debug("Skipping non-message event in messaging[].");
+        String senderId = text(sender.path("id"));
+        boolean hasMessage = !message.isMissingNode() && !message.isNull();
+        boolean isEcho = hasMessage && message.path("is_echo").asBoolean(false);
+        boolean senderIsOwner = senderId != null && senderId.equals(accountId);
+        boolean isDeleted = hasMessage && message.path("is_deleted").asBoolean(false);
+
+        // Log every incoming messaging entry so we can trace ice breaker tap filtering
+        log.info("Incoming messaging: accountId={} senderId={} hasMessage={} isEcho={} senderIsOwner={} isDeleted={} fields={}",
+                accountId, senderId, hasMessage, isEcho, senderIsOwner, isDeleted,
+                hasMessage ? message.fieldNames().toString() : "[]");
+
+        if (!hasMessage) {
+            log.info("Skipping non-message event in messaging[] (no message node).");
             return null;
         }
 
@@ -159,17 +170,21 @@ public class WebhookEventParser {
         // trigger DM automations and create loops / unwanted auto-DMs.
         // NEVER react to our own sent messages.
         // ---------------------------------------------------------------
-        if (message.path("is_echo").asBoolean(false)) {
-            log.debug("Skipping message echo (owner-sent message).");
+        if (isEcho) {
+            log.info("Skipping message echo (owner-sent message) sender={}", senderId);
             return null;
         }
 
-        String senderId = text(sender.path("id"));
-
         // Extra guard: if the sender IS the receiving (owner) account, skip it.
         // We only ever react to messages FROM other users.
-        if (senderId != null && senderId.equals(accountId)) {
-            log.debug("Skipping message where sender == owning account.");
+        if (senderIsOwner) {
+            log.info("Skipping message where sender == owning account sender={}", senderId);
+            return null;
+        }
+
+        // Skip deleted/unsent message notifications — no content to act on.
+        if (isDeleted) {
+            log.info("Skipping deleted/unsent message mid={}", text(message.path("mid")));
             return null;
         }
 
