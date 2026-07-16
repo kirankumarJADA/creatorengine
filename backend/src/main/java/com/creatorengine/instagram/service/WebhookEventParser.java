@@ -258,9 +258,15 @@ public class WebhookEventParser {
         }
 
         String messageText = text(message.path("text"));
-        log.info("Parsed messaging event: type={} text={} qr={} referral={} mid={}",
-                type, messageText, quickReplyPayload,
-                text(message.path("referral").path("ref")), text(message.path("mid")));
+        // If we still have no content, dump the full message JSON so we can see
+        // exactly what Instagram sends for ice breaker taps.
+        if ((messageText == null || messageText.isBlank())
+                && (quickReplyPayload == null || quickReplyPayload.isBlank())) {
+            log.info("Empty-content DM — full message JSON: {}", message);
+        } else {
+            log.info("Parsed messaging event: type={} text={} qr={} mid={}",
+                    type, messageText, quickReplyPayload, text(message.path("mid")));
+        }
 
         return WebhookEventDto.builder()
                 .type(type)
