@@ -8,7 +8,7 @@ public enum Plan {
     public int maxInstagramAccounts() {
         return switch (this) {
             case FREE   -> 2;
-            case PRO    -> 10;
+            case PRO    -> 5;
             case AGENCY -> Integer.MAX_VALUE;
         };
     }

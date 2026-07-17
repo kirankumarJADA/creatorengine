@@ -6,34 +6,39 @@ import Button from '../components/form/Button.jsx';
 import instagramService from '../services/instagramService.js';
 import { cn } from '../utils/helpers.js';
 
+const feature = (label, comingSoon = false) => ({ label, comingSoon });
+
 const PLANS = [
   {
     id: 'FREE',
     name: 'Free',
-    price: '$0',
+    priceLabel: '$0',
     period: '/mo',
     features: [
-      'Up to 2 Instagram accounts',
-      'DM & comment automations',
-      'Ice breakers',
-      'Follow-up messages',
-      'Email & contact collection',
+      feature('Up to 2 Instagram accounts'),
+      feature('DM & comment automations'),
+      feature('Ice breakers'),
+      feature('Follow-up messages'),
+      feature('Email & contact collection'),
     ],
   },
   {
     id: 'PRO',
     name: 'Pro',
-    price: '$—',
-    period: '/mo',
+    priceLabel: 'Price announced at launch',
+    period: '',
     highlight: true,
     comingSoon: true,
     features: [
-      'Everything in Free',
-      'Up to 10 Instagram accounts',
-      'AI FAQ (Gemini-powered DM answers)',
-      'AI Autopilot / FAQ Builder',
-      'Automated AI conversations',
-      'Priority support',
+      feature('Everything in Free'),
+      feature('Up to 5 Instagram accounts'),
+      feature('Bot protection'),
+      feature('AI FAQ (Gemini-powered DM answers)'),
+      feature('AI Autopilot / FAQ Builder', true),
+      feature('AI product recommendations', true),
+      feature('AI lead qualification', true),
+      feature('AI conversation summaries', true),
+      feature('Priority support'),
     ],
   },
 ];
@@ -59,7 +64,7 @@ const Subscription = () => {
     <div className="mx-auto max-w-3xl">
       <PageHeader
         title="Subscription"
-        description="Manage your plan. AI features are rolling out soon — join the waitlist by upgrading when it opens."
+        description="Manage your plan. Pro is launching soon — some AI features below are still in progress."
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -75,7 +80,7 @@ const Subscription = () => {
             >
               {p.highlight && (
                 <span className="absolute -top-3 left-6 rounded-full bg-brand-600 px-3 py-1 text-xs font-semibold text-white shadow-soft">
-                  {p.comingSoon ? 'Coming Soon' : 'Recommended'}
+                  {p.comingSoon ? 'Launching Soon' : 'Recommended'}
                 </span>
               )}
 
@@ -90,22 +95,33 @@ const Subscription = () => {
               </div>
 
               <div className="mb-5">
-                <span className="text-3xl font-bold text-ink-900 dark:text-ink-100">{p.price}</span>
-                <span className="text-sm text-ink-500 dark:text-ink-400">{p.period}</span>
+                {p.period ? (
+                  <>
+                    <span className="text-3xl font-bold text-ink-900 dark:text-ink-100">{p.priceLabel}</span>
+                    <span className="text-sm text-ink-500 dark:text-ink-400">{p.period}</span>
+                  </>
+                ) : (
+                  <span className="text-base font-semibold text-ink-500 dark:text-ink-400">{p.priceLabel}</span>
+                )}
               </div>
 
               <ul className="mb-6 flex-1 space-y-2.5">
                 {p.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-ink-700 dark:text-ink-300">
+                  <li key={f.label} className="flex items-start gap-2 text-sm text-ink-700 dark:text-ink-300">
                     <Check size={16} className="mt-0.5 shrink-0 text-emerald-500" />
-                    <span>{f}</span>
+                    <span className="flex-1">{f.label}</span>
+                    {f.comingSoon && (
+                      <span className="shrink-0 rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-medium text-ink-500 dark:bg-ink-800 dark:text-ink-400">
+                        Coming Soon
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
 
               {p.comingSoon ? (
                 <Button variant="secondary" disabled leftIcon={Lock} className="w-full">
-                  Coming Soon
+                  Launching Soon
                 </Button>
               ) : (
                 <Button variant={isCurrent ? 'secondary' : 'primary'} disabled={isCurrent} className="w-full">
@@ -118,8 +134,8 @@ const Subscription = () => {
       </div>
 
       <p className="mt-6 text-center text-xs text-ink-400 dark:text-ink-500">
-        Payments aren't live yet. Pro will unlock AI FAQ, AI Autopilot, and automated conversations
-        once billing is available.
+        Payments aren't live yet. Pro will unlock AI FAQ, bot protection, and more Instagram accounts
+        once billing is available — features marked "Coming Soon" are still being built.
       </p>
     </div>
   );

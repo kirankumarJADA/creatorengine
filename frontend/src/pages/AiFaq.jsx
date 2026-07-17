@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Trash2, Sparkles, Save, Lock } from 'lucide-react';
+import { Plus, Trash2, Sparkles, Save, Lock, Send, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -28,6 +28,10 @@ const AiFaq = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
+
+  const [testMessage, setTestMessage] = useState('');
+  const [testAnswer, setTestAnswer] = useState(null);
+  const [isTesting, setIsTesting] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -84,6 +88,26 @@ const AiFaq = () => {
       toast.error(err?.response?.data?.message || 'Failed to save AI FAQ settings.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleTest = async () => {
+    if (!planEligible || !testMessage.trim()) return;
+
+    setIsTesting(true);
+    setTestAnswer(null);
+    try {
+      const result = await aiFaqService.test({
+        knowledgeBase,
+        qaPairs: qaPairs.filter((p) => p.question.trim().length > 0)
+          .map((p) => ({ question: p.question.trim(), answer: p.answer?.trim() || '' })),
+        message: testMessage.trim(),
+      });
+      setTestAnswer(result.answer);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Test failed. Try again.');
+    } finally {
+      setIsTesting(false);
     }
   };
 
@@ -170,6 +194,11 @@ const AiFaq = () => {
             <Switch checked={enabled} onChange={setEnabled} srLabel="Enable AI FAQ" />
           </div>
 
+          <div className="mb-4 flex items-start gap-2 rounded-xl bg-ink-50/60 px-3 py-2.5 text-xs text-ink-500 dark:bg-ink-800/30 dark:text-ink-400">
+            <Info size={14} className="mt-0.5 shrink-0" />
+            <p>Gemini is only used when no keyword automation or curated Q&amp;A matches the message.</p>
+          </div>
+
           <div className="card mb-4 p-4">
             <label className="label">Business info (knowledge base)</label>
             <textarea
@@ -224,6 +253,36 @@ const AiFaq = () => {
                 <Plus size={16} />
                 Add Q&amp;A ({qaPairs.length}/{MAX_QA_PAIRS})
               </button>
+            )}
+          </div>
+
+          <div className="card mt-6 p-4">
+            <p className="mb-1 text-sm font-semibold text-ink-900 dark:text-ink-100">Test AI</p>
+            <p className="mb-3 text-xs text-ink-500 dark:text-ink-400">
+              Try a question against what's above before you save or enable it. Nothing is sent to Instagram.
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                className="input flex-1"
+                placeholder='e.g. "Do you ship internationally?"'
+                value={testMessage}
+                onChange={(e) => setTestMessage(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleTest()}
+              />
+              <Button
+                leftIcon={Send}
+                onClick={handleTest}
+                isLoading={isTesting}
+                disabled={!testMessage.trim()}
+              >
+                Test
+              </Button>
+            </div>
+            {testAnswer && (
+              <div className="mt-3 rounded-xl border border-brand-200 bg-brand-50/60 p-3 text-sm text-ink-800 dark:border-brand-800 dark:bg-brand-500/10 dark:text-ink-200">
+                {testAnswer}
+              </div>
             )}
           </div>
         </fieldset>

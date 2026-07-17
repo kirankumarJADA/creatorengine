@@ -13,6 +13,12 @@ const aiFaqService = {
     const { data } = await api.put(API_ENDPOINTS.AI_FAQ, config);
     return data;
   },
+
+  /** Test the draft (possibly unsaved) knowledge base/Q&A against a sample question. */
+  test: async ({ knowledgeBase, qaPairs, message }) => {
+    const { data } = await api.post(`${API_ENDPOINTS.AI_FAQ}/test`, { knowledgeBase, qaPairs, message });
+    return data;
+  },
 };
 
 export default aiFaqService;

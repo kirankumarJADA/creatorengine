@@ -1,6 +1,8 @@
 package com.creatorengine.aifaq.controller;
 
 import com.creatorengine.aifaq.dto.AiFaqConfigResponse;
+import com.creatorengine.aifaq.dto.AiFaqTestRequest;
+import com.creatorengine.aifaq.dto.AiFaqTestResponse;
 import com.creatorengine.aifaq.entity.AiFaqConfig;
 import com.creatorengine.aifaq.service.AiFaqService;
 import com.creatorengine.common.ApiResponse;
@@ -71,6 +73,31 @@ public class AiFaqController {
         AiFaqConfig saved = aiFaqService.save(uid, account.getInstagramUserId(), incoming);
         return ResponseEntity.ok(ApiResponse.ok("AI FAQ settings saved.",
                 AiFaqConfigResponse.from(saved, true, plan.name())));
+    }
+
+    @PostMapping("/test")
+    @Operation(summary = "Test the draft AI FAQ config against a sample question (Pro/Agency, never sends a real DM)")
+    public ResponseEntity<ApiResponse<AiFaqTestResponse>> test(@RequestBody AiFaqTestRequest req) {
+        String uid = SecurityUtils.getCurrentUserId();
+        Plan plan = planService.getPlan(uid);
+
+        if (!plan.isProOrHigher()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error("Upgrade to Pro to test AI FAQ."));
+        }
+
+        try {
+            String answer = aiFaqService.testAnswer(uid, req.toDraftConfig(), req.message());
+            return ResponseEntity.ok(ApiResponse.ok(new AiFaqTestResponse(answer)));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(ApiResponse.error(ex.getMessage()));
+        } catch (Exception ex) {
+            log.warn("AI FAQ test failed uid={}: {}", uid, ex.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(ApiResponse.error("AI request failed: " + ex.getMessage()));
+        }
     }
 
     private InstagramAccount resolveAccount(String uid, String igAccountId) {

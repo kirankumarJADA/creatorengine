@@ -99,6 +99,34 @@ public class AiFaqService {
         return planService.getPlan(uid).isProOrHigher();
     }
 
+    /**
+     * "Test AI" — lets the creator try a question against their DRAFT
+     * knowledge base / Q&A (not yet saved) before enabling the feature.
+     * Never sends a real DM. Lightly rate-limited per uid to control cost.
+     */
+    public String testAnswer(String uid, AiFaqConfig draftConfig, String message) {
+        if (message == null || message.isBlank()) {
+            throw new IllegalArgumentException("Enter a test question first.");
+        }
+        if (draftConfig == null || !draftConfig.hasContent()) {
+            throw new IllegalArgumentException("Add a knowledge base or at least one Q&A pair to test.");
+        }
+        if (!rateLimitService.tryAcquire("aifaq-test:" + uid)) {
+            throw new IllegalStateException("Too many test requests - please wait a moment and try again.");
+        }
+
+        String systemInstruction = buildSystemInstruction(draftConfig);
+        String answer = geminiClient.generateAnswer(systemInstruction, message.trim());
+
+        if (answer == null || answer.isBlank()) {
+            throw new IllegalStateException("Gemini returned an empty answer.");
+        }
+        if (answer.length() > MAX_REPLY_CHARS) {
+            answer = answer.substring(0, MAX_REPLY_CHARS);
+        }
+        return answer;
+    }
+
     // ─── Fallback answering (called from AutomationEngine's queue) ─
 
     /** Sentinel automationId routed here from AutomationEngine.processJob. */
