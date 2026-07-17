@@ -15,6 +15,8 @@ import {
   Plus,
   Check,
   MessageCircleQuestion,
+  Sparkles,
+  CreditCard,
 } from 'lucide-react';
 
 import toast from 'react-hot-toast';
@@ -34,6 +36,7 @@ const NAV_GROUPS = [
       { to: ROUTES.AUTOMATIONS, label: 'Automations',   icon: Workflow },
       { to: ROUTES.CONTACTS,    label: 'Contacts',      icon: Users },
       { to: ROUTES.ICE_BREAKERS, label: 'Ice Breakers', icon: MessageCircleQuestion },
+      { to: ROUTES.AI_FAQ,      label: 'AI FAQ',        icon: Sparkles },
       { to: ROUTES.LOGS,        label: 'Activity Logs', icon: ScrollText },
       { to: ROUTES.FAILED_JOBS, label: 'Failed Jobs',   icon: AlertOctagon },
     ],
@@ -41,7 +44,8 @@ const NAV_GROUPS = [
   {
     label: 'Account',
     items: [
-      { to: ROUTES.SETTINGS, label: 'Settings', icon: SettingsIcon },
+      { to: ROUTES.SUBSCRIPTION, label: 'Subscription', icon: CreditCard },
+      { to: ROUTES.SETTINGS,     label: 'Settings',     icon: SettingsIcon },
     ],
   },
 ];

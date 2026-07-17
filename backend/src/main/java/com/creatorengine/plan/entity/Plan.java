@@ -20,4 +20,9 @@ public enum Plan {
             case AGENCY -> "Agency";
         };
     }
+
+    /** AI features (AI FAQ, AI Autopilot, etc.) require Pro or Agency. */
+    public boolean isProOrHigher() {
+        return this != FREE;
+    }
 }

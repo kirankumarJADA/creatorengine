@@ -1,5 +1,6 @@
 package com.creatorengine.automation.engine;
 
+import com.creatorengine.aifaq.service.AiFaqService;
 import com.creatorengine.automation.cooldown.CooldownService;
 import com.creatorengine.automation.deadletter.DeadLetterService;
 import com.creatorengine.automation.dedup.EventDeduplicationService;
@@ -55,6 +56,7 @@ public class AutomationEngine {
     private final AutomationRepository automationRepository;
     private final InstagramAccountService instagramAccountService;
     private final JobQueue queue;
+    private final AiFaqService aiFaqService;
 
     public AutomationEngine(
             AutomationMatcher matcher,
@@ -68,7 +70,8 @@ public class AutomationEngine {
             ExecutionLogger logger,
             AutomationRepository automationRepository,
             InstagramAccountService instagramAccountService,
-            JobQueue queue
+            JobQueue queue,
+            AiFaqService aiFaqService
     ) {
         this.matcher = matcher;
         this.evaluator = evaluator;
@@ -82,6 +85,7 @@ public class AutomationEngine {
         this.automationRepository = automationRepository;
         this.instagramAccountService = instagramAccountService;
         this.queue = queue;
+        this.aiFaqService = aiFaqService;
     }
 
     public void dispatch(String uid, WebhookEventDto event) {
@@ -101,10 +105,11 @@ public class AutomationEngine {
         }
 
         List<Automation> candidates = matcher.findCandidates(uid, event);
+        boolean anyFired = false;
+
         if (candidates.isEmpty()) {
-            log.warn("No matching automations uid={} igAccountId={} event={} msg={} qr={}",
+            log.info("No matching automations uid={} igAccountId={} event={} msg={} qr={}",
                     uid, event.receivingAccountId(), event.type(), event.message(), event.quickReplyPayload());
-            return;
         }
 
         for (Automation automation : candidates) {
@@ -123,6 +128,21 @@ public class AutomationEngine {
                     .withIgAccountId(event.receivingAccountId());
             queue.enqueue(job);
             log.info("Enqueued job {} for automation {}", job.jobId(), automation.getId());
+            anyFired = true;
+        }
+
+        // AI FAQ FALLBACK (#14): if nothing else answered this DM, and the
+        // creator is on Pro/Agency with AI FAQ enabled, let Gemini answer
+        // using their curated Q&A + knowledge base. Runs off the queue so
+        // it never blocks the webhook response.
+        if (!anyFired && event.type() == EventType.DM) {
+            String text = event.message();
+            if (text != null && !text.isBlank()) {
+                AutomationJob faqJob = AutomationJob.fresh(uid, event, AiFaqService.JOB_MARKER)
+                        .withIgAccountId(event.receivingAccountId());
+                queue.enqueue(faqJob);
+                log.info("Enqueued AI FAQ fallback job for uid={}", uid);
+            }
         }
     }
 
@@ -168,6 +188,11 @@ public class AutomationEngine {
     public void processJob(AutomationJob job) {
         if (job == null || job.uid() == null || job.event() == null || job.automationId() == null) {
             log.warn("Worker got malformed job, skipping.");
+            return;
+        }
+
+        if (AiFaqService.JOB_MARKER.equals(job.automationId())) {
+            aiFaqService.handleJob(job);
             return;
         }
 

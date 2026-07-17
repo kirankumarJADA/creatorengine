@@ -24,6 +24,8 @@ const Settings = lazy(() => import('../pages/Settings.jsx'));
 const ActivityLogs = lazy(() => import('../pages/ActivityLogs.jsx'));
 const FailedJobs = lazy(() => import('../pages/FailedJobs.jsx'));
 const IceBreakers = lazy(() => import('../pages/IceBreakers.jsx'));
+const AiFaq = lazy(() => import('../pages/AiFaq.jsx'));
+const Subscription = lazy(() => import('../pages/Subscription.jsx'));
 const InstagramCallback = lazy(() => import('../pages/InstagramCallback.jsx'));
 const NotFound = lazy(() => import('../pages/NotFound.jsx'));
 
@@ -80,6 +82,8 @@ const AppRoutes = () => {
             />
             <Route path={ROUTES.CONTACTS} element={<Contacts />} />
             <Route path={ROUTES.ICE_BREAKERS} element={<IceBreakers />} />
+            <Route path={ROUTES.AI_FAQ} element={<AiFaq />} />
+            <Route path={ROUTES.SUBSCRIPTION} element={<Subscription />} />
             <Route path={ROUTES.LOGS} element={<ActivityLogs />} />
             <Route path={ROUTES.FAILED_JOBS} element={<FailedJobs />} />
             <Route path={ROUTES.SETTINGS} element={<Settings />} />
