@@ -103,6 +103,18 @@ public class AutomationEngine {
             return;
         }
 
+        // BOT-LOOP GUARD: never let automations/AI reply to a message that came
+        // from one of this SAME creator's other connected Instagram accounts.
+        // Without this, two of a creator's own pages messaging each other (e.g.
+        // one with a broad follow-gate automation, another with AI Autopilot)
+        // can trigger an infinite back-and-forth loop, since each auto-reply
+        // looks like a fresh incoming DM to the other account.
+        if (isMessageFromOwnOtherAccount(uid, event)) {
+            log.warn("Skipping event — sender {} is one of uid={}'s own other connected Instagram accounts "
+                    + "(bot-loop guard).", event.instagramUserId(), uid);
+            return;
+        }
+
         if (event.type() == EventType.DM && isFollowGatePayload(event.quickReplyPayload())) {
             handleFollowGateCompletion(uid, event);
             return;
@@ -162,6 +174,26 @@ public class AutomationEngine {
 
     private static boolean isFollowGatePayload(String payload) {
         return payload != null && payload.startsWith(FOLLOW_GATE_PREFIX);
+    }
+
+    /**
+     * True if the sender of this event is ANY of this creator's own connected
+     * Instagram accounts — including the one that received the message. Two of
+     * a creator's own pages DMing each other (deliberately while testing, or by
+     * accident) must never be allowed to auto-reply to one another, or a single
+     * bot-vs-bot exchange becomes an unbounded loop.
+     */
+    private boolean isMessageFromOwnOtherAccount(String uid, WebhookEventDto event) {
+        String senderId = event.instagramUserId();
+        if (senderId == null || senderId.isBlank()) return false;
+
+        try {
+            return instagramAccountService.findAll(uid).stream()
+                    .anyMatch(acct -> senderId.equals(acct.getInstagramUserId()));
+        } catch (Exception ex) {
+            log.warn("Bot-loop guard check failed for uid={}: {}", uid, ex.getMessage());
+            return false;
+        }
     }
 
     private void handleFollowGateCompletion(String uid, WebhookEventDto event) {
