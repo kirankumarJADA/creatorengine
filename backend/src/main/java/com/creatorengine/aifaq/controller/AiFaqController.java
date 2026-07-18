@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/ai-faq")
-@Tag(name = "AI FAQ", description = "Pro feature: Gemini answers DMs that don't match a keyword automation")
+@Tag(name = "AI FAQ", description = "Pro feature: AI answers DMs that don't match a keyword automation")
 public class AiFaqController {
 
     private static final Logger log = LoggerFactory.getLogger(AiFaqController.class);

@@ -33,7 +33,7 @@ const PLANS = [
       feature('Everything in Free'),
       feature('Up to 5 Instagram accounts'),
       feature('Bot protection'),
-      feature('AI FAQ (Gemini-powered DM answers)'),
+      feature('AI FAQ (AI-powered DM answers)'),
       feature('AI Autopilot / FAQ Builder', true),
       feature('AI product recommendations', true),
       feature('AI lead qualification', true),

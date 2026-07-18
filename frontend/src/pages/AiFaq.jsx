@@ -132,7 +132,7 @@ const AiFaq = () => {
     <div className="mx-auto max-w-2xl">
       <PageHeader
         title="AI FAQ"
-        description="When a DM doesn't match any keyword automation, Gemini answers using the Q&A and business info below."
+        description="When a DM doesn't match any keyword automation, AI answers using the Q&A and business info below."
         actions={
           <Button
             leftIcon={Save}
@@ -196,7 +196,7 @@ const AiFaq = () => {
 
           <div className="mb-4 flex items-start gap-2 rounded-xl bg-ink-50/60 px-3 py-2.5 text-xs text-ink-500 dark:bg-ink-800/30 dark:text-ink-400">
             <Info size={14} className="mt-0.5 shrink-0" />
-            <p>Gemini is only used when no keyword automation or curated Q&amp;A matches the message.</p>
+            <p>AI is only used when no keyword automation or curated Q&amp;A matches the message.</p>
           </div>
 
           <div className="card mb-4 p-4">

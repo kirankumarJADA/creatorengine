@@ -40,7 +40,7 @@ public class AiFaqService {
     private static final int MAX_REPLY_CHARS = 900;
 
     private final AiFaqConfigRepository configRepository;
-    private final GeminiClient geminiClient;
+    private final NvidiaGptClient aiClient;
     private final PlanService planService;
     private final InstagramAccountService instagramAccountService;
     private final MetaMessagingService metaMessaging;
@@ -50,7 +50,7 @@ public class AiFaqService {
 
     public AiFaqService(
             AiFaqConfigRepository configRepository,
-            GeminiClient geminiClient,
+            NvidiaGptClient aiClient,
             PlanService planService,
             InstagramAccountService instagramAccountService,
             MetaMessagingService metaMessaging,
@@ -59,7 +59,7 @@ public class AiFaqService {
             JobQueue queue
     ) {
         this.configRepository = configRepository;
-        this.geminiClient = geminiClient;
+        this.aiClient = aiClient;
         this.planService = planService;
         this.instagramAccountService = instagramAccountService;
         this.metaMessaging = metaMessaging;
@@ -116,10 +116,10 @@ public class AiFaqService {
         }
 
         String systemInstruction = buildSystemInstruction(draftConfig);
-        String answer = geminiClient.generateAnswer(systemInstruction, message.trim());
+        String answer = aiClient.generateAnswer(systemInstruction, message.trim());
 
         if (answer == null || answer.isBlank()) {
-            throw new IllegalStateException("Gemini returned an empty answer.");
+            throw new IllegalStateException("AI returned an empty answer.");
         }
         if (answer.length() > MAX_REPLY_CHARS) {
             answer = answer.substring(0, MAX_REPLY_CHARS);
@@ -183,14 +183,14 @@ public class AiFaqService {
 
         String answer;
         try {
-            answer = geminiClient.generateAnswer(systemInstruction, userMessage);
+            answer = aiClient.generateAnswer(systemInstruction, userMessage);
         } catch (Exception ex) {
-            log.warn("AI FAQ: Gemini call failed for uid={}: {}", uid, ex.getMessage());
+            log.warn("AI FAQ: AI call failed for uid={}: {}", uid, ex.getMessage());
             return;
         }
 
         if (answer == null || answer.isBlank()) {
-            log.warn("AI FAQ: Gemini returned an empty answer for uid={}", uid);
+            log.warn("AI FAQ: AI returned an empty answer for uid={}", uid);
             return;
         }
 
