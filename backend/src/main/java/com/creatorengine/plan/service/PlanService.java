@@ -39,14 +39,19 @@ public class PlanService {
                     .document(PLAN_DOC)
                     .get().get();
 
-            if (!snap.exists()) return Plan.FREE;
+            if (!snap.exists()) {
+                log.info("getPlan uid={} — doc does not exist, returning FREE", uid);
+                return Plan.FREE;
+            }
 
             String planName = snap.getString("plan");
+            log.info("getPlan uid={} — planName={}", uid, planName);
             if (planName == null) return Plan.FREE;
 
             try {
                 return Plan.valueOf(planName);
             } catch (IllegalArgumentException e) {
+                log.warn("getPlan uid={} — unknown plan value '{}', returning FREE", uid, planName);
                 return Plan.FREE;
             }
         } catch (InterruptedException | ExecutionException e) {
