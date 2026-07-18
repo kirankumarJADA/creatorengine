@@ -62,7 +62,7 @@ public class AutopilotService {
 
     private static final int MAX_HISTORY_MESSAGES = 20; // ~10 turns of context
     private static final int MAX_REPLY_CHARS = 900;
-    private static final int MAX_TOKENS = 400;
+    private static final int MAX_TOKENS = 700;
     private static final int MAX_TEMPLATES = 20;
     private static final int MAX_ALLOWED_AUTOMATIONS = 20;
 
@@ -309,6 +309,14 @@ public class AutopilotService {
             outgoingText = chosenTemplate.getMessage();
         } else {
             outgoingText = turn.reply();
+        }
+
+        // Final safety net: never let anything JSON-shaped reach a real customer,
+        // no matter which path produced it.
+        if (outgoingText == null || outgoingText.isBlank()
+                || outgoingText.trim().startsWith("{") || outgoingText.trim().startsWith("[")) {
+            log.warn("Autopilot: outgoing text looked malformed, using safe fallback. uid={}", uid);
+            outgoingText = "Thanks for your message! Give me just a moment to get back to you on that.";
         }
 
         if (outgoingText.length() > MAX_REPLY_CHARS) {
@@ -562,15 +570,46 @@ public class AutopilotService {
             if ("none".equals(actionType)) actionId = null;
 
             if (reply == null || reply.isBlank()) {
-                // Model didn't follow the JSON contract — fall back to raw text as the reply.
-                return new AutopilotTurn(raw.trim(), collected, tags, qualified, escalate, actionType, actionId);
+                // Model didn't follow the JSON contract at all — never send raw JSON to a
+                // customer; try to salvage the "reply" text with a regex, else use a safe default.
+                return new AutopilotTurn(salvageReplyText(raw), collected, tags, qualified, escalate, actionType, actionId);
             }
             return new AutopilotTurn(reply.trim(), collected, tags, qualified, escalate, actionType, actionId);
         } catch (Exception ex) {
-            // Not valid JSON at all — treat the whole response as the reply text.
-            log.debug("Autopilot: response wasn't valid JSON, using raw text as reply: {}", ex.getMessage());
-            return new AutopilotTurn(raw.trim(), Map.of(), List.of(), false, false, "none", null);
+            // JSON parsing failed outright — most commonly because the response got cut off
+            // mid-generation (hit the token limit) before the JSON closed. Never forward the
+            // raw/broken JSON to a customer; try to salvage just the "reply" field's text.
+            log.warn("Autopilot: response wasn't valid JSON (likely truncated), salvaging reply text: {}", ex.getMessage());
+            return new AutopilotTurn(salvageReplyText(raw), Map.of(), List.of(), false, false, "none", null);
         }
+    }
+
+    private static final java.util.regex.Pattern REPLY_FIELD_PATTERN =
+            java.util.regex.Pattern.compile("\"reply\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)");
+
+    /**
+     * Best-effort recovery when the model's JSON came back malformed or truncated.
+     * Tries to pull out just the "reply" field's text via regex (works even if the
+     * JSON never closes, e.g. cut off mid-sentence). Falls back to a safe generic
+     * message rather than ever sending raw JSON/braces to a customer.
+     */
+    private String salvageReplyText(String raw) {
+        if (raw != null) {
+            java.util.regex.Matcher m = REPLY_FIELD_PATTERN.matcher(raw);
+            if (m.find()) {
+                String salvaged = m.group(1)
+                        .replace("\\n", " ")
+                        .replace("\\\"", "\"")
+                        .replace("\\\\", "\\")
+                        .trim();
+                if (!salvaged.isBlank()) return salvaged;
+            }
+        }
+        // No plain, non-JSON-looking text to recover — safest possible default reply.
+        if (raw != null && !raw.trim().startsWith("{") && !raw.trim().startsWith("[") && !raw.isBlank()) {
+            return raw.trim();
+        }
+        return "Thanks for your message! Give me just a moment to get back to you on that.";
     }
 
     /** Models sometimes wrap JSON in ```fences``` or add stray text — pull out the {...} block. */
