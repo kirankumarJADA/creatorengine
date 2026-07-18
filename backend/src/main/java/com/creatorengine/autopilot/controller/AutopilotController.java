@@ -75,12 +75,18 @@ public class AutopilotController {
     }
 
     @GetMapping("/stats")
-    @Operation(summary = "Get AI Autopilot usage stats for the active account")
+    @Operation(summary = "Get AI Autopilot usage stats for the active account (Pro/Agency plans only)")
     public ResponseEntity<ApiResponse<AutopilotStatsResponse>> stats(
             @RequestHeader(value = "X-IG-Account-Id", required = false) String igAccountId
     ) {
         String uid = SecurityUtils.getCurrentUserId();
         InstagramAccount account = resolveAccount(uid, igAccountId);
+        Plan plan = planService.getPlan(uid);
+
+        if (!plan.isProOrHigher()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error("Upgrade to Pro to view AI Autopilot stats."));
+        }
 
         AutopilotService.AutopilotStats s = autopilotService.stats(uid, account.getInstagramUserId());
         return ResponseEntity.ok(ApiResponse.ok(new AutopilotStatsResponse(
