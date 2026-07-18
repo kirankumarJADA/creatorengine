@@ -36,6 +36,30 @@ public class ResendEmailService {
         send(toEmail, "Reset your CreatorEngine password", buildResetHtml(resetLink));
     }
 
+    /**
+     * Generic notification email — used by AI Autopilot (#15) to alert the
+     * account owner when a conversation is escalated or a lead qualifies.
+     */
+    public void sendOwnerNotification(String toEmail, String subject, String bodyText) {
+        if (toEmail == null || toEmail.isBlank()) return;
+        send(toEmail, subject, buildNotificationHtml(subject, bodyText));
+    }
+
+    private String buildNotificationHtml(String heading, String bodyText) {
+        String safeBody = bodyText == null ? "" : bodyText.replace("\n", "<br/>");
+        return "<div style=\"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"
+                + "max-width:480px;margin:0 auto;padding:40px 24px;background:#ffffff;\">"
+                + "<div style=\"margin-bottom:32px;\">"
+                + "<span style=\"font-size:22px;font-weight:700;color:#7c3aed;\">CreatorEngine</span>"
+                + "</div>"
+                + "<h1 style=\"font-size:22px;font-weight:700;color:#111827;margin:0 0 16px;\">" + heading + "</h1>"
+                + "<p style=\"font-size:15px;color:#374151;line-height:1.6;margin:0 0 32px;\">" + safeBody + "</p>"
+                + "<div style=\"border-top:1px solid #f3f4f6;margin:32px 0;\"></div>"
+                + "<p style=\"font-size:12px;color:#d1d5db;margin:0;text-align:center;\">"
+                + "CreatorEngine &middot; AI Autopilot</p>"
+                + "</div>";
+    }
+
     private String buildOtpHtml(String otp) {
         return "<div style=\"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"
                 + "max-width:480px;margin:0 auto;padding:40px 24px;background:#ffffff;\">"

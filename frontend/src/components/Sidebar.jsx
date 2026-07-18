@@ -16,6 +16,7 @@ import {
   Check,
   MessageCircleQuestion,
   Sparkles,
+  Bot,
   CreditCard,
 } from 'lucide-react';
 
@@ -37,6 +38,7 @@ const NAV_GROUPS = [
       { to: ROUTES.CONTACTS,    label: 'Contacts',      icon: Users },
       { to: ROUTES.ICE_BREAKERS, label: 'Ice Breakers', icon: MessageCircleQuestion },
       { to: ROUTES.AI_FAQ,      label: 'AI FAQ',        icon: Sparkles },
+      { to: ROUTES.AI_AUTOPILOT, label: 'AI Autopilot', icon: Bot },
       { to: ROUTES.LOGS,        label: 'Activity Logs', icon: ScrollText },
       { to: ROUTES.FAILED_JOBS, label: 'Failed Jobs',   icon: AlertOctagon },
     ],

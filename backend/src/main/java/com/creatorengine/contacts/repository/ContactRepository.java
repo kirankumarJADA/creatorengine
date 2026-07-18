@@ -108,6 +108,55 @@ public class ContactRepository {
         }
     }
 
+    /**
+     * Merge arbitrary field updates (name, email, phone, preferences, budget,
+     * qualified, etc.) onto a contact, upserting if it doesn't exist yet.
+     * Used by AI Autopilot (#15) to persist data it collects during a
+     * conversation. Never overwrites a non-blank existing value with blank.
+     */
+    public void patchFields(String uid, String igAccountId, String instagramUserId,
+                             java.util.Map<String, Object> updates) {
+        if (instagramUserId == null || updates == null || updates.isEmpty()) return;
+        DocumentReference ref = collection(uid, igAccountId).document(instagramUserId);
+        try {
+            DocumentSnapshot snap = ref.get().get();
+            java.util.Map<String, Object> patch = new java.util.HashMap<>(updates);
+            patch.put("updatedAt", Instant.now());
+
+            if (snap.exists()) {
+                ref.update(patch).get();
+            } else {
+                patch.put("instagramUserId", instagramUserId);
+                patch.put("createdAt", Instant.now());
+                patch.putIfAbsent("totalTriggers", 0L);
+                ref.set(patch).get();
+            }
+            log.info("Contact fields patched uid={} igAccountId={} ig={} fields={}",
+                    uid, igAccountId, instagramUserId, updates.keySet());
+        } catch (InterruptedException | ExecutionException e) {
+            throw wrap("patchFields", e);
+        }
+    }
+
+    /** Add a tag to a contact's tag list, deduping. Upserts if needed. */
+    public void addTag(String uid, String igAccountId, String instagramUserId, String tag) {
+        if (instagramUserId == null || tag == null || tag.isBlank()) return;
+        DocumentReference ref = collection(uid, igAccountId).document(instagramUserId);
+        try {
+            DocumentSnapshot snap = ref.get().get();
+            Contact existing = snap.exists() ? snap.toObject(Contact.class) : null;
+            List<String> tags = existing != null && existing.getTags() != null
+                    ? new java.util.ArrayList<>(existing.getTags())
+                    : new java.util.ArrayList<>();
+            if (!tags.contains(tag)) {
+                tags.add(tag);
+            }
+            patchFields(uid, igAccountId, instagramUserId, java.util.Map.of("tags", tags));
+        } catch (InterruptedException | ExecutionException e) {
+            throw wrap("addTag", e);
+        }
+    }
+
     // ─── Legacy single-account path ───────────────────────────────
 
     private CollectionReference legacyCollection(String uid) {

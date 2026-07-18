@@ -1,6 +1,7 @@
 package com.creatorengine.automation.engine;
 
 import com.creatorengine.aifaq.service.AiFaqService;
+import com.creatorengine.autopilot.service.AutopilotService;
 import com.creatorengine.automation.cooldown.CooldownService;
 import com.creatorengine.automation.deadletter.DeadLetterService;
 import com.creatorengine.automation.dedup.EventDeduplicationService;
@@ -57,6 +58,7 @@ public class AutomationEngine {
     private final InstagramAccountService instagramAccountService;
     private final JobQueue queue;
     private final AiFaqService aiFaqService;
+    private final AutopilotService autopilotService;
 
     public AutomationEngine(
             AutomationMatcher matcher,
@@ -71,7 +73,8 @@ public class AutomationEngine {
             AutomationRepository automationRepository,
             InstagramAccountService instagramAccountService,
             JobQueue queue,
-            AiFaqService aiFaqService
+            AiFaqService aiFaqService,
+            AutopilotService autopilotService
     ) {
         this.matcher = matcher;
         this.evaluator = evaluator;
@@ -86,6 +89,7 @@ public class AutomationEngine {
         this.instagramAccountService = instagramAccountService;
         this.queue = queue;
         this.aiFaqService = aiFaqService;
+        this.autopilotService = autopilotService;
     }
 
     public void dispatch(String uid, WebhookEventDto event) {
@@ -131,17 +135,27 @@ public class AutomationEngine {
             anyFired = true;
         }
 
-        // AI FAQ FALLBACK (#14): if nothing else answered this DM, and the
-        // creator is on Pro/Agency with AI FAQ enabled, let AI answer
-        // using their curated Q&A + knowledge base. Runs off the queue so
-        // it never blocks the webhook response.
+        // AI FALLBACK (#14 AI FAQ / #15 AI Autopilot): if nothing else answered
+        // this DM, hand it to exactly ONE AI system so they never both answer
+        // the same message. Autopilot (full conversational agent) takes
+        // priority when enabled for this account; AI FAQ (one-off Q&A) is the
+        // fallback when Autopilot isn't in use. Runs off the queue so it
+        // never blocks the webhook response.
         if (!anyFired && event.type() == EventType.DM) {
             String text = event.message();
+            String igAccountId = event.receivingAccountId();
             if (text != null && !text.isBlank()) {
-                AutomationJob faqJob = AutomationJob.fresh(uid, event, AiFaqService.JOB_MARKER)
-                        .withIgAccountId(event.receivingAccountId());
-                queue.enqueue(faqJob);
-                log.info("Enqueued AI FAQ fallback job for uid={}", uid);
+                if (autopilotService.isEligibleAndEnabled(uid, igAccountId)) {
+                    AutomationJob autopilotJob = AutomationJob.fresh(uid, event, AutopilotService.JOB_MARKER)
+                            .withIgAccountId(igAccountId);
+                    queue.enqueue(autopilotJob);
+                    log.info("Enqueued AI Autopilot fallback job for uid={}", uid);
+                } else {
+                    AutomationJob faqJob = AutomationJob.fresh(uid, event, AiFaqService.JOB_MARKER)
+                            .withIgAccountId(igAccountId);
+                    queue.enqueue(faqJob);
+                    log.info("Enqueued AI FAQ fallback job for uid={}", uid);
+                }
             }
         }
     }
@@ -193,6 +207,11 @@ public class AutomationEngine {
 
         if (AiFaqService.JOB_MARKER.equals(job.automationId())) {
             aiFaqService.handleJob(job);
+            return;
+        }
+
+        if (AutopilotService.JOB_MARKER.equals(job.automationId())) {
+            autopilotService.handleJob(job);
             return;
         }
 

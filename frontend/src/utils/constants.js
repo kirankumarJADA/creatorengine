@@ -12,6 +12,7 @@ export const ROUTES = Object.freeze({
   CONTACTS: '/contacts',
   ICE_BREAKERS: '/ice-breakers',
   AI_FAQ: '/ai-faq',
+  AI_AUTOPILOT: '/ai-autopilot',
   SUBSCRIPTION: '/subscription',
   SETTINGS: '/settings',
   LOGS:     '/logs',
@@ -85,6 +86,7 @@ export const API_ENDPOINTS = Object.freeze({
 
   ICE_BREAKERS: '/ice-breakers',
   AI_FAQ: '/ai-faq',
+  AI_AUTOPILOT: '/autopilot',
 });
 
 export const LOG_STATUS = Object.freeze({

@@ -52,18 +52,34 @@ public class NvidiaGptClient {
      * Returns the model's plain text answer.
      */
     public String generateAnswer(String systemInstruction, String userMessage) {
+        return chatCompletion(
+                List.of(
+                        Map.of("role", "system", "content", systemInstruction),
+                        Map.of("role", "user", "content", userMessage)
+                ),
+                300
+        );
+    }
+
+    /**
+     * Multi-turn chat completion — takes a full message list (system +
+     * conversation history + latest user message) and returns the raw text
+     * reply. Used by AI Autopilot (#15) to hold multi-turn conversations
+     * with memory. Callers are responsible for trimming history length.
+     */
+    public String chatCompletion(List<Map<String, String>> messages, int maxTokens) {
         if (!isAvailable()) {
             throw new IllegalStateException("AI API key not configured.");
+        }
+        if (messages == null || messages.isEmpty()) {
+            throw new IllegalArgumentException("chatCompletion requires at least one message.");
         }
 
         Map<String, Object> body = Map.of(
                 "model", model,
-                "temperature", 0.4,
-                "max_tokens", 300,
-                "messages", List.of(
-                        Map.of("role", "system", "content", systemInstruction),
-                        Map.of("role", "user", "content", userMessage)
-                )
+                "temperature", 0.5,
+                "max_tokens", maxTokens,
+                "messages", messages
         );
 
         String responseBody = client().post()

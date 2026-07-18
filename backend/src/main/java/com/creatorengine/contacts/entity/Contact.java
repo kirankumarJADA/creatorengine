@@ -3,6 +3,8 @@ package com.creatorengine.contacts.entity;
 import com.google.cloud.firestore.annotation.DocumentId;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Contact {
 
@@ -17,6 +19,14 @@ public class Contact {
     private long totalTriggers;
     private Instant createdAt;
     private Instant updatedAt;
+
+    // ─── AI Autopilot (#15) enrichment fields ─────────────────────
+    private String name;
+    private String phone;
+    private String preferences;
+    private String budget;
+    private List<String> tags = new ArrayList<>();
+    private boolean qualified;
 
     public Contact() {
     }
@@ -117,6 +127,54 @@ public class Contact {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getPreferences() {
+        return preferences;
+    }
+
+    public void setPreferences(String preferences) {
+        this.preferences = preferences;
+    }
+
+    public String getBudget() {
+        return budget;
+    }
+
+    public void setBudget(String budget) {
+        this.budget = budget;
+    }
+
+    public List<String> getTags() {
+        return tags;
+    }
+
+    public void setTags(List<String> tags) {
+        this.tags = tags != null ? tags : new ArrayList<>();
+    }
+
+    public boolean getQualified() {
+        return qualified;
+    }
+
+    public void setQualified(boolean qualified) {
+        this.qualified = qualified;
     }
 
     public static class ContactBuilder {
