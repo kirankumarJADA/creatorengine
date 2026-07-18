@@ -10,6 +10,8 @@ import com.creatorengine.automation.entity.Automation;
 import com.creatorengine.automation.executor.ActionExecutor;
 import com.creatorengine.automation.executor.ExecutionContext;
 import com.creatorengine.automation.executor.ExecutionResult;
+import com.creatorengine.automation.followgate.FollowGateCompletionRepository;
+import com.creatorengine.automation.loopguard.CrossAccountLoopGuard;
 import com.creatorengine.automation.logger.ExecutionLogger;
 import com.creatorengine.automation.matcher.AutomationMatcher;
 import com.creatorengine.automation.matcher.ConditionEvaluator;
@@ -59,6 +61,8 @@ public class AutomationEngine {
     private final JobQueue queue;
     private final AiFaqService aiFaqService;
     private final AutopilotService autopilotService;
+    private final FollowGateCompletionRepository followGateCompletionRepository;
+    private final CrossAccountLoopGuard loopGuard;
 
     public AutomationEngine(
             AutomationMatcher matcher,
@@ -74,7 +78,9 @@ public class AutomationEngine {
             InstagramAccountService instagramAccountService,
             JobQueue queue,
             AiFaqService aiFaqService,
-            AutopilotService autopilotService
+            AutopilotService autopilotService,
+            FollowGateCompletionRepository followGateCompletionRepository,
+            CrossAccountLoopGuard loopGuard
     ) {
         this.matcher = matcher;
         this.evaluator = evaluator;
@@ -89,7 +95,9 @@ public class AutomationEngine {
         this.instagramAccountService = instagramAccountService;
         this.queue = queue;
         this.aiFaqService = aiFaqService;
+        this.followGateCompletionRepository = followGateCompletionRepository;
         this.autopilotService = autopilotService;
+        this.loopGuard = loopGuard;
     }
 
     public void dispatch(String uid, WebhookEventDto event) {
@@ -103,15 +111,31 @@ public class AutomationEngine {
             return;
         }
 
-        // BOT-LOOP GUARD: never let automations/AI reply to a message that came
-        // from one of this SAME creator's other connected Instagram accounts.
-        // Without this, two of a creator's own pages messaging each other (e.g.
-        // one with a broad follow-gate automation, another with AI Autopilot)
-        // can trigger an infinite back-and-forth loop, since each auto-reply
-        // looks like a fresh incoming DM to the other account.
+        // BOT-LOOP GUARD (identity check): never let automations/AI reply to a
+        // message that came from one of this SAME creator's other connected
+        // Instagram accounts. This direct-id check only catches cases where the
+        // sender id happens to equal another of the creator's accounts' stored
+        // ids — see the frequency-based guard below for the common case, where
+        // Instagram scopes sender ids per receiving account so this rarely
+        // matches even when it genuinely is the creator's own other account.
         if (isMessageFromOwnOtherAccount(uid, event)) {
             log.warn("Skipping event — sender {} is one of uid={}'s own other connected Instagram accounts "
-                    + "(bot-loop guard).", event.instagramUserId(), uid);
+                    + "(bot-loop guard, identity match).", event.instagramUserId(), uid);
+            return;
+        }
+
+        // BOT-LOOP GUARD (frequency check): catches the case above misses.
+        // Instagram scopes a sender's id per receiving account, so two of a
+        // creator's own pages messaging each other never match on identity —
+        // each auto-reply looks like a fresh incoming DM to the other account,
+        // producing an unbounded loop (worse once AI-generated replies vary
+        // their wording, defeating content-based dedup too). A real customer
+        // only ever talks to ONE of the creator's accounts, so a burst of
+        // events for this uid landing across 2+ of their own connected
+        // accounts in a tight window is a reliable loop signature.
+        if (loopGuard.recordAndCheckTripped(uid, event.receivingAccountId())) {
+            log.warn("Skipping event — cross-account loop guard tripped for uid={} igAccountId={}.",
+                    uid, event.receivingAccountId());
             return;
         }
 
@@ -224,6 +248,10 @@ public class AutomationEngine {
             return;
         }
 
+        // Persist completion so future messages from this contact never
+        // re-ask this automation's follow gate again.
+        followGateCompletionRepository.markCompleted(uid, automationId, event.instagramUserId());
+
         AutomationJob job = AutomationJob.fresh(uid, event, automationId)
                 .withIgAccountId(igAccountId)
                 .withFollowGateCompleted(true);
@@ -272,13 +300,21 @@ public class AutomationEngine {
         // Excluded: LIVE_COMMENT (live stream interactions can't be reliably gated).
         // Skip when followGateCompleted=true — that means the user already tapped
         // "I Followed" and this job is the content-delivery pass, not the ask pass.
+        // Also skip the ask (and go straight to running the automation) if this
+        // contact has EVER completed this automation's follow gate before —
+        // otherwise every new matching message re-asks "make sure you're
+        // following me" forever, even for people who already followed.
         EventType evType = job.event().type();
         boolean isFollowGateable = evType == EventType.COMMENT
                 || evType == EventType.DM
                 || evType == EventType.STORY_REPLY
                 || evType == EventType.CONTENT_SHARED
                 || evType == EventType.STORY_MENTION;
-        if (automation.getFollowGateEnabled() && isFollowGateable && !job.followGateCompleted()) {
+        boolean alreadyCompletedBefore = automation.getFollowGateEnabled()
+                && followGateCompletionRepository.hasCompleted(
+                        job.uid(), automation.getId(), job.event().instagramUserId());
+        if (automation.getFollowGateEnabled() && isFollowGateable
+                && !job.followGateCompleted() && !alreadyCompletedBefore) {
             runFollowGateAsk(job, automation, account);
             return;
         }
