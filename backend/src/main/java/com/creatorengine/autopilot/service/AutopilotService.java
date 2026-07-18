@@ -5,13 +5,16 @@ import com.creatorengine.aifaq.repository.AiFaqConfigRepository;
 import com.creatorengine.aifaq.service.NvidiaGptClient;
 import com.creatorengine.auth.repository.UserRepository;
 import com.creatorengine.auth.service.ResendEmailService;
+import com.creatorengine.automation.entity.Automation;
 import com.creatorengine.automation.queue.AutomationJob;
 import com.creatorengine.automation.queue.JobQueue;
 import com.creatorengine.automation.ratelimit.RateLimitService;
+import com.creatorengine.automation.repository.AutomationRepository;
 import com.creatorengine.autopilot.entity.AllowedActions;
 import com.creatorengine.autopilot.entity.AutopilotConfig;
 import com.creatorengine.autopilot.entity.AutopilotConversation;
 import com.creatorengine.autopilot.entity.AutopilotMessage;
+import com.creatorengine.autopilot.entity.MessageTemplate;
 import com.creatorengine.autopilot.repository.AutopilotConfigRepository;
 import com.creatorengine.autopilot.repository.AutopilotConversationRepository;
 import com.creatorengine.contacts.repository.ContactRepository;
@@ -60,6 +63,8 @@ public class AutopilotService {
     private static final int MAX_HISTORY_MESSAGES = 20; // ~10 turns of context
     private static final int MAX_REPLY_CHARS = 900;
     private static final int MAX_TOKENS = 400;
+    private static final int MAX_TEMPLATES = 20;
+    private static final int MAX_ALLOWED_AUTOMATIONS = 20;
 
     private final AutopilotConfigRepository configRepository;
     private final AutopilotConversationRepository conversationRepository;
@@ -73,6 +78,7 @@ public class AutopilotService {
     private final ContactRepository contactRepository;
     private final UserRepository userRepository;
     private final ResendEmailService emailService;
+    private final AutomationRepository automationRepository;
     private final JobQueue queue;
     private final ObjectMapper json;
 
@@ -89,6 +95,7 @@ public class AutopilotService {
             ContactRepository contactRepository,
             UserRepository userRepository,
             ResendEmailService emailService,
+            AutomationRepository automationRepository,
             JobQueue queue,
             ObjectMapper json
     ) {
@@ -104,6 +111,7 @@ public class AutopilotService {
         this.contactRepository = contactRepository;
         this.userRepository = userRepository;
         this.emailService = emailService;
+        this.automationRepository = automationRepository;
         this.queue = queue;
         this.json = json;
     }
@@ -128,6 +136,37 @@ public class AutopilotService {
         config.setConversationTimeoutMinutes(Math.max(5, Math.min(timeout, 24 * 60)));
 
         config.setFallbackMessage(trim(incoming != null ? incoming.getFallbackMessage() : null, 500));
+
+        List<MessageTemplate> templates = incoming != null && incoming.getMessageTemplates() != null
+                ? incoming.getMessageTemplates().stream()
+                        .filter(t -> t != null && t.getLabel() != null && !t.getLabel().isBlank()
+                                && t.getMessage() != null && !t.getMessage().isBlank())
+                        .limit(MAX_TEMPLATES)
+                        .peek(t -> {
+                            if (t.getId() == null || t.getId().isBlank()) {
+                                t.setId(java.util.UUID.randomUUID().toString());
+                            }
+                            t.setLabel(trim(t.getLabel(), 80));
+                            t.setDescription(trim(t.getDescription(), 200));
+                            t.setMessage(trim(t.getMessage(), 900));
+                        })
+                        .toList()
+                : List.of();
+        config.setMessageTemplates(templates);
+
+        // Only keep automation IDs that still exist and are enabled for this
+        // account — the AI must never be able to invoke something the owner
+        // has since deleted or disabled elsewhere.
+        List<String> requestedAutomationIds = incoming != null && incoming.getAllowedAutomationIds() != null
+                ? incoming.getAllowedAutomationIds()
+                : List.of();
+        List<String> validAutomationIds = requestedAutomationIds.stream()
+                .filter(id -> id != null && !id.isBlank())
+                .distinct()
+                .limit(MAX_ALLOWED_AUTOMATIONS)
+                .filter(id -> automationRepository.findById(uid, igAccountId, id).isPresent())
+                .toList();
+        config.setAllowedAutomationIds(validAutomationIds);
 
         return configRepository.save(uid, igAccountId, config);
     }
@@ -219,7 +258,12 @@ public class AutopilotService {
         trimHistory(conversation);
 
         AiFaqConfig knowledge = aiFaqConfigRepository.find(uid, igAccountId);
-        String systemInstruction = buildSystemInstruction(config, knowledge);
+        AllowedActions actions = config.getAllowedActions();
+        List<Automation> triggerableAutomations = actions.getTriggerAutomations()
+                ? loadTriggerableAutomations(uid, igAccountId, config)
+                : List.of();
+
+        String systemInstruction = buildSystemInstruction(config, knowledge, actions, triggerableAutomations);
         List<Map<String, String>> chatMessages = buildChatMessages(systemInstruction, conversation.getMessages());
 
         long startedAt = System.currentTimeMillis();
@@ -238,14 +282,34 @@ public class AutopilotService {
             return;
         }
 
-        AllowedActions actions = config.getAllowedActions();
         boolean escalateNow = turn.escalate() && actions.getEscalateToHuman();
 
-        String outgoingText = escalateNow
-                ? (config.getFallbackMessage() != null && !config.getFallbackMessage().isBlank()
-                    ? config.getFallbackMessage()
-                    : turn.reply())
-                : turn.reply();
+        // Resolve any action the model chose (send a canned template, or
+        // trigger an existing automation) — ignored entirely if escalating,
+        // since the fallback message takes over in that case.
+        MessageTemplate chosenTemplate = null;
+        Automation chosenAutomation = null;
+        if (!escalateNow && turn.actionId() != null) {
+            if ("send_template".equals(turn.actionType()) && actions.getSendTemplates()) {
+                chosenTemplate = config.getMessageTemplates().stream()
+                        .filter(t -> turn.actionId().equals(t.getId()))
+                        .findFirst().orElse(null);
+            } else if ("trigger_automation".equals(turn.actionType()) && actions.getTriggerAutomations()) {
+                chosenAutomation = triggerableAutomations.stream()
+                        .filter(a -> turn.actionId().equals(a.getId()))
+                        .findFirst().orElse(null);
+            }
+        }
+
+        String outgoingText;
+        if (escalateNow) {
+            outgoingText = config.getFallbackMessage() != null && !config.getFallbackMessage().isBlank()
+                    ? config.getFallbackMessage() : turn.reply();
+        } else if (chosenTemplate != null) {
+            outgoingText = chosenTemplate.getMessage();
+        } else {
+            outgoingText = turn.reply();
+        }
 
         if (outgoingText.length() > MAX_REPLY_CHARS) {
             outgoingText = outgoingText.substring(0, MAX_REPLY_CHARS);
@@ -278,8 +342,31 @@ public class AutopilotService {
             notifyOwner(uid, conversation, escalateNow);
         }
 
-        log.info("Autopilot answered uid={} ig={} escalated={} qualified={} messageId={}",
-                uid, rateKey, escalateNow, turn.qualified(), result.messageId());
+        // Trigger the chosen automation's own action chain (tags, delays,
+        // further DMs, etc.) through the normal queue — never executed
+        // inline, so it respects that automation's own enabled/cooldown
+        // behavior exactly like a manually-fired one would.
+        if (chosenAutomation != null) {
+            AutomationJob triggeredJob = AutomationJob.fresh(uid, event, chosenAutomation.getId())
+                    .withIgAccountId(igAccountId);
+            queue.enqueue(triggeredJob);
+            log.info("Autopilot triggered automation {} for uid={} ig={}",
+                    chosenAutomation.getId(), uid, instagramUserId);
+        }
+
+        log.info("Autopilot answered uid={} ig={} escalated={} qualified={} action={} messageId={}",
+                uid, rateKey, escalateNow, turn.qualified(), turn.actionType(), result.messageId());
+    }
+
+    private List<Automation> loadTriggerableAutomations(String uid, String igAccountId, AutopilotConfig config) {
+        List<String> ids = config.getAllowedAutomationIds();
+        if (ids == null || ids.isEmpty()) return List.of();
+        return ids.stream()
+                .map(id -> automationRepository.findById(uid, igAccountId, id))
+                .filter(java.util.Optional::isPresent)
+                .map(java.util.Optional::get)
+                .filter(Automation::getEnabled) // re-check live — owner may have since disabled it
+                .toList();
     }
 
     private AutopilotConversation loadOrResetConversation(
@@ -332,7 +419,8 @@ public class AutopilotService {
         return out;
     }
 
-    private String buildSystemInstruction(AutopilotConfig config, AiFaqConfig knowledge) {
+    private String buildSystemInstruction(AutopilotConfig config, AiFaqConfig knowledge,
+                                           AllowedActions a, List<Automation> triggerableAutomations) {
         StringBuilder sb = new StringBuilder();
 
         sb.append(roleTemplate(config.getRole()));
@@ -357,7 +445,6 @@ public class AutopilotService {
             sb.append("\n--- BUSINESS INFO / PRODUCTS ---\n").append(knowledge.getKnowledgeBase().trim()).append('\n');
         }
 
-        AllowedActions a = config.getAllowedActions();
         sb.append("\n--- WHAT YOU MAY DO ---\n");
         sb.append("- Ask natural follow-up questions to move the conversation toward your goal.\n");
         if (a.getCollectEmail()) sb.append("- You may ask for and collect the customer's email address.\n");
@@ -365,6 +452,33 @@ public class AutopilotService {
         if (a.getRecommendProducts()) sb.append("- You may recommend products/services from the business info above.\n");
         sb.append("- Never invent facts, prices, or policies not stated above.\n");
         sb.append("- Keep replies short and conversational (under 500 characters), like a real DM, not an email.\n");
+
+        boolean hasTemplates = a.getSendTemplates() && config.getMessageTemplates() != null
+                && !config.getMessageTemplates().isEmpty();
+        if (hasTemplates) {
+            sb.append("\n--- PREDEFINED MESSAGE TEMPLATES YOU MAY SEND VERBATIM ---\n");
+            sb.append("When one of these clearly matches what the customer wants, send it using the action ")
+                    .append("field below instead of writing your own text for it (their \"reply\" text will be ")
+                    .append("replaced with the template automatically).\n");
+            for (MessageTemplate t : config.getMessageTemplates()) {
+                sb.append("id=\"").append(t.getId()).append("\" — ").append(t.getLabel());
+                if (t.getDescription() != null && !t.getDescription().isBlank()) {
+                    sb.append(" (").append(t.getDescription().trim()).append(")");
+                }
+                sb.append('\n');
+            }
+        }
+
+        boolean hasAutomations = a.getTriggerAutomations() && !triggerableAutomations.isEmpty();
+        if (hasAutomations) {
+            sb.append("\n--- EXISTING AUTOMATIONS YOU MAY TRIGGER ---\n");
+            sb.append("Use these to hand off to an existing workflow (e.g. a booking link, a tagged follow-up ")
+                    .append("sequence) when appropriate.\n");
+            for (Automation auto : triggerableAutomations) {
+                sb.append("id=\"").append(auto.getId()).append("\" — ")
+                        .append(auto.getName() != null ? auto.getName() : "Untitled automation").append('\n');
+            }
+        }
 
         sb.append("\n--- OUTPUT FORMAT (STRICT) ---\n");
         sb.append("""
@@ -374,13 +488,17 @@ public class AutopilotService {
                   "collected": {"name": null, "email": null, "phone": null, "preferences": null, "budget": null},
                   "tags": [],
                   "qualified": false,
-                  "escalate": false
+                  "escalate": false,
+                  "action": {"type": "none", "id": null}
                 }
                 Rules for the JSON fields:
                 - "collected": only include a field's value if the customer stated it in THIS message; otherwise use null.
                 - "qualified": true only once the customer clearly matches the goal above (e.g. ready to buy, meets criteria).
                 - "escalate": true only if you cannot confidently help, the customer is upset, or explicitly asks for a human.
                 - "tags": short lowercase keywords describing this lead (e.g. "interested", "price-sensitive"), or [].
+                - "action.type": "none", or "send_template" with the template's id above, or "trigger_automation" \
+                with the automation's id above. Only use ids that were explicitly listed to you. Leave as "none" \
+                unless one clearly applies.
                 """);
 
         return sb.toString();
@@ -404,7 +522,8 @@ public class AutopilotService {
     }
 
     private record AutopilotTurn(
-            String reply, Map<String, String> collected, List<String> tags, boolean qualified, boolean escalate
+            String reply, Map<String, String> collected, List<String> tags, boolean qualified, boolean escalate,
+            String actionType, String actionId
     ) {}
 
     private AutopilotTurn parseTurn(String raw) {
@@ -436,15 +555,21 @@ public class AutopilotService {
             boolean qualified = root.path("qualified").asBoolean(false);
             boolean escalate = root.path("escalate").asBoolean(false);
 
+            JsonNode actionNode = root.path("action");
+            String actionType = actionNode.path("type").isTextual() ? actionNode.path("type").asText() : "none";
+            String actionId = actionNode.path("id").isTextual() && !actionNode.path("id").asText().isBlank()
+                    ? actionNode.path("id").asText().trim() : null;
+            if ("none".equals(actionType)) actionId = null;
+
             if (reply == null || reply.isBlank()) {
                 // Model didn't follow the JSON contract — fall back to raw text as the reply.
-                return new AutopilotTurn(raw.trim(), collected, tags, qualified, escalate);
+                return new AutopilotTurn(raw.trim(), collected, tags, qualified, escalate, actionType, actionId);
             }
-            return new AutopilotTurn(reply.trim(), collected, tags, qualified, escalate);
+            return new AutopilotTurn(reply.trim(), collected, tags, qualified, escalate, actionType, actionId);
         } catch (Exception ex) {
             // Not valid JSON at all — treat the whole response as the reply text.
             log.debug("Autopilot: response wasn't valid JSON, using raw text as reply: {}", ex.getMessage());
-            return new AutopilotTurn(raw.trim(), Map.of(), List.of(), false, false);
+            return new AutopilotTurn(raw.trim(), Map.of(), List.of(), false, false, "none", null);
         }
     }
 

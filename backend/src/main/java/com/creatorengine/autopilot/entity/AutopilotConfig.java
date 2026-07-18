@@ -1,6 +1,8 @@
 package com.creatorengine.autopilot.entity;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 /**
  * Per-Instagram-account AI Autopilot configuration (#15).
@@ -22,6 +24,8 @@ public class AutopilotConfig {
     private int conversationTimeoutMinutes = 30;
     private String fallbackMessage =
             "Thanks for reaching out! I'll have someone from the team follow up with you shortly.";
+    private List<MessageTemplate> messageTemplates = new ArrayList<>();
+    private List<String> allowedAutomationIds = new ArrayList<>();
     private Date updatedAt;
 
     public AutopilotConfig() {}
@@ -51,6 +55,16 @@ public class AutopilotConfig {
 
     public String getFallbackMessage() { return fallbackMessage; }
     public void setFallbackMessage(String fallbackMessage) { this.fallbackMessage = fallbackMessage; }
+
+    public List<MessageTemplate> getMessageTemplates() { return messageTemplates; }
+    public void setMessageTemplates(List<MessageTemplate> messageTemplates) {
+        this.messageTemplates = messageTemplates != null ? messageTemplates : new ArrayList<>();
+    }
+
+    public List<String> getAllowedAutomationIds() { return allowedAutomationIds; }
+    public void setAllowedAutomationIds(List<String> allowedAutomationIds) {
+        this.allowedAutomationIds = allowedAutomationIds != null ? allowedAutomationIds : new ArrayList<>();
+    }
 
     public Date getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Date updatedAt) { this.updatedAt = updatedAt; }

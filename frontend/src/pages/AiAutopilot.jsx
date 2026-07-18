@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Bot, Save, Lock, Info, MessageCircle, Clock, Users, AlertTriangle } from 'lucide-react';
+import { Bot, Save, Lock, Info, MessageCircle, Clock, Users, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -10,6 +10,7 @@ import FormField from '../components/form/FormField.jsx';
 import Checkbox from '../components/form/Checkbox.jsx';
 import Switch from '../components/ui/Switch.jsx';
 import autopilotService from '../services/autopilotService.js';
+import automationService from '../services/automationService.js';
 import { ROUTES } from '../utils/constants.js';
 import { useAccountStore } from '../store/accountStore.js';
 
@@ -28,7 +29,12 @@ const DEFAULT_ACTIONS = {
   addTags: true,
   notifyOwner: true,
   escalateToHuman: true,
+  sendTemplates: false,
+  triggerAutomations: false,
 };
+
+const MAX_TEMPLATES = 20;
+const emptyTemplate = () => ({ id: '', label: '', description: '', message: '' });
 
 const AiAutopilot = () => {
   const activeAccount = useAccountStore((s) => s.activeAccount);
@@ -41,6 +47,9 @@ const AiAutopilot = () => {
   const [allowedActions, setAllowedActions] = useState(DEFAULT_ACTIONS);
   const [conversationTimeoutMinutes, setConversationTimeoutMinutes] = useState(30);
   const [fallbackMessage, setFallbackMessage] = useState('');
+  const [messageTemplates, setMessageTemplates] = useState([]);
+  const [allowedAutomationIds, setAllowedAutomationIds] = useState([]);
+  const [automations, setAutomations] = useState([]);
   const [planEligible, setPlanEligible] = useState(true);
   const [plan, setPlan] = useState('FREE');
 
@@ -63,6 +72,8 @@ const AiAutopilot = () => {
       setAllowedActions({ ...DEFAULT_ACTIONS, ...(data.allowedActions || {}) });
       setConversationTimeoutMinutes(data.conversationTimeoutMinutes || 30);
       setFallbackMessage(data.fallbackMessage || '');
+      setMessageTemplates(data.messageTemplates && data.messageTemplates.length > 0 ? data.messageTemplates : []);
+      setAllowedAutomationIds(data.allowedAutomationIds || []);
       setPlanEligible(!!data.planEligible);
       setPlan(data.plan || 'FREE');
 
@@ -71,6 +82,13 @@ const AiAutopilot = () => {
         setStats(s);
       } catch {
         setStats(null);
+      }
+
+      try {
+        const list = await automationService.list();
+        setAutomations(list || []);
+      } catch {
+        setAutomations([]);
       }
     } catch (err) {
       setError('Failed to load AI Autopilot settings.');
@@ -87,6 +105,25 @@ const AiAutopilot = () => {
     setAllowedActions((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const handleTemplateChange = (index, field, value) => {
+    setMessageTemplates((prev) => prev.map((t, i) => (i === index ? { ...t, [field]: value } : t)));
+  };
+
+  const handleAddTemplate = () => {
+    if (messageTemplates.length >= MAX_TEMPLATES) return;
+    setMessageTemplates((prev) => [...prev, emptyTemplate()]);
+  };
+
+  const handleRemoveTemplate = (index) => {
+    setMessageTemplates((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAutomationToggle = (id) => {
+    setAllowedAutomationIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
   const handleSave = async () => {
     if (!planEligible) return;
 
@@ -101,6 +138,15 @@ const AiAutopilot = () => {
         allowedActions,
         conversationTimeoutMinutes: Math.max(5, Math.min(conversationTimeoutMinutes, 24 * 60)),
         fallbackMessage: fallbackMessage.slice(0, 500),
+        messageTemplates: messageTemplates
+          .filter((t) => t.label.trim().length > 0 && t.message.trim().length > 0)
+          .map((t) => ({
+            id: t.id || undefined,
+            label: t.label.trim(),
+            description: t.description?.trim() || '',
+            message: t.message.trim(),
+          })),
+        allowedAutomationIds,
       };
       await autopilotService.save(payload);
       toast.success('AI Autopilot settings saved.');
@@ -305,8 +351,124 @@ const AiAutopilot = () => {
                   checked={allowedActions.escalateToHuman}
                   onChange={() => handleActionToggle('escalateToHuman')}
                 />
+                <Checkbox
+                  label="Send predefined DM templates"
+                  checked={allowedActions.sendTemplates}
+                  onChange={() => handleActionToggle('sendTemplates')}
+                />
+                <Checkbox
+                  label="Trigger selected automations"
+                  checked={allowedActions.triggerAutomations}
+                  onChange={() => handleActionToggle('triggerAutomations')}
+                />
+              </div>
+
+              <div className="mt-3 border-t border-ink-100 pt-3 dark:border-ink-800">
+                <p className="mb-2 text-xs font-medium text-ink-400 dark:text-ink-500">
+                  Never available to AI Autopilot, by design:
+                </p>
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <Checkbox label="Delete contacts" checked={false} disabled />
+                  <Checkbox label="Run admin actions" checked={false} disabled />
+                </div>
               </div>
             </div>
+
+            {allowedActions.sendTemplates && (
+              <div className="card mb-4 p-4">
+                <p className="mb-1 text-sm font-semibold text-ink-900 dark:text-ink-100">Message templates</p>
+                <p className="mb-3 text-xs text-ink-500 dark:text-ink-400">
+                  Write the exact wording once (lead magnet link, coupon code, booking link...). The AI will send
+                  one of these verbatim when it clearly applies, instead of writing its own text.
+                </p>
+                <div className="space-y-3">
+                  {messageTemplates.map((t, index) => (
+                    <div key={index} className="rounded-xl border border-ink-100 p-3 dark:border-ink-800">
+                      <div className="mb-2 flex items-start gap-3">
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <FormField
+                            label="Label"
+                            placeholder='e.g. "Free Guide"'
+                            value={t.label}
+                            onChange={(e) => handleTemplateChange(index, 'label', e.target.value)}
+                          />
+                          <FormField
+                            label="When should the AI use this? (optional hint)"
+                            placeholder='e.g. "Customer asks for a free resource or guide"'
+                            value={t.description}
+                            onChange={(e) => handleTemplateChange(index, 'description', e.target.value)}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTemplate(index)}
+                          className="shrink-0 self-start rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+                          title="Remove"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                      <label className="label">Exact message to send</label>
+                      <textarea
+                        className="input min-h-[70px] resize-y"
+                        placeholder="e.g. Here's your free guide: [link]. Let me know if you have questions!"
+                        value={t.message}
+                        maxLength={900}
+                        onChange={(e) => handleTemplateChange(index, 'message', e.target.value)}
+                      />
+                    </div>
+                  ))}
+
+                  {messageTemplates.length < MAX_TEMPLATES && (
+                    <button
+                      type="button"
+                      onClick={handleAddTemplate}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ink-200 py-3 text-sm font-medium text-ink-400 transition-colors hover:border-brand-400 hover:text-brand-600 dark:border-ink-700 dark:text-ink-500 dark:hover:border-brand-600 dark:hover:text-brand-400"
+                    >
+                      <Plus size={16} />
+                      Add template ({messageTemplates.length}/{MAX_TEMPLATES})
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {allowedActions.triggerAutomations && (
+              <div className="card mb-4 p-4">
+                <p className="mb-1 text-sm font-semibold text-ink-900 dark:text-ink-100">Automations AI can trigger</p>
+                <p className="mb-3 text-xs text-ink-500 dark:text-ink-400">
+                  Pick which of your existing automations the AI is allowed to invoke mid-conversation. It can
+                  never trigger anything not selected here.
+                </p>
+                {automations.length === 0 ? (
+                  <p className="text-sm text-ink-400 dark:text-ink-500">
+                    You don't have any automations yet for this account.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {automations.map((a) => (
+                      <label
+                        key={a.id}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-ink-100 px-3 py-2.5 text-sm dark:border-ink-800"
+                      >
+                        <span className="flex-1 truncate text-ink-700 dark:text-ink-300">
+                          {a.name || 'Untitled automation'}
+                          {!a.enabled && (
+                            <span className="ml-2 text-xs text-ink-400 dark:text-ink-500">(currently off)</span>
+                          )}
+                        </span>
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 shrink-0 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
+                          checked={allowedAutomationIds.includes(a.id)}
+                          onChange={() => handleAutomationToggle(a.id)}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="card mb-4 p-4">
               <FormField

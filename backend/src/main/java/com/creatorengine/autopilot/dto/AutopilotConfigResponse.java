@@ -3,6 +3,9 @@ package com.creatorengine.autopilot.dto;
 import com.creatorengine.autopilot.entity.AllowedActions;
 import com.creatorengine.autopilot.entity.AutopilotConfig;
 import com.creatorengine.autopilot.entity.AutopilotRole;
+import com.creatorengine.autopilot.entity.MessageTemplate;
+
+import java.util.List;
 
 public record AutopilotConfigResponse(
         boolean enabled,
@@ -13,6 +16,8 @@ public record AutopilotConfigResponse(
         AllowedActions allowedActions,
         int conversationTimeoutMinutes,
         String fallbackMessage,
+        List<MessageTemplate> messageTemplates,
+        List<String> allowedAutomationIds,
         boolean planEligible,
         String plan
 ) {
@@ -26,6 +31,8 @@ public record AutopilotConfigResponse(
                 config.getAllowedActions(),
                 config.getConversationTimeoutMinutes(),
                 config.getFallbackMessage(),
+                config.getMessageTemplates(),
+                config.getAllowedAutomationIds(),
                 planEligible,
                 plan
         );

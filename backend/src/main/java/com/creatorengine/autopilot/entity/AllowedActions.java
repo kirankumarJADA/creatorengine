@@ -10,6 +10,8 @@ public class AllowedActions {
     private boolean addTags = true;
     private boolean notifyOwner = true;
     private boolean escalateToHuman = true;
+    private boolean sendTemplates = false;
+    private boolean triggerAutomations = false;
 
     public boolean getCollectEmail() { return collectEmail; }
     public void setCollectEmail(boolean v) { this.collectEmail = v; }
@@ -31,4 +33,10 @@ public class AllowedActions {
 
     public boolean getEscalateToHuman() { return escalateToHuman; }
     public void setEscalateToHuman(boolean v) { this.escalateToHuman = v; }
+
+    public boolean getSendTemplates() { return sendTemplates; }
+    public void setSendTemplates(boolean v) { this.sendTemplates = v; }
+
+    public boolean getTriggerAutomations() { return triggerAutomations; }
+    public void setTriggerAutomations(boolean v) { this.triggerAutomations = v; }
 }
