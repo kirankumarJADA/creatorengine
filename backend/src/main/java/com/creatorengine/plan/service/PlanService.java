@@ -45,7 +45,7 @@ public class PlanService {
             }
 
             String planName = snap.getString("plan");
-            log.info("getPlan uid={} — planName={}", uid, planName);
+            log.info("getPlan uid={} — planName={} rawData={}", uid, planName, snap.getData());
             if (planName == null) return Plan.FREE;
 
             try {
