@@ -140,33 +140,13 @@ public class AppProperties {
 
     public static class Ai {
         private Openai openai = new Openai();
-        private Gemini gemini = new Gemini();
         public Openai getOpenai() { return openai; }
         public void setOpenai(Openai openai) { this.openai = openai; }
-        public Gemini getGemini() { return gemini; }
-        public void setGemini(Gemini gemini) { this.gemini = gemini; }
 
         public static class Openai {
             private String apiKey;
             private String model = "gpt-4o-mini";
             private String baseUrl = "https://api.openai.com/v1";
-            private int timeoutMs = 20000;
-
-            public String getApiKey() { return apiKey; }
-            public void setApiKey(String v) { this.apiKey = v; }
-            public String getModel() { return model; }
-            public void setModel(String v) { this.model = v; }
-            public String getBaseUrl() { return baseUrl; }
-            public void setBaseUrl(String v) { this.baseUrl = v; }
-            public int getTimeoutMs() { return timeoutMs; }
-            public void setTimeoutMs(int v) { this.timeoutMs = v; }
-        }
-
-        /** Google Gemini — powers the AI FAQ auto-answer feature. */
-        public static class Gemini {
-            private String apiKey;
-            private String model = "gemini-2.0-flash";
-            private String baseUrl = "https://generativelanguage.googleapis.com/v1beta";
             private int timeoutMs = 20000;
 
             public String getApiKey() { return apiKey; }

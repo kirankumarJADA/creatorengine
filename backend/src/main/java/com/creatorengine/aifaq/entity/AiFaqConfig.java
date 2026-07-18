@@ -9,7 +9,7 @@ import java.util.List;
  * Stored at: users/{uid}/accounts/{igAccountId}/aiFaq/config
  *
  * When enabled, any incoming DM that doesn't match a keyword automation
- * falls through to Gemini, which answers using qaPairs first (closest
+ * falls through to AI, which answers using qaPairs first (closest
  * match) and knowledgeBase as general context. Pro/Agency plan only.
  */
 public class AiFaqConfig {
@@ -33,7 +33,7 @@ public class AiFaqConfig {
     public Date getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Date updatedAt) { this.updatedAt = updatedAt; }
 
-    /** True if there's anything at all for Gemini to answer from. */
+    /** True if there's anything at all for AI to answer from. */
     public boolean hasContent() {
         boolean hasKb = knowledgeBase != null && !knowledgeBase.isBlank();
         boolean hasQa = qaPairs != null && !qaPairs.isEmpty();

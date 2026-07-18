@@ -55,11 +55,6 @@ app:
       model:      ${OPENAI_MODEL:gpt-4o-mini}
       base-url:   ${OPENAI_BASE_URL:https://api.openai.com/v1}
       timeout-ms: ${OPENAI_TIMEOUT_MS:20000}
-    gemini:
-      api-key:    ${GEMINI_API_KEY:}
-      model:      ${GEMINI_MODEL:gemini-2.0-flash}
-      base-url:   ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
-      timeout-ms: ${GEMINI_TIMEOUT_MS:20000}
 
   brevo:
     api-key: ${BREVO_API_KEY:}

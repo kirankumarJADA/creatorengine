@@ -132,7 +132,7 @@ public class AutomationEngine {
         }
 
         // AI FAQ FALLBACK (#14): if nothing else answered this DM, and the
-        // creator is on Pro/Agency with AI FAQ enabled, let Gemini answer
+        // creator is on Pro/Agency with AI FAQ enabled, let AI answer
         // using their curated Q&A + knowledge base. Runs off the queue so
         // it never blocks the webhook response.
         if (!anyFired && event.type() == EventType.DM) {

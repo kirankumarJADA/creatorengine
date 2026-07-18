@@ -27,7 +27,7 @@ import java.util.Optional;
 
 /**
  * AI FAQ (#14): when a DM doesn't match any keyword automation, and the
- * creator has this enabled and is on a Pro/Agency plan, Gemini answers
+ * creator has this enabled and is on a Pro/Agency plan, AI answers
  * using the creator's curated Q&amp;A pairs and free-text knowledge base.
  */
 @Service
